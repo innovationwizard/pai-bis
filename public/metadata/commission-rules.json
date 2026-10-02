@@ -1,0 +1,111 @@
+{
+  "base_commission_rate": 0.05,
+  "phase_allocation": {
+    "1": {
+      "name": "Promise Signed",
+      "percentage": 0.3,
+      "trigger": "promise_signed_date"
+    },
+    "2": {
+      "name": "Down Payment Installment",
+      "percentage": 0.3,
+      "trigger": "payment_type = 'down_payment'"
+    },
+    "3": {
+      "name": "Deed Signed",
+      "percentage": 0.4,
+      "trigger": "deed_signed_date AND down_payment_complete"
+    }
+  },
+  "recipients": {
+    "management_always_paid": [
+      {
+        "id": "puerta_abierta",
+        "name": "Puerta Abierta",
+        "rate": 0.025,
+        "always_paid": true,
+        "description": "Company utility share — paid on every sale"
+      },
+      {
+        "id": "otto_herrera",
+        "name": "Otto Herrera",
+        "rate": 0.006,
+        "always_paid": true
+      },
+      {
+        "id": "ahorro_comercial",
+        "name": "Ahorro G. Comercial",
+        "rate": 0.002,
+        "always_paid": true
+      }
+    ],
+    "management_conditional": {
+      "description": "GC and Supervisor resolved from commission_gerencia_assignments (temporal, per-project). Uses sale_date to determine which holder was active when the sale was made.",
+      "source": "commission_gerencia_assignments",
+      "managed_via": "/admin/roles",
+      "roles": {
+        "gerencia_comercial": {
+          "description": "Gerencia Comercial — conditional on sale_date",
+          "timeline": [
+            { "holder": "ronaldo_ogaldez", "rate": 0.005, "period": "start → 2025-07-04" },
+            { "holder": "alek_hernandez", "rate": 0.003, "period": "2025-07-07 → 2026-03-16" },
+            { "holder": "antonio_rada", "rate": 0.003, "period": "2026-03-16 → ongoing" }
+          ]
+        },
+        "supervisor_comercial": {
+          "description": "Supervisor Comercial — conditional on sale_date",
+          "timeline": [
+            { "holder": "(none)", "rate": 0, "period": "start → 2025-07-06" },
+            { "holder": "antonio_rada", "rate": 0.0025, "period": "2025-07-07 → 2026-03-16" },
+            { "holder": "job_jimenez", "rate": 0.0015, "period": "2026-03-16 → ongoing" }
+          ]
+        }
+      }
+    },
+    "ejecutivo": {
+      "description": "Rate stored on sales.ejecutivo_rate (per-unit, confirmed by CFO). Not looked up from commission_rates.",
+      "source": "sales.ejecutivo_rate",
+      "confirmed_by": "master role via /api/reservas/admin/sales/[id]/ejecutivo-rate",
+      "backfill_model": "Policy-period escalation: 1.00% below threshold, 1.25% at/above threshold",
+      "note": "Replaces legacy sales_reps array which was never populated in commission_rates"
+    },
+    "special": {
+      "referral": {
+        "name": "Referral Bonus",
+        "rate": 0.01,
+        "condition": "referral_applies = true"
+      },
+      "ahorro": {
+        "id": "ahorro",
+        "name": "Ahorro",
+        "formula": "residual: 5.00% - sum(all other rates)",
+        "description": "Absorbs remaining commission pool. Variable per sale. Computed in calculate_commissions() Section 4.",
+        "always_paid": false,
+        "note": "Migration 035: changed from fixed 0.35% to dynamic residual"
+      },
+      "ahorro_por_retiro": {
+        "id": "ahorro_por_retiro",
+        "name": "Ahorro por Retiro",
+        "rate": 0,
+        "always_paid": false,
+        "condition": "commission paid to sales rep AFTER sales_rep.contract_end_date → redirect here"
+      }
+    }
+  },
+  "total_rate": 0.05,
+  "disbursability": {
+    "description": "Recipients with disbursable=false are accumulation-only: commission rows generated for tracking but never disbursed.",
+    "column": "commission_rates.disbursable",
+    "default": true,
+    "accumulation_only": ["puerta_abierta", "ahorro", "ahorro_comercial", "ahorro_por_retiro"],
+    "migration": "038"
+  },
+  "isr": {
+    "formula": "Total a pagar = Total a facturar × 107/112",
+    "iva_rate": 0.12,
+    "isr_rate": 0.05,
+    "description": "5% ISR retention on pre-IVA amount. Applied to all recipients except company-internal accounts.",
+    "exempt_recipients_note": "Configurable via commission_rates.isr_exempt column. Defaults: puerta_abierta, ahorro, ahorro_comercial, ahorro_por_retiro.",
+    "migration": "036"
+  }
+}

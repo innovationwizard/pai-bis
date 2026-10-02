@@ -1,0 +1,285 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useElementSize } from "@/hooks/use-element-size";
+import {
+  hierarchy,
+  treemap,
+  treemapSquarify,
+  type HierarchyRectangularNode
+} from "d3-hierarchy";
+
+export type PaymentAnalyticsUnit = {
+  unitId: string;
+  unitNumber: string;
+  clientName: string;
+  totalExpected: number;
+  totalPaid: number;
+  percentPaid: number;
+  engancheTotal?: { expected: number; paid: number };
+  reserve?: { expected: number; paid: number };
+  downPayment?: { expected: number; paid: number };
+  installments?: { expected: number; paid: number };
+  /** Compliance mode: schedule-based expected vs actual */
+  expectedToDate?: number;
+  variance?: number;
+  complianceStatus?: string;
+  daysDelinquent?: number | null;
+  firstDueDate?: string;
+  lastDueDate?: string;
+  paymentHistory: Array<{
+    id: string;
+    paymentDate: string;
+    paymentType: string;
+    amount: number;
+  }>;
+};
+
+export type PaymentAnalyticsProject = {
+  projectId: string;
+  projectName: string;
+  units: PaymentAnalyticsUnit[];
+};
+
+type TreemapNode = PaymentAnalyticsUnit & {
+  name: string;
+  size: number;
+};
+
+type PaymentTreemapProps = {
+  data: PaymentAnalyticsProject[];
+  onUnitSelect: (unit: PaymentAnalyticsUnit) => void;
+};
+
+const currency = new Intl.NumberFormat("es-GT", {
+  style: "currency",
+  currency: "GTQ",
+  maximumFractionDigits: 0
+});
+
+function hexToRgb(hex: string) {
+  const clean = hex.replace("#", "");
+  const value = Number.parseInt(clean, 16);
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255
+  };
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+  const toHex = (value: number) => value.toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function lerpColor(start: string, end: string, t: number) {
+  const a = hexToRgb(start);
+  const b = hexToRgb(end);
+  const r = Math.round(a.r + (b.r - a.r) * t);
+  const g = Math.round(a.g + (b.g - a.g) * t);
+  const bVal = Math.round(a.b + (b.b - a.b) * t);
+  return rgbToHex(r, g, bVal);
+}
+
+function getPaymentColor(percentPaid: number) {
+  const clamped = Math.min(100, Math.max(0, percentPaid));
+  if (clamped <= 50) {
+    return lerpColor("#ef4444", "#fbbf24", clamped / 50);
+  }
+  return lerpColor("#fbbf24", "#22c55e", (clamped - 50) / 50);
+}
+
+type TooltipState = {
+  x: number;
+  y: number;
+  unit: TreemapNode;
+} | null;
+
+function PaymentTooltip({ tooltip }: { tooltip: TooltipState }) {
+  if (!tooltip?.unit || (!tooltip.unit.unitId && !tooltip.unit.unitNumber)) {
+    return null;
+  }
+  const node = tooltip.unit;
+  const isCompliance = node.complianceStatus != null;
+  return (
+    <div
+      className="absolute bg-card rounded-xl shadow-card px-3.5 py-3 grid gap-1.5 text-text-primary text-xs pointer-events-none z-[10]"
+      style={{ left: tooltip.x, top: tooltip.y }}
+    >
+      <strong className="text-[13px]">{node.unitNumber}</strong>
+      <span className="text-muted">{node.clientName}</span>
+      {isCompliance ? (
+        <div className="grid grid-cols-[1fr_auto] gap-1 gap-x-3">
+          <div>Esperado a la fecha</div>
+          <div>{currency.format(node.expectedToDate ?? node.totalExpected)}</div>
+          <div>Cobrado</div>
+          <div>{currency.format(node.totalPaid)}</div>
+          <div>Varianza</div>
+          <div className={(node.variance ?? 0) >= 0 ? "text-success" : "text-danger"}>
+            {currency.format(node.variance ?? 0)}
+          </div>
+          <div>Estado</div>
+          <div>{node.complianceStatus === "ahead" ? "Adelantado" : node.complianceStatus === "on_track" ? "Al día" : "En mora"}</div>
+          {node.daysDelinquent != null && node.daysDelinquent > 0 ? (
+            <>
+              <div>Días en mora</div>
+              <div className="text-danger">{node.daysDelinquent}</div>
+            </>
+          ) : null}
+        </div>
+      ) : node.engancheTotal ? (
+        <div className="grid grid-cols-[1fr_auto] gap-1 gap-x-3">
+          <div>Enganche total</div>
+          <div>
+            {currency.format(node.engancheTotal.expected)} · {currency.format(node.engancheTotal.paid)}
+          </div>
+          <div>Reserva</div>
+          <div>
+            {currency.format(node.reserve?.expected ?? 0)} · {currency.format(node.reserve?.paid ?? 0)}
+          </div>
+          <div>Enganche fraccionado</div>
+          <div>
+            {currency.format(node.downPayment?.expected ?? 0)} · {currency.format(node.downPayment?.paid ?? 0)}
+          </div>
+          <div>Cuotas</div>
+          <div>
+            {currency.format(node.installments?.expected ?? 0)} · {currency.format(node.installments?.paid ?? 0)}
+          </div>
+          <div>Total</div>
+          <div>
+            {currency.format(node.totalExpected)} · {currency.format(node.totalPaid)}
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-[1fr_auto] gap-1 gap-x-3">
+          <div>Total</div>
+          <div>
+            {currency.format(node.totalExpected)} · {currency.format(node.totalPaid)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+export default function PaymentTreemap({ data, onUnitSelect }: PaymentTreemapProps) {
+  const { ref, size } = useElementSize<HTMLDivElement>();
+  const [tooltip, setTooltip] = useState<TooltipState>(null);
+
+  const root = useMemo<HierarchyRectangularNode<TreemapNode>>(() => {
+    const hierarchyRoot = hierarchy({
+      name: "root",
+      children: data.map((project) => ({
+        name: project.projectName,
+        children: project.units.map((unit) => {
+          const compliance = unit.percentPaid ?? 0;
+          // Size = compliance shortfall (100 - compliance). Larger block = worse compliance.
+          const size = Math.max(1, 100 - Math.min(100, compliance));
+          return {
+            ...unit,
+            name: unit.unitNumber,
+            size
+          };
+        })
+      }))
+    })
+      .sum((node: any) => node.size ?? 0)
+      .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+
+    treemap<TreemapNode>()
+      .tile(treemapSquarify)
+      .size([size.width, size.height])
+      .paddingOuter(6)
+      .paddingInner(6)
+      .paddingTop((node) => (node.depth === 1 ? 28 : 8))(hierarchyRoot as any);
+
+    return hierarchyRoot as unknown as HierarchyRectangularNode<TreemapNode>;
+  }, [data, size.height, size.width]);
+
+  return (
+    <div className="grid gap-3">
+      <div className="relative h-[420px] w-full" ref={ref}>
+        <svg className="block" width="100%" height="100%" role="img" aria-label="Payment tracking treemap">
+          {root
+            .descendants()
+            .filter((node) => node.depth > 0)
+            .map((node, index) => {
+              const x = node.x0 ?? 0;
+              const y = node.y0 ?? 0;
+              const width = (node.x1 ?? 0) - x;
+              const height = (node.y1 ?? 0) - y;
+              const isProject = node.depth === 1;
+              const payload = node.data as TreemapNode;
+              const hasRoomForPercent = width > 90 && height > 55;
+              const fill = isProject ? "#f1f5f9" : getPaymentColor(payload.percentPaid ?? 0);
+              const isDelinquent = !isProject && (payload.daysDelinquent ?? 0) > 0;
+              // Always show apto/project name; scale font down for small blocks (min 6px)
+              const fontSize = Math.max(6, Math.min(13, Math.min(width, height) / 4));
+              const isTiny = width < 50 || height < 36;
+              const textX = isTiny ? x + width / 2 : x + 12;
+              const textY = isTiny ? y + height / 2 : y + 22;
+
+              return (
+                <g key={`${payload.name}-${index}`}>
+                  <rect
+                    className={isProject ? "cursor-default transition-[opacity,filter] duration-200 ease-in-out hover:opacity-90 hover:brightness-105" : "cursor-pointer transition-[opacity,filter] duration-200 ease-in-out hover:opacity-90 hover:brightness-105"}
+                    x={x}
+                    y={y}
+                    width={width}
+                    height={height}
+                    rx={12}
+                    ry={12}
+                    fill={fill}
+                    stroke={isDelinquent ? "#ef4444" : "#ffffff"}
+                    strokeWidth={isDelinquent ? 3 : 2}
+                    onClick={() => {
+                      if (!isProject && (payload.unitId || payload.unitNumber)) {
+                        onUnitSelect(payload);
+                      }
+                    }}
+                    onMouseMove={(event) => {
+                      if (isProject || (!payload.unitId && !payload.unitNumber)) {
+                        setTooltip(null);
+                        return;
+                      }
+                      const bounds = (event.currentTarget as SVGRectElement).ownerSVGElement?.getBoundingClientRect();
+                      if (!bounds) return;
+                      setTooltip({
+                        x: event.clientX - bounds.left + 12,
+                        y: event.clientY - bounds.top + 12,
+                        unit: payload
+                      });
+                    }}
+                    onMouseLeave={() => setTooltip(null)}
+                  />
+                  <text
+                    x={textX}
+                    y={textY}
+                    fontSize={fontSize}
+                    fill="#0f172a"
+                    textAnchor={isTiny ? "middle" : "start"}
+                    dominantBaseline={isTiny ? "middle" : "auto"}
+                  >
+                    {payload.name}
+                  </text>
+                  {hasRoomForPercent && !isProject ? (
+                    <text x={x + 12} y={y + 40} fontSize={12} fill="#0f172a">
+                      {payload.percentPaid ?? 0}% pagado
+                    </text>
+                  ) : null}
+                </g>
+              );
+            })}
+        </svg>
+        <PaymentTooltip tooltip={tooltip} />
+      </div>
+      <div className="flex items-center gap-3 text-xs text-muted">
+        <span>0%</span>
+        <div className="flex-1 h-2 rounded-full bg-gradient-to-r from-[#ef4444] via-[#fbbf24] to-[#22c55e]" />
+        <span>100%</span>
+      </div>
+    </div>
+  );
+}

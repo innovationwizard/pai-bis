@@ -1,0 +1,158 @@
+# Investigation: 33 "DISPONIBLE" Units with Credit Data
+
+**Date:** 2026-03-20
+**Context:** During the Créditos dashboard backfill (Phase 2), 33 units were flagged as DISPONIBLE in the extract script but contained non-null credit fields (income_source, bank, fha, cuotas_enganche). Per production rules: if a row has income data, it's logically necessary that reservation data exists. This investigation cross-references the SSOT Excel files and the production database to find that data.
+
+---
+
+## Executive Summary
+
+The 33 units fall into **4 distinct categories**:
+
+| Category | Count | Root Cause | Resolution |
+|---|---|---|---|
+| A. Template defaults | 7 | FHA column has template `X` markers, not client data | No action — not real data |
+| B. Ghost desist residue | 2 | Desisted deals with partially cleared rows | B-207 valor_inmueble backfilled; client fields parked |
+| C. BLT Torre B Excel discrepancy | 11 | Client names in separate Excel sheet ("INFO PARA REPORTES") | **Superseded** — see correction below |
+| D. Orphan income markers | 13 | Income source `X` marks without any client in any sheet | **Superseded** — not real sales data |
+
+### Authoritative Correction (2026-03-20)
+
+**Source:** Jorge (project owner), direct confirmation.
+**Snapshot date:** 2026-03-20. The sales count below reflects the closing state on this date. BLT Torre B is a live project — new sales are expected on an ongoing basis, so this number will change.
+
+Categories C and D were originally analyzed based on the "INFO PARA REPORTES" Excel sheet (58 rows of client data for BLT Torre B) and 13 orphan income markers in "BASE DE DATOS TORRE B". Upon authoritative review:
+
+1. **As of 2026-03-20, only 3 confirmed sales exist in Bosque Las Tapias — Torre B.** The 58 rows in "INFO PARA REPORTES" and the 13 orphan income markers do NOT represent real sales. The confirmed sales count as of this date is **3** (this is a point-in-time figure, not a fixed ceiling).
+2. **All existing BLT Torre B transactional data will be dropped** from the production database (reservations, reservation_clients, rv_client_profiles, unit_status_log) to establish a clean baseline.
+3. **Only the 3 confirmed sales (as of 2026-03-20) will be loaded manually** by the project owner. Subsequent sales will be entered through the normal Orion reservation flow.
+
+The original analysis (Categories C and D) is preserved below as historical reference showing how the discrepancy was discovered and the Excel failure modes it revealed.
+
+---
+
+## Category A: Template Defaults (7 units — BEN Torre A)
+
+**Units:** 103, 105, 202, 204, 402, 406, 607
+
+**Excel evidence:**
+- Vendor = "Disponible", Client = empty, ALL pricing = 0
+- The only non-null credit field is `fha=true` (column AE has `X`)
+- No income_source, no bank, no cuotas_enganche
+- No data in any other column beyond physical attributes
+
+**Root cause:** The FHA column (`AE`) and Crédito/Financiamiento column (`AD`) contain template `X` markers indicating eligible financing modes for the unit type — NOT client-specific selections. This is a data quality issue in the Excel template where available units have financing eligibility pre-filled.
+
+**DB cross-reference:**
+- Only unit **204** has a desisted reservation in the DB (client: Abigail García, desisted 2025-01-30, reason: "tiempo de entrega / Cambio de ubicación"). The FHA marker on 204 is still a template default, not from this client.
+- The other 6 units (103, 105, 202, 402, 406, 607) have NO reservation history in the DB whatsoever.
+
+**Resolution:** No backfill needed. Already correctly skipped by the current script (no reservation to attach to).
+
+---
+
+## Category B: Ghost Desist Residue (2 units — BEN Torre B)
+
+**Units:** 107, 207
+
+### B-107
+| Field | Value |
+|---|---|
+| Vendor | "disponible" |
+| Client | empty |
+| Bank | **Banrural** |
+| Income | **Negocio Propio** |
+| FHA | true |
+| Pricing | All zeros |
+
+### B-207
+| Field | Value |
+|---|---|
+| Vendor | "disponible" |
+| Client | empty |
+| Bank | empty |
+| Income | **Relación Dependencia** |
+| FHA | true |
+| Valor Inmueble | **Q384,700** |
+| Enganche | Q38,500 |
+| Reserva | Q1,000 |
+| Financiamiento | Q346,200 |
+
+**Root cause:** These are desisted transactions where the client name and vendor were cleared from the Excel but the credit profile data (bank, income source, FHA flag) and in B-207's case the full pricing were left behind. This is exactly the kind of incomplete cleanup that makes Excel unreliable.
+
+**DB cross-reference:**
+- The DB has 16 desisted reservations for BEN Torre B: units 111, 112, 113, 212, 213, 302, 303, 306, 310, 313, 403, 406, 412, 603, 605, 612.
+- **Neither 107 nor 207 appear in the desisted list.** These desistimientos predate the backfill data snapshot or were never formally entered as reservations.
+
+**Resolution:**
+- B-207: `valor_inmueble = 384700` backfilled on `rv_units` (property value, not client-dependent). Already generated by the backfill script.
+- B-107: No backfillable data (pricing is zero, no reservation exists). Ghost bank/income data left as-is in Excel only.
+- Client profile fields for both units: parked until Patty can identify the former clients from memory or older records.
+
+---
+
+## Category C: BLT Torre B Excel Discrepancy (11 units) — SUPERSEDED
+
+> **Status:** Superseded by authoritative correction (2026-03-20). Only 3 confirmed sales exist in BLT Torre B as of that date. The 3 sales will be loaded manually by the project owner. This count will grow as new sales are recorded.
+
+**Units originally flagged:** 102, 103, 105, 202, 203, 204, 205, 301, 304, 305, 401
+
+**Original finding:** The BLT Excel file has a separate sheet called "INFO PARA REPORTES" containing client names, DPIs, workplace data, and salary information for 58 BLT Torre B units. The main "BASE DE DATOS TORRE B" sheet has vendor/client columns completely empty for ALL 117 units.
+
+The extract script (`extract_data.py`) only reads the "BASE DE DATOS TORRE B" sheet and never touches "INFO PARA REPORTES". The `backfill_reservations.py` script also never loaded BLT Torre B data.
+
+### Client Data Found in "INFO PARA REPORTES" (historical reference)
+
+| Unit | Client 1 | Client 2 | FHA |
+|---|---|---|---|
+| 102 | Cristina Estefania Villagran Marroquin | Jose Manuel Villagran Barrios | — |
+| 103 | Juan Luis Pinto Gomez de Liano | — | X |
+| 105 | Laura Annabella Castro Guerra | Juan Pablo Matheu Morales | — |
+| 202 | Angel Roberto Sic Garcia | Angel Eduardo Sic Morales | X |
+| 203 | Ana Cristina Velasquez Aguilar de Gomez | Rene Ubaldo Gomez Aguilar | — |
+| 204 | Alfonso Javier Miranda Roman | — | X |
+| 205 | Elfego Adonias Apen Son | Dany Alexis Gomez Ajuchan | — |
+| 301 | Hector Enrique Zacarias Illescas | — | X |
+| 304 | Luis Alfonso Ramirez Rivas | — | — |
+| 305 | Carol Anali Ovalle Valladares | — | — |
+| 401 | Hector Rene Guzman Moran | — | — |
+
+**Why this was misleading:** The "INFO PARA REPORTES" sheet contained 58 rows of what appeared to be real buyer data (DPIs, full names, co-buyers). However, per authoritative confirmation, only 3 of these represent actual confirmed sales. The remaining rows are pre-qualification inquiries, pipeline prospects, or stale data from cancelled processes that never materialized into real transactions.
+
+**Resolution:** The 3 confirmed BLT Torre B sales (as of 2026-03-20) will be loaded manually into the production database by the project owner. All other BLT Torre B transactional data will be purged to establish a clean baseline. Future sales will flow through the normal Orion reservation process.
+
+---
+
+## Category D: Orphan Income Markers (13 units — BLT Torre B) — SUPERSEDED
+
+> **Status:** Superseded by authoritative correction (2026-03-20). These are not real sales data.
+
+**Units:** 104, 106, 107, 108, 109, 201, 206, 209, 303, 306, 307, 308, 309
+
+These units have income source `X` markers in the main "BASE DE DATOS TORRE B" sheet but no client data in any sheet (neither the main sheet nor "INFO PARA REPORTES").
+
+**Resolution:** No action required. These income markers are pre-qualification or template data, not indicators of real transactions.
+
+---
+
+## Root Cause Analysis
+
+The 33-unit gap reveals **three systemic Excel failure modes** that Orion was built to eliminate:
+
+1. **Multi-sheet fragmentation** — BLT Torre B has client data in "INFO PARA REPORTES" but not in "BASE DE DATOS TORRE B". The extract script reads one sheet; backfill reads another. Neither captures the full picture. The "INFO PARA REPORTES" sheet itself was misleading — 58 rows of apparent buyer data, but only 3 real sales as of 2026-03-20.
+
+2. **Incomplete desist cleanup** — BEN Torre B units 107 and 207 had their client/vendor cleared when desisted, but credit profile data (bank, income source, pricing) was left behind. This creates zombie rows that look available but carry ghost data.
+
+3. **Template markers masquerading as client data** — BEN Torre A's FHA column has `X` marks on genuinely empty units. The extract script treats any `X` as client data.
+
+---
+
+## Final Action Items
+
+| Item | Owner | Status |
+|---|---|---|
+| Backfill `valor_inmueble`, `cuotas_enganche`, client profiles for existing DB records | Script (`backfill_creditos.sql`) | Ready to deploy |
+| Drop all BLT Torre B transactional data from prod | Jorge (manual) | Pending |
+| Load 3 confirmed BLT Torre B sales into prod (count as of 2026-03-20) | Jorge (manual) | Pending |
+| Re-run `backfill_creditos.py` after BLT Torre B load | Script | After manual load |
+| Review BEN B-107 and B-207 former clients with Patty | Patty review session | Deferred |
