@@ -23,7 +23,7 @@ const bodySchema = z
   .strict();
 
 /** "Carta adicional del banco" → "carta_adicional_del_banco". Accents folded, not dropped. */
-export function documentKeyFrom(name: string): string {
+function documentKeyFrom(name: string): string {
   return name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
