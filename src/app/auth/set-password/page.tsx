@@ -75,7 +75,7 @@ export default function SetPasswordPage() {
     const { data: { user } } = await supabaseBrowser.auth.getUser();
     const role = user?.app_metadata?.role;
     if (role === "ventas") {
-      window.location.href = "/ventas/dashboard";
+      window.location.href = "/old/ventas/dashboard";
     } else {
       window.location.href = "/";
     }

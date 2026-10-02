@@ -93,9 +93,9 @@ export async function middleware(request: NextRequest) {
 
     // Redirect logged-in users from /login to their home page
     if (isLoginRoute) {
-      if (role === "creditos") return redirectTo("/creditos/pipeline");
-      if (role === "ventas") return redirectTo("/ventas/dashboard");
-      if (role === "entregas_viewer" || role === "entregas_editor") return redirectTo("/entregas");
+      if (role === "creditos") return redirectTo("/old/creditos/pipeline");
+      if (role === "ventas") return redirectTo("/old/ventas/dashboard");
+      if (role === "entregas_viewer" || role === "entregas_editor") return redirectTo("/old/entregas");
       if (role && [...ADMIN_PAGE_ROLES, ...DATA_PAGE_ROLES, "marketing"].includes(role)) {
         return redirectTo("/");
       }
@@ -116,26 +116,42 @@ export async function middleware(request: NextRequest) {
       // Restrict to allowed pages
       const allowedPrefixes = [
         "/reservar",
-        "/ventas",
+        "/old/ventas",
         "/disponibilidad",
         "/cotizador",
         "/auth",
         "/login",
+        "/ventas",
+        "/mercadeo",
+        "/cobros",
+        "/creditos",
+        "/entregas",
       ];
       if (!allowedPrefixes.some((prefix) => pathname.startsWith(prefix))) {
-        return redirectTo("/ventas/dashboard");
+        return redirectTo("/old/ventas/dashboard");
       }
     } else if (role === "creditos") {
-      if (pathname !== "/creditos/pipeline" && !pathname.startsWith("/auth/")) {
-        return redirectTo("/creditos/pipeline");
-      }
+      const sectionPrefixes = ["/ventas", "/mercadeo", "/cobros", "/creditos", "/entregas"];
+      const allowed =
+        pathname.startsWith("/old/creditos") ||
+        pathname.startsWith("/auth/") ||
+        sectionPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+      if (!allowed) return redirectTo("/old/creditos/pipeline");
     } else if (role === "entregas_viewer" || role === "entregas_editor") {
-      // Single-purpose roles: the entregas board and nothing else.
       // entregas_editor differs from entregas_viewer only in write permissions
       // (see PERMISSIONS.entregas), not in which pages it may open.
-      const allowedPrefixes = ["/entregas", "/auth", "/login"];
+      const allowedPrefixes = [
+        "/old/entregas",
+        "/auth",
+        "/login",
+        "/ventas",
+        "/mercadeo",
+        "/cobros",
+        "/creditos",
+        "/entregas",
+      ];
       if (!allowedPrefixes.some((prefix) => pathname.startsWith(prefix))) {
-        return redirectTo("/entregas");
+        return redirectTo("/old/entregas");
       }
     } else if (ADMIN_PAGE_ROLES.includes(role ?? "")) {
       // Full admin access — no page restrictions

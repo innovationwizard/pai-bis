@@ -22,7 +22,7 @@ type DisponibilidadPanelProps = {
    * Whether this instance reads its filters from the page URL and keeps
    * them in sync via history.replaceState. The standalone /disponibilidad
    * route needs this (bookmarkable filters); an embedded instance (e.g.
-   * inside /ventas) leaves it off so it doesn't collide with that host
+   * inside /old/ventas) leaves it off so it doesn't collide with that host
    * page's own query params.
    */
   syncUrl?: boolean;

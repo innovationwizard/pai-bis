@@ -236,7 +236,7 @@ export default function VentasReservationDetail({
                         className="w-full py-2 rounded-lg border border-primary text-primary font-medium text-sm hover:bg-primary/5 transition-colors"
                         onClick={() =>
                           window.open(
-                            `/ventas/dashboard/pcv/${reservationId}`,
+                            `/old/ventas/dashboard/pcv/${reservationId}`,
                             "_blank",
                           )
                         }
@@ -248,7 +248,7 @@ export default function VentasReservationDetail({
                         className="w-full py-2 rounded-lg border border-primary text-primary font-medium text-sm hover:bg-primary/5 transition-colors"
                         onClick={() =>
                           window.open(
-                            `/ventas/dashboard/carta-autorizacion/${reservationId}`,
+                            `/old/ventas/dashboard/carta-autorizacion/${reservationId}`,
                             "_blank",
                           )
                         }
@@ -260,7 +260,7 @@ export default function VentasReservationDetail({
                         className="w-full py-2 rounded-lg border border-primary text-primary font-medium text-sm hover:bg-primary/5 transition-colors"
                         onClick={() =>
                           window.open(
-                            `/ventas/dashboard/carta-pago/${reservationId}`,
+                            `/old/ventas/dashboard/carta-pago/${reservationId}`,
                             "_blank",
                           )
                         }

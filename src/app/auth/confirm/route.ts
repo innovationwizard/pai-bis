@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
   if (hasPassword) {
     const role = user?.app_metadata?.role as string | undefined;
     const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = role === "ventas" ? "/ventas/dashboard" : "/";
+    homeUrl.pathname = role === "ventas" ? "/old/ventas/dashboard" : "/";
     homeUrl.searchParams.delete("token_hash");
     homeUrl.searchParams.delete("type");
     const homeResponse = NextResponse.redirect(homeUrl);

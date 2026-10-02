@@ -29,7 +29,7 @@ export default async function LoginPage() {
   if (user) {
     const role = user.app_metadata?.role as string | undefined;
     if (role === "ventas") {
-      redirect("/ventas/dashboard");
+      redirect("/old/ventas/dashboard");
     } else {
       redirect("/");
     }

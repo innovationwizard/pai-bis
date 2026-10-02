@@ -123,7 +123,7 @@ export default function ReservasClient() {
         </div>
 
         <a
-          href="/ventas/portal/nueva-reserva"
+          href="/old/ventas/portal/nueva-reserva"
           className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium no-underline hover:bg-primary/90 transition-colors"
         >
           + Nueva Reserva
@@ -228,7 +228,7 @@ export default function ReservasClient() {
                             className="px-2 py-1 rounded border border-primary text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
                             onClick={() =>
                               window.open(
-                                `/ventas/dashboard/pcv/${r.reservation_id}`,
+                                `/old/ventas/dashboard/pcv/${r.reservation_id}`,
                                 "_blank",
                               )
                             }
@@ -240,7 +240,7 @@ export default function ReservasClient() {
                             className="px-2 py-1 rounded border border-primary text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
                             onClick={() =>
                               window.open(
-                                `/ventas/dashboard/carta-autorizacion/${r.reservation_id}`,
+                                `/old/ventas/dashboard/carta-autorizacion/${r.reservation_id}`,
                                 "_blank",
                               )
                             }
@@ -252,7 +252,7 @@ export default function ReservasClient() {
                             className="px-2 py-1 rounded border border-primary text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
                             onClick={() =>
                               window.open(
-                                `/ventas/dashboard/carta-pago/${r.reservation_id}`,
+                                `/old/ventas/dashboard/carta-pago/${r.reservation_id}`,
                                 "_blank",
                               )
                             }

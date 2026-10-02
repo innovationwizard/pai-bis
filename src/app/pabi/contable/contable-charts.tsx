@@ -1116,7 +1116,7 @@ export function LiveDesistimientosCard({ num }: { num: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// PCV & Expedientes — vive en /creditos/pipeline, aquí sólo un resumen en vivo
+// PCV & Expedientes — vive en /old/creditos/pipeline, aquí sólo un resumen en vivo
 // ---------------------------------------------------------------------------
 
 export type LiveExpedientes = {

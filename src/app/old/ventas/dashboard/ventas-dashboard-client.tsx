@@ -162,21 +162,21 @@ export default function VentasDashboardClient() {
                           <button
                             type="button"
                             className="px-2 py-1 rounded border border-primary text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
-                            onClick={() => window.open(`/ventas/dashboard/pcv/${r.reservation_id}`, "_blank")}
+                            onClick={() => window.open(`/old/ventas/dashboard/pcv/${r.reservation_id}`, "_blank")}
                           >
                             PCV
                           </button>
                           <button
                             type="button"
                             className="px-2 py-1 rounded border border-primary text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
-                            onClick={() => window.open(`/ventas/dashboard/carta-autorizacion/${r.reservation_id}`, "_blank")}
+                            onClick={() => window.open(`/old/ventas/dashboard/carta-autorizacion/${r.reservation_id}`, "_blank")}
                           >
                             Autorización
                           </button>
                           <button
                             type="button"
                             className="px-2 py-1 rounded border border-primary text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
-                            onClick={() => window.open(`/ventas/dashboard/carta-pago/${r.reservation_id}`, "_blank")}
+                            onClick={() => window.open(`/old/ventas/dashboard/carta-pago/${r.reservation_id}`, "_blank")}
                           >
                             Pago
                           </button>

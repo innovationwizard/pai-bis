@@ -56,3 +56,215 @@ body {
   background-color: #0c0a30;
   color: #f8fafc;
 }
+
+/*
+ * Section menu, light Liquid Glass.
+ * The five links sit in one frosted capsule. The current section is a brighter
+ * lens with a specular edge, the way an iPhone tab bar marks the selection.
+ */
+.glass-nav {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: max-content;
+  max-width: 100%;
+  padding: 4px;
+  border-radius: 999px;
+  background:
+    radial-gradient(120% 90% at 8% 0%, rgba(255, 255, 255, 0.95) 0%, transparent 42%),
+    radial-gradient(80% 90% at 100% 120%, rgba(186, 210, 255, 0.35) 0%, transparent 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58) 0%, rgba(255, 255, 255, 0.22) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.06),
+    0 1px 1px rgba(15, 23, 42, 0.04),
+    0 10px 28px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(18px) saturate(1.8);
+  -webkit-backdrop-filter: blur(18px) saturate(1.8);
+}
+
+.glass-nav-item {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 1 auto;
+  padding: 0.42rem clamp(0.4rem, 1.1vw, 0.9rem);
+  border-radius: 999px;
+  color: #64748b;
+  font-size: clamp(10px, 2.5vw, 12px);
+  background: transparent;
+  border: 1px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.glass-nav-item:hover {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.glass-nav-item[aria-current="page"] {
+  color: #0f172a;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 255, 255, 0.68) 52%,
+    rgba(241, 245, 249, 0.55) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -10px 16px rgba(255, 255, 255, 0.4),
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 8px 18px rgba(37, 99, 235, 0.12);
+}
+
+.glass-nav-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 12px;
+  left: 12px;
+  height: 46%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+/* Account disclosure uses the same frosted material as the section bar. */
+.glass-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  color: #64748b;
+  cursor: pointer;
+  background:
+    radial-gradient(120% 90% at 8% 0%, rgba(255, 255, 255, 0.95) 0%, transparent 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.32) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 1px 1px rgba(15, 23, 42, 0.04),
+    0 8px 18px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px) saturate(1.8);
+  -webkit-backdrop-filter: blur(18px) saturate(1.8);
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.glass-chevron svg {
+  transition: transform 180ms ease;
+}
+
+.glass-chevron:hover {
+  color: #0f172a;
+}
+
+.glass-chevron[aria-expanded="true"] {
+  color: #0f172a;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.68) 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 8px 18px rgba(37, 99, 235, 0.12);
+}
+
+.glass-chevron[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.glass-account {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 12.5rem;
+  padding: 10px;
+  border-radius: 18px;
+  text-align: left;
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(255, 255, 255, 0.95) 0%, transparent 42%),
+    radial-gradient(90% 80% at 100% 120%, rgba(186, 210, 255, 0.32) 0%, transparent 48%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(248, 250, 252, 0.62) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 1px 1px rgba(15, 23, 42, 0.04),
+    0 16px 36px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+}
+
+.glass-account-name {
+  margin: 0;
+  padding: 6px 8px 8px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glass-account-signout {
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.glass-account-signout:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.glass-account-signout:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-chevron svg {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-nav,
+  .glass-chevron,
+  .glass-account {
+    background: #f8fafc;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass-nav-item[aria-current="page"],
+  .glass-chevron[aria-expanded="true"] {
+    background: #fff;
+  }
+}

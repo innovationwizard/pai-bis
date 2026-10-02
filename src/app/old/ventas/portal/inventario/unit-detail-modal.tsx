@@ -89,7 +89,7 @@ export default function UnitDetailModal({ unit, onClose }: Props) {
           </a>
           {isAvailable && (
             <a
-              href={`/ventas/portal/nueva-reserva?unit=${unit.id}`}
+              href={`/old/ventas/portal/nueva-reserva?unit=${unit.id}`}
               className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-primary text-white font-medium text-sm hover:bg-primary-hover transition-colors no-underline"
             >
               Reservar

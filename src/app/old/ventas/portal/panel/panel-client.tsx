@@ -116,13 +116,13 @@ export default function PanelClient() {
       {/* Quick Actions */}
       <div className="flex gap-3">
         <a
-          href="/ventas/portal/nueva-reserva"
+          href="/old/ventas/portal/nueva-reserva"
           className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium no-underline hover:bg-primary/90 transition-colors"
         >
           + Nueva Reserva
         </a>
         <a
-          href="/ventas/portal/inventario"
+          href="/old/ventas/portal/inventario"
           className="px-4 py-2 rounded-lg border border-border text-text-primary text-sm font-medium no-underline hover:bg-bg transition-colors"
         >
           Ver Inventario
@@ -179,7 +179,7 @@ export default function PanelClient() {
                   key={r.reservation_id}
                   className="border-b border-border last:border-0 hover:bg-bg/50 transition-colors cursor-pointer"
                   onClick={() =>
-                    (window.location.href = `/ventas/portal/reservas?selected=${r.reservation_id}`)
+                    (window.location.href = `/old/ventas/portal/reservas?selected=${r.reservation_id}`)
                   }
                 >
                   <td className="px-4 py-3 font-medium text-text-primary">
@@ -216,7 +216,7 @@ export default function PanelClient() {
         {reservations.length > 5 && (
           <div className="px-4 py-3 border-t border-border text-center">
             <a
-              href="/ventas/portal/reservas"
+              href="/old/ventas/portal/reservas"
               className="text-sm text-primary font-medium no-underline hover:underline"
             >
               Ver todas ({reservations.length})

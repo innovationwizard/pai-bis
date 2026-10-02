@@ -463,13 +463,13 @@ export default function NuevaReservaClient() {
         </p>
         <div className="flex gap-3 justify-center">
           <a
-            href="/ventas/portal/nueva-reserva"
+            href="/old/ventas/portal/nueva-reserva"
             className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium no-underline hover:bg-primary/90 transition-colors"
           >
             Reservar otra unidad
           </a>
           <a
-            href="/ventas/portal/reservas"
+            href="/old/ventas/portal/reservas"
             className="px-4 py-2 rounded-lg border border-border text-text-primary text-sm font-medium no-underline hover:bg-bg transition-colors"
           >
             Ver mis reservas

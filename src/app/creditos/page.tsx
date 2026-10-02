@@ -1,17 +1,8 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
-import CreditosClient from "./creditos-client";
+import SectionPage from "@/components/section-page";
 
-export const metadata: Metadata = {
-  title: "Créditos | Puerta Abierta",
-  description:
-    "Panel de análisis del departamento de créditos — portafolio, absorción, financiamiento",
-};
+export const metadata: Metadata = { title: "Créditos | Puerta Abierta" };
 
 export default function CreditosPage() {
-  return (
-    <Suspense>
-      <CreditosClient />
-    </Suspense>
-  );
+  return <SectionPage title="Créditos" />;
 }

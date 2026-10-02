@@ -78,7 +78,7 @@ export default function VentasClient() {
   );
   const canSee = useCallback((id: string) => sections.some((s) => s.id === id), [sections]);
 
-  // Deep links from the HUD (/ventas#objetivos, #canales, #modelos) used to land
+  // Deep links from the HUD (/old/ventas#objetivos, #canales, #modelos) used to land
   // on always-expanded sections. Now that sections start collapsed, open the one
   // the hash names once its data has arrived so the link still shows content.
   const hashHandled = useRef(false);

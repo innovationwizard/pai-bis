@@ -6,11 +6,11 @@ import { VentasProvider } from "@/lib/reservas/ventas-context";
 import SiteNav from "@/components/site-nav";
 
 const TABS = [
-  { href: "/ventas/portal/panel", label: "Panel" },
-  { href: "/ventas/portal/inventario", label: "Inventario" },
-  { href: "/ventas/portal/reservas", label: "Reservas" },
-  { href: "/ventas/portal/rendimiento", label: "Rendimiento" },
-  { href: "/ventas/portal/clientes", label: "Clientes" },
+  { href: "/old/ventas/portal/panel", label: "Panel" },
+  { href: "/old/ventas/portal/inventario", label: "Inventario" },
+  { href: "/old/ventas/portal/reservas", label: "Reservas" },
+  { href: "/old/ventas/portal/rendimiento", label: "Rendimiento" },
+  { href: "/old/ventas/portal/clientes", label: "Clientes" },
 ] as const;
 
 const tabBase =
