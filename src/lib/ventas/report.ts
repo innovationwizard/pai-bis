@@ -155,7 +155,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
 
   const [projects, towers, models, habitaciones, asesores, fuentes, promotions, reasons, discountTypes, salesRaw, comprobantes, pcvs, visits, discounts, rises, targets, caseCount, recibos] =
     await Promise.all([
-      fetchAll(db, "dim_project", "id,name"),
+      fetchAll(db, "dim_project", "id,name,is_sin_dato"),
       fetchAll(db, "dim_tower", "id,name,project_id"),
       fetchAll(db, "dim_model", "id,name"),
       fetchAll(db, "dim_habitaciones", "id,name"),
@@ -176,7 +176,6 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
     ]);
 
   const nameOf = (rows: Record<string, unknown>[]) => new Map(rows.map((row) => [String(row.id), String(row.name)]));
-  const projectName = nameOf(projects);
   const towerName = nameOf(towers);
   const modelName = nameOf(models);
   const habName = nameOf(habitaciones);
@@ -324,7 +323,10 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
     discounts.map((row) => String(row.discount_type_id)),
     discountName,
   );
-  choices.proyecto = countBy(sales.filter((sale) => inRange(sale.sale_on, range)).map((sale) => sale.project_id), projectName);
+  choices.proyecto = projects
+    .filter((row) => row.is_sin_dato !== true)
+    .map((row) => ({ id: String(row.id), label: String(row.name), count: 0 }))
+    .sort((a, b) => a.label.localeCompare(b.label, "es"));
 
   const tiles = flowTiles(range);
   const comparisons = windows.slice(1).map((window) => ({ label: window.label, tiles: flowTiles(window) }));

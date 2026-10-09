@@ -158,7 +158,7 @@ export default function VentasBoard({ section }: { section: string }) {
             <option value="">Todos los proyectos</option>
             {(report?.choices.proyecto ?? []).map((choice) => (
               <option key={choice.id} value={choice.id}>
-                {choice.label} ({choice.count})
+                {choice.label}
               </option>
             ))}
           </select>
@@ -240,7 +240,7 @@ export default function VentasBoard({ section }: { section: string }) {
                   <option value="">Todos</option>
                   {(report?.choices[choiceKey] ?? []).map((choice) => (
                     <option key={choice.id} value={choice.id}>
-                      {choice.label} ({choice.count})
+                      {choice.label}
                     </option>
                   ))}
                 </select>
