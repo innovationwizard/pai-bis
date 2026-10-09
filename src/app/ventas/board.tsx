@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { VentasReport } from "@/lib/ventas/report";
+import { useEffect, useRef, useState } from "react";
+import type { Choice, VentasReport } from "@/lib/ventas/report";
 
 const STORAGE_KEY = "pai-ventas-filtros";
 
@@ -12,7 +12,7 @@ type BarState = {
   comparar: boolean;
   n: number;
   anio: boolean;
-  proyecto: string;
+  proyectos: string[] | null;
   asesor: string;
   torre: string;
   modelo: string;
@@ -35,7 +35,7 @@ const INITIAL: BarState = {
   comparar: false,
   n: 1,
   anio: false,
-  proyecto: "",
+  proyectos: null,
   asesor: "",
   torre: "",
   modelo: "",
@@ -80,6 +80,27 @@ const LABELS: Record<string, string> = {
   buscar: "Buscar unidad",
 };
 
+function readBar(raw: string): BarState {
+  const parsed = JSON.parse(raw) as Partial<BarState> & { proyecto?: unknown };
+  const legacy = parsed.proyecto;
+  const proyectos = "proyectos" in parsed
+    ? Array.isArray(parsed.proyectos)
+      ? parsed.proyectos.filter((id): id is string => typeof id === "string")
+      : null
+    : typeof legacy === "string" && legacy
+      ? [legacy]
+      : null;
+  return { ...INITIAL, ...parsed, proyectos };
+}
+
+function projectButtonLabel(selected: string[] | null, choices: Choice[]): string {
+  if (selected === null) return "Todos los proyectos";
+  if (selected.length === 0) return "Ningún proyecto";
+  const names = selected.map((id) => choices.find((choice) => choice.id === id)?.label ?? id);
+  if (names.length <= 2) return names.join(", ");
+  return `${names.length} proyectos`;
+}
+
 function money(value: number | null, currency = "GTQ"): string {
   if (value === null) return "—";
   return new Intl.NumberFormat("es-GT", {
@@ -99,16 +120,34 @@ export default function VentasBoard({ section }: { section: string }) {
   const [ready, setReady] = useState(false);
   const [report, setReport] = useState<VentasReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [projectsOpen, setProjectsOpen] = useState(false);
+  const projectsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw) setBar({ ...INITIAL, ...JSON.parse(raw) });
+      if (raw) setBar(readBar(raw));
     } catch {
       /* keep defaults */
     }
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!projectsOpen) return;
+    function onPointer(event: MouseEvent) {
+      if (!projectsRef.current?.contains(event.target as Node)) setProjectsOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setProjectsOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [projectsOpen]);
 
   useEffect(() => {
     if (!ready) return;
@@ -123,7 +162,14 @@ export default function VentasBoard({ section }: { section: string }) {
       params.set("n", String(bar.n));
     }
     if (bar.anio) params.set("anio", "1");
-    for (const key of ["proyecto", ...(SPECIFIC[section] ?? [])] as (keyof BarState)[]) {
+    if (bar.proyectos === null) {
+      /* Todos los proyectos */
+    } else if (bar.proyectos.length === 0) {
+      params.append("proyecto", "ninguno");
+    } else {
+      for (const id of bar.proyectos) params.append("proyecto", id);
+    }
+    for (const key of SPECIFIC[section] ?? []) {
       const value = bar[key];
       if (typeof value === "string" && value) params.set(key, value);
       if (value === true) params.set(key, "1");
@@ -147,22 +193,56 @@ export default function VentasBoard({ section }: { section: string }) {
     setBar((current) => ({ ...current, ...patch }));
   }
 
+  const projectChoices = report?.choices.proyecto ?? [];
+  const allProjectIds = projectChoices.map((choice) => choice.id);
+
+  function toggleAllProjects() {
+    setBar((current) => ({ ...current, proyectos: current.proyectos === null ? [] : null }));
+  }
+
+  function toggleProject(id: string) {
+    setBar((current) => {
+      const selected = current.proyectos === null ? allProjectIds : current.proyectos;
+      const next = selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id];
+      if (allProjectIds.length > 0 && next.length === allProjectIds.length) return { ...current, proyectos: null };
+      return { ...current, proyectos: next };
+    });
+  }
+
   const specific = SPECIFIC[section] ?? [];
 
   return (
     <div className="ventas-board">
       <div className="ventas-bar">
-        <label>
-          Proyecto
-          <select value={bar.proyecto} onChange={(event) => update({ proyecto: event.target.value })}>
-            <option value="">Todos los proyectos</option>
-            {(report?.choices.proyecto ?? []).map((choice) => (
-              <option key={choice.id} value={choice.id}>
-                {choice.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="ventas-field ventas-projects" ref={projectsRef}>
+          <span>Proyecto</span>
+          <button
+            type="button"
+            className="ventas-projects-button"
+            aria-expanded={projectsOpen}
+            aria-haspopup="true"
+            onClick={() => setProjectsOpen((open) => !open)}
+          >
+            {projectButtonLabel(bar.proyectos, projectChoices)}
+          </button>
+          {projectsOpen ? (
+            <div className="ventas-projects-menu" role="group" aria-label="Proyecto">
+              <label className="ventas-project-option">
+                <input type="checkbox" checked={bar.proyectos === null} onChange={toggleAllProjects} />
+                Todos los proyectos
+              </label>
+              {projectChoices.map((choice) => {
+                const checked = bar.proyectos === null || bar.proyectos.includes(choice.id);
+                return (
+                  <label key={choice.id} className="ventas-project-option">
+                    <input type="checkbox" checked={checked} onChange={() => toggleProject(choice.id)} />
+                    {choice.label}
+                  </label>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
         <label>
           Periodo
           <select value={bar.periodo} onChange={(event) => update({ periodo: event.target.value })}>
@@ -293,6 +373,33 @@ export default function VentasBoard({ section }: { section: string }) {
                 </div>
               ))}
             </div>
+          ) : null}
+          {report.byProject.length > 1 ? (
+            <>
+              <h3>Por proyecto</h3>
+              <table className="ventas-table">
+                <thead>
+                  <tr>
+                    <th>Proyecto</th>
+                    <th>Unidades</th>
+                    <th>{section === "objetivos-de-ventas" ? "Meta en unidades" : "Quetzales"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.byProject.map((row) => (
+                    <tr key={row.label}>
+                      <td>{row.label}</td>
+                      <td>{units(row.units)}</td>
+                      <td>
+                        {section === "objetivos-de-ventas"
+                          ? units(row.gtq)
+                          : money(row.gtq, row.currency ?? "GTQ")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           ) : null}
           {report.rows.length > 0 ? (
             <table className="ventas-table">

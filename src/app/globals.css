@@ -371,6 +371,56 @@ body {
   min-height: 36px;
 }
 
+.ventas-field {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.ventas-projects-button {
+  min-width: 180px;
+  max-width: 280px;
+  height: 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ventas-projects-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(13, 32, 65, 0.12);
+}
+
+.ventas-project-option {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0d2041;
+}
+
 .ventas-reset {
   height: 36px;
   border: 0;

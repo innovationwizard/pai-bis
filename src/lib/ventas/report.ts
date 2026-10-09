@@ -31,7 +31,7 @@ const POSITIONS: { code: string; label: string }[] = [
 
 export type Choice = { id: string; label: string; count: number };
 export type Measure = { units: number; gtq: number | null; sinMonto: number };
-export type NamedMeasure = Measure & { label: string };
+export type NamedMeasure = Measure & { label: string; currency?: string };
 export type VentasReport = {
   section: string;
   periodLabel: string;
@@ -42,6 +42,7 @@ export type VentasReport = {
   tiles: NamedMeasure[];
   net: Measure | null;
   rows: NamedMeasure[];
+  byProject: NamedMeasure[];
   groups: { currency: string; rows: NamedMeasure[] }[];
   comparisons: { label: string; tiles: NamedMeasure[] }[];
   choices: Record<string, Choice[]>;
@@ -56,7 +57,7 @@ type Filters = {
   compareN: boolean;
   n: number;
   compareYear: boolean;
-  projectId: string | null;
+  projectIds: string[] | null;
   asesorId: string | null;
   torreId: string | null;
   modeloId: string | null;
@@ -210,7 +211,8 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
     discountByDeal.set(dealId, list);
   }
 
-  const projectOk = (projectId: string) => !filters.projectId || projectId === filters.projectId;
+  const projectLabel = new Map(projects.map((row) => [String(row.id), String(row.name)]));
+  const projectOk = (projectId: string) => filters.projectIds === null || filters.projectIds.includes(projectId);
   let gapNotice: string | null = filters.gapFilter ? GAP : null;
 
   function salePasses(sale: Sale, specific: boolean): boolean {
@@ -250,6 +252,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
   const dealIds = new Set<string>();
   for (const row of comprobantes) if (row.deal_id) dealIds.add(String(row.deal_id));
   for (const row of pcvs) dealIds.add(String(row.deal_id));
+  for (const row of visits) if (row.deal_id) dealIds.add(String(row.deal_id));
   const missing = [...dealIds].filter((id) => !saleByDeal.has(id));
   const extraDeals: Record<string, unknown>[] = [];
   for (let index = 0; index < missing.length; index += 200) {
@@ -286,7 +289,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
     const venta = measure(periodSales.length, periodSales.map((sale) => sale.value_gtq));
     const comps = comprobantes.filter((row) => {
       if (!inRange(String(row.comprobante_on), window)) return false;
-      if (!row.deal_id) return !filters.projectId;
+      if (!row.deal_id) return filters.projectIds === null;
       const meta = dealMeta.get(String(row.deal_id));
       return Boolean(meta && projectOk(meta.project_id));
     });
@@ -397,7 +400,12 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
   }
 
   if (filters.section === "subidas-de-precios") {
-    const inPeriod = rises.filter((row) => inRange(String(row.effective_on), range) && (!filters.torreId || String(row.tower_id) === filters.torreId) && (!filters.projectId || towers.find((tower) => String(tower.id) === String(row.tower_id) && String(tower.project_id) === filters.projectId)));
+    const inPeriod = rises.filter((row) => {
+      if (!inRange(String(row.effective_on), range)) return false;
+      if (filters.torreId && String(row.tower_id) !== filters.torreId) return false;
+      const tower = towers.find((item) => String(item.id) === String(row.tower_id));
+      return projectOk(String(tower?.project_id ?? ""));
+    });
     if (rises.length === 0) emptyNotice = GAP;
     else if (inPeriod.length === 0) emptyNotice = "No hay subidas en este corte.";
     else {
@@ -436,6 +444,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
   }
 
   let list: VentasReport["list"] = [];
+  let scopedStock: Record<string, unknown>[] | null = null;
   if (
     filters.section === "analisis-de-inventario" ||
     filters.section === "inventario-general" ||
@@ -444,6 +453,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
     const { data, error } = await db.rpc("stock_at", { p_as_of: range.to });
     if (error) throw new Error(error.message);
     const stock = ((data ?? []) as unknown as Record<string, unknown>[]).filter((row) => projectOk(String(row.project_id)));
+    scopedStock = stock;
     if (stock.length === 0) emptyNotice = NO_ROWS;
     else if (filters.section === "valor-del-proyecto") {
       const buckets = new Map<string, Map<string, { units: number; amount: number }>>();
@@ -482,6 +492,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
         }
         return true;
       });
+      scopedStock = filtered;
       if (filters.section === "analisis-de-inventario") {
         const grouped = new Map<string, typeof filtered>();
         for (const row of filtered) {
@@ -514,13 +525,21 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
 
   if (filters.section === "tasa-de-conversion") {
     caption = VISIT_CAPTION;
-    const visitRows = visits.filter((row) => inRange(String(row.visit_on), range) && (!filters.fuenteId || String(row.fuente_id) === filters.fuenteId));
-    const { count } = await db
-      .from("dim_deal")
-      .select("id", { count: "exact", head: true })
-      .gte("add_on", range.from)
-      .lte("add_on", range.to);
-    const leads = count ?? 0;
+    const visitRows = visits.filter((row) => {
+      if (!inRange(String(row.visit_on), range)) return false;
+      if (filters.fuenteId && String(row.fuente_id) !== filters.fuenteId) return false;
+      if (filters.projectIds === null) return true;
+      if (!row.deal_id) return false;
+      const meta = dealMeta.get(String(row.deal_id));
+      return Boolean(meta && projectOk(meta.project_id));
+    });
+    let leads = 0;
+    if (!(filters.projectIds && filters.projectIds.length === 0)) {
+      let leadQuery = db.from("dim_deal").select("id", { count: "exact", head: true }).gte("add_on", range.from).lte("add_on", range.to);
+      if (filters.projectIds) leadQuery = leadQuery.in("project_id", filters.projectIds);
+      const { count } = await leadQuery;
+      leads = count ?? 0;
+    }
     const ventas = selectedSales.length;
     rows.push({ label: "Visitas efectivas", units: visitRows.length, gtq: null, sinMonto: 0 });
     rows.push({ label: "Leads", units: leads, gtq: null, sinMonto: 0 });
@@ -544,10 +563,13 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
       (sale) => sale.sale_on && sale.sale_on <= asOf && (!sale.lost_on || sale.lost_on > asOf) && salePasses(sale, true),
     );
     const desistidas = sales.filter((sale) => sale.lost_on && sale.lost_on <= asOf && salePasses(sale, true));
-    let lostQuery = db.from("dim_deal").select("id", { count: "exact", head: true }).not("lost_on", "is", null).lte("lost_on", asOf);
-    if (filters.projectId) lostQuery = lostQuery.eq("project_id", filters.projectId);
-    const lost = await lostQuery;
-    const closed = Math.max(0, (lost.count ?? 0) - desistidas.length);
+    let closed = 0;
+    if (!(filters.projectIds && filters.projectIds.length === 0)) {
+      let lostQuery = db.from("dim_deal").select("id", { count: "exact", head: true }).not("lost_on", "is", null).lte("lost_on", asOf);
+      if (filters.projectIds) lostQuery = lostQuery.in("project_id", filters.projectIds);
+      const lost = await lostQuery;
+      closed = Math.max(0, (lost.count ?? 0) - desistidas.length);
+    }
     const lines: NamedMeasure[] = [
       { label: "Desistida", ...measure(desistidas.length, desistidas.map((sale) => sale.value_gtq)) },
       { label: "Cerrada sin venta", units: closed, gtq: null, sinMonto: 0 },
@@ -559,6 +581,51 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
     caption = "Cerrada sin venta cuenta los tratos perdidos que no llegaron a las dos puertas. Su monto no está sumado.";
   }
 
+  const selectedProjectIds =
+    filters.projectIds && filters.projectIds.length > 1
+      ? [...filters.projectIds].sort((a, b) => (projectLabel.get(a) ?? "").localeCompare(projectLabel.get(b) ?? "", "es"))
+      : [];
+  const byProject: NamedMeasure[] = selectedProjectIds.map((id) => {
+    const label = projectLabel.get(id) ?? id;
+    if (scopedStock) {
+      const rowsForProject = scopedStock.filter((row) => String(row.project_id) === id);
+      const currencies = new Set(rowsForProject.map((row) => String(row.list_price_currency ?? "GTQ")));
+      const currency = currencies.size === 1 ? [...currencies][0] : undefined;
+      const amounts = currencies.size === 1 ? rowsForProject.map((row) => num(row.list_price_amount as number | string | null)) : [];
+      return { label, ...measure(rowsForProject.length, amounts), currency };
+    }
+    if (filters.section === "subidas-de-precios") {
+      const list = rises.filter((row) => {
+        if (!inRange(String(row.effective_on), range)) return false;
+        if (filters.torreId && String(row.tower_id) !== filters.torreId) return false;
+        const tower = towers.find((item) => String(item.id) === String(row.tower_id));
+        return String(tower?.project_id ?? "") === id;
+      });
+      return { label, ...measure(list.length, list.map((row) => num(row.difference_amount as number | string | null))) };
+    }
+    if (filters.section === "descuentos") {
+      const list = discounts.filter((row) => {
+        const sale = saleByDeal.get(String(row.deal_id));
+        return Boolean(sale && sale.project_id === id && inRange(sale.sale_on, range) && salePasses(sale, true));
+      });
+      return { label, ...measure(list.length, list.map((row) => num(row.amount_gtq as number | string | null))) };
+    }
+    if (filters.section === "objetivos-de-ventas") {
+      const months = monthsTouched(range.from, range.to);
+      const target = targets
+        .filter((row) => String(row.project_id) === id && months.includes(String(row.month_start)) && (!filters.asesorId || String(row.asesor_id) === filters.asesorId))
+        .reduce((sum, row) => sum + Number(row.target_units ?? 0), 0);
+      const actual = selectedSales.filter((sale) => sale.project_id === id);
+      return { label, units: actual.length, gtq: target, sinMonto: 0 };
+    }
+    if (filters.section === "desistimientos") {
+      const list = selectedLosses.filter((sale) => sale.project_id === id);
+      return { label, ...measure(list.length, list.map((sale) => sale.value_gtq)) };
+    }
+    const list = selectedSales.filter((sale) => sale.project_id === id);
+    return { label, ...measure(list.length, list.map((sale) => sale.value_gtq)) };
+  });
+
   return {
     section: filters.section,
     periodLabel: range.label,
@@ -568,6 +635,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
     caption,
     net: filters.section === "ventas-totales" ? net : null,
     rows,
+    byProject,
     groups,
     comparisons: ["analisis-de-inventario", "inventario-general", "valor-del-proyecto", "subidas-de-precios", "descuentos", "ff-y-casos-especiales", "status-de-ventas"].includes(filters.section) ? [] : comparisons,
     tiles: ["analisis-de-inventario", "inventario-general", "valor-del-proyecto", "subidas-de-precios", "descuentos", "ff-y-casos-especiales", "desistimientos"].includes(filters.section) ? [] : tiles,
@@ -587,7 +655,12 @@ export function parseFilters(url: URL): Filters {
     compareN: url.searchParams.get("comparar") === "1",
     n: Number.isFinite(n) ? Math.min(12, Math.max(1, n)) : 1,
     compareYear: url.searchParams.get("anio") === "1",
-    projectId: url.searchParams.get("proyecto"),
+    projectIds: (() => {
+      const ids = url.searchParams.getAll("proyecto").filter((id) => id !== "");
+      if (ids.length === 0) return null;
+      if (ids.includes("ninguno")) return [];
+      return ids;
+    })(),
     asesorId: url.searchParams.get("asesor"),
     torreId: url.searchParams.get("torre"),
     modeloId: url.searchParams.get("modelo"),
