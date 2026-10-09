@@ -248,6 +248,64 @@ body {
   cursor: not-allowed;
 }
 
+.mercadeo-note,
+.mercadeo-formula {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.mercadeo-insights {
+  display: grid;
+  gap: 8px;
+}
+
+.mercadeo-insight {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid #0573b0;
+  background: rgba(5, 115, 176, 0.06);
+  font-size: 14px;
+}
+
+.mercadeo-insight.good { border-color: #059669; }
+.mercadeo-insight.warn { border-color: #d97706; }
+.mercadeo-insight.bad { border-color: #dc2626; }
+
+.mercadeo-chart {
+  width: 100%;
+  height: 220px;
+}
+
+.mercadeo-frame {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.mercadeo-ranges {
+  display: grid;
+  gap: 8px;
+}
+
+.mercadeo-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.mercadeo-range input {
+  width: 88px;
+  height: 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0 8px;
+}
+
 .ventas-icons {
   display: flex;
   flex-wrap: wrap;

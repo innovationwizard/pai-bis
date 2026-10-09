@@ -47,20 +47,6 @@ export function monthEnd(iso: string): string {
   return format(date);
 }
 
-function quarterStart(iso: string): string {
-  const month = Number(iso.slice(5, 7));
-  const start = Math.floor((month - 1) / 3) * 3 + 1;
-  return `${iso.slice(0, 4)}-${String(start).padStart(2, "0")}-01`;
-}
-
-function quarterEnd(iso: string): string {
-  const start = quarterStart(iso);
-  const date = parse(start);
-  date.setUTCMonth(date.getUTCMonth() + 3);
-  date.setUTCDate(0);
-  return format(date);
-}
-
 function dayOf(iso: string): number {
   return Number(iso.slice(8, 10));
 }
@@ -99,7 +85,7 @@ export function resolveRange(
     return { from: monthStart(last), to: monthEnd(last), label: "Mes anterior" };
   }
   if (preset === "este-trimestre") {
-    return { from: quarterStart(today), to: today, label: "Este trimestre" };
+    return { from: shiftMonths(monthStart(today), -2), to: today, label: "Este trimestre" };
   }
   if (preset === "este-ano") {
     return { from: `${today.slice(0, 4)}-01-01`, to: today, label: "Este año" };

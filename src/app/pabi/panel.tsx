@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import MercadeoIconNav from "@/app/mercadeo/mercadeo-icon-nav";
 import VentasIconNav from "@/app/ventas/ventas-icon-nav";
 import logoHorizontal from "./assets/logo-horizontal.png";
 
@@ -93,6 +94,7 @@ export default function Panel() {
 
   const resolvedName = displayName ?? "Usuario";
   const showVentasNav = pathname === "/ventas" || pathname.startsWith("/ventas/");
+  const showMercadeoNav = pathname === "/mercadeo" || pathname.startsWith("/mercadeo/");
 
   return (
     <div className="rounded-2xl border border-border px-[clamp(16px,3vw,32px)] py-4 backdrop-blur-sm bg-gradient-to-br from-panel-gradient-from/85 to-panel-gradient-to/70 flex flex-col gap-4">
@@ -146,6 +148,7 @@ export default function Panel() {
         </div>
       </div>
       {showVentasNav ? <VentasIconNav /> : null}
+      {showMercadeoNav ? <MercadeoIconNav /> : null}
     </div>
   );
 }
