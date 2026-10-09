@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import SectionPage from "@/components/section-page";
+import VentasBoard from "../board";
 import { VENTAS_SECTIONS } from "../sections";
 
 type VentasSectionPageProps = {
@@ -22,5 +23,10 @@ export default async function VentasSectionPage({ params }: VentasSectionPagePro
   const { section } = await params;
   const match = VENTAS_SECTIONS.find((item) => item.slug === section);
   if (!match) notFound();
-  return <SectionPage title={match.title} />;
+  const index = VENTAS_SECTIONS.findIndex((item) => item.slug === section);
+  return (
+    <SectionPage title={`${index + 1}. ${match.title}`}>
+      <VentasBoard section={match.slug} />
+    </SectionPage>
+  );
 }
