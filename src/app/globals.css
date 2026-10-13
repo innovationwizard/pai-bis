@@ -558,3 +558,141 @@ body {
   color: #0d2041;
   font-size: 16px;
 }
+
+.op-screen {
+  height: calc(100dvh - 172px);
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px clamp(16px, 2vw, 28px) 12px;
+}
+
+.op-toolbar,
+.op-subnav,
+.op-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+}
+
+.op-toolbar label,
+.op-projects,
+.op-drawer label {
+  display: grid;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.op-toolbar select,
+.op-toolbar input,
+.op-projects > button,
+.op-drawer select,
+.op-drawer input,
+.op-text,
+.op-save,
+.op-mode button,
+.op-subnav a,
+.op-drawer header button {
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #0d2041;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.op-projects { position: relative; }
+.op-projects > button { min-width: 180px; text-align: left; cursor: pointer; }
+.op-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+.op-menu label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.op-mode { display: flex; }
+.op-mode button { cursor: pointer; }
+.op-mode button[aria-pressed="true"] { background: #0d2041; color: #fff; border-color: #0d2041; }
+.op-text, .op-save, .op-drawer header button { cursor: pointer; }
+.op-save { background: #0d2041; color: #fff; border-color: #0d2041; }
+.op-range { margin: 0 0 4px auto; color: #64748b; font-size: 12px; }
+
+.op-subnav { align-items: center; }
+.op-subnav a { display: inline-flex; align-items: center; text-decoration: none; }
+.op-subnav a[aria-current="page"] { background: #0d2041; color: #fff; border-color: #0d2041; }
+
+.op-hero {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px 12px 4px;
+}
+.op-hero-budget { flex: 1.2; }
+.op-mid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.3fr 0.9fr; gap: 8px; }
+.op-hero-cierre { flex: 0.78; }
+.op-directivo { flex: 1; justify-content: center; padding: 24px; }
+.op-hero h2 { margin: 0; font-size: 13px; font-weight: 700; color: #0d2041; }
+.op-figure { margin: 0; display: flex; align-items: baseline; gap: 8px; }
+.op-figure span { font-size: 22px; font-weight: 700; color: #0d2041; line-height: 1.1; }
+.op-figure small, .op-note { margin: 0; color: #64748b; font-size: 12px; line-height: 1.35; }
+.op-note.op-warn { color: #b45309; }
+.op-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 0 auto; padding: 0; list-style: none; }
+.op-legend li { display: flex; align-items: center; gap: 6px; color: #334155; font-size: 11px; font-weight: 600; }
+.op-legend i { width: 8px; height: 8px; border-radius: 99px; }
+.op-chart { flex: 1; min-height: 0; }
+.op-def { color: #64748b; font-size: 12px; }
+.op-def summary { cursor: pointer; }
+
+.op-overlay { position: fixed; inset: 0; z-index: 40; }
+.op-backdrop { position: absolute; inset: 0; border: 0; background: rgba(13, 32, 65, 0.28); }
+.op-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(420px, 100%);
+  height: 100%;
+  overflow: auto;
+  background: #fff;
+  border-left: 1px solid #e2e8f0;
+  padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.op-drawer header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.op-drawer h2 { margin: 0; font-size: 16px; color: #0d2041; }
+.op-drawer table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.op-drawer th, .op-drawer td { padding: 6px 4px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+.op-target { grid-template-columns: 1fr 120px; align-items: center; }
+.op-target small { grid-column: 1 / -1; color: #64748b; font-weight: 500; }
+.op-history { margin: 0; padding-left: 16px; color: #334155; font-size: 12px; }
+
+@media (max-width: 960px) {
+  .op-screen { height: auto; min-height: 0; }
+  .op-mid { grid-template-columns: 1fr; }
+  .op-chart { height: 240px; flex: none; }
+  .op-hero-budget, .op-hero-cierre { flex: none; }
+}

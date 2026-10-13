@@ -94,7 +94,7 @@ export default function Panel() {
 
   const resolvedName = displayName ?? "Usuario";
   const showVentasNav = pathname === "/ventas" || pathname.startsWith("/ventas/");
-  const showMercadeoNav = pathname === "/mercadeo" || pathname.startsWith("/mercadeo/");
+  const showMercadeoNav = pathname.startsWith("/mercadeo/");
 
   return (
     <div className="rounded-2xl border border-border px-[clamp(16px,3vw,32px)] py-4 backdrop-blur-sm bg-gradient-to-br from-panel-gradient-from/85 to-panel-gradient-to/70 flex flex-col gap-4">

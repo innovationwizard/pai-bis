@@ -794,3 +794,35 @@ function platformRows(loaded: Loaded, window: DateWindow, centers: Center[]): Pl
     },
   ];
 }
+
+export type MercadeoStore = Loaded;
+
+export async function loadMercadeoStore(): Promise<MercadeoStore> {
+  const admin = createAdminClient();
+  return load(admin.schema("mercadeo"), admin.schema("ventas"));
+}
+
+export function storePauta(store: MercadeoStore, window: DateWindow, centerIds: Set<string>): number {
+  return pautaOf(store, window, centerIds);
+}
+
+export function storeMonthPlan(store: MercadeoStore, centerIds: Set<string>, month: string): number {
+  return monthPlan(store, centerIds, month);
+}
+
+export function storeMetaSpend(store: MercadeoStore, window: DateWindow, centerIds: Set<string>): number {
+  return metaSpend(store, window, centerIds);
+}
+
+export function storeMetaLeads(store: MercadeoStore, window: DateWindow, centerIds: Set<string>): number {
+  return metaLeads(store, window, centerIds);
+}
+
+export function storePair(
+  store: MercadeoStore,
+  window: DateWindow,
+  slugs: Set<string>,
+  kind: "venta" | "reserva",
+): Pair {
+  return pairFor(store, window, slugs, kind);
+}
