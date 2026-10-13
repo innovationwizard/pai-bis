@@ -522,7 +522,7 @@ function CierreHero({ report, onProject }: { report: OperativoReport; onProject:
       {missing.length > 0 ? <p className="op-note">Sin ventas o sin pauta: {missing.join(", ")}.</p> : null}
       <details className="op-def">
         <summary>Definición</summary>
-        <p>Pauta del corte ÷ ventas de las dos puertas cuya fecha de venta cae en el corte. Una venta sin monto sigue en el conteo. Puerta Abierta no entra en el total de los proyectos.</p>
+        <p>Pauta del período ÷ cantidad de ventas del período. Una venta es la unidad que ya tiene el Recibo publicado y la Recepción de Promesa Firmada. La fecha de la venta es la más tardía de esas dos, y esa fecha tiene que caer en el período. Un valor vacío se queda en el conteo y se muestra como sin monto. Puerta Abierta no entra en el total de los proyectos.</p>
       </details>
     </section>
   );
