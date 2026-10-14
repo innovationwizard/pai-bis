@@ -87,7 +87,7 @@ export default function MercadeoBoard({ section }: { section: string }) {
   }, [projectsOpen]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || section === "gestion-de-pauta") return;
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(bar));
     const params = new URLSearchParams({ section, periodo: bar.periodo });
     if (bar.periodo === "custom" && bar.desde && bar.hasta) {
@@ -170,6 +170,17 @@ export default function MercadeoBoard({ section }: { section: string }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (section === "gestion-de-pauta") {
+    return (
+      <div className="ventas-board">
+        <p className="mercadeo-note">
+          La gestión de pauta se hace en cada plataforma, fuera de ORION.
+          La vista propuesta para verlas juntas es Looker Studio.
+        </p>
+      </div>
+    );
   }
 
   return (

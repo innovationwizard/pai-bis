@@ -16,6 +16,8 @@ import {
   YAxis,
 } from "recharts";
 import type { BudgetStatus, OperativoReport } from "@/lib/mercadeo/operativo-types";
+import { useDashboardTier } from "@/lib/dashboard-tier";
+import DirectivoView from "./directivo-view";
 
 const STORAGE_KEY = "pai-mercadeo-filtros";
 
@@ -44,15 +46,6 @@ const STATUS_LABEL: Record<BudgetStatus, string> = {
   "sin-presupuesto": "Sin presupuesto",
 };
 
-const LINKS = [
-  { href: "/mercadeo", label: "Operativo" },
-  { href: "/mercadeo/reporte-maestro", label: "Meta de leads y ROAS" },
-  { href: "/mercadeo/efectividad", label: "Efectividad de campañas" },
-  { href: "/mercadeo/inversion-acumulada", label: "Gestión de pauta" },
-  { href: "/mercadeo/canales", label: "Operatividad de canales" },
-] as const;
-
-type Mode = "operativo" | "directivo";
 type Drill =
   | { kind: "fuente"; label: string }
   | { kind: "cierre"; slug: string }
@@ -114,7 +107,7 @@ function readBar(raw: string): BarState {
 }
 
 export default function OperativoView() {
-  const [mode, setMode] = useState<Mode>("operativo");
+  const { tier, ready: tierReady } = useDashboardTier();
   const [bar, setBar] = useState<BarState>(INITIAL);
   const [ready, setReady] = useState(false);
   const [report, setReport] = useState<OperativoReport | null>(null);
@@ -163,7 +156,7 @@ export default function OperativoView() {
   }, [drill, targetsOpen]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !tierReady || tier !== "operativo") return;
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(bar));
     const params = new URLSearchParams({ periodo: bar.periodo });
     if (bar.periodo === "custom" && bar.desde && bar.hasta) {
@@ -190,7 +183,7 @@ export default function OperativoView() {
         setError(reason instanceof Error ? reason.message : "No se pudo leer Mercadeo");
       });
     return () => controller.abort();
-  }, [bar, ready]);
+  }, [bar, ready, tier, tierReady]);
 
   function update(patch: Partial<BarState>) {
     setBar((current) => ({ ...current, ...patch }));
@@ -225,13 +218,12 @@ export default function OperativoView() {
     });
   }
 
+  if (!tierReady) return <div className="op-screen" aria-busy="true" />;
+  if (tier === "directivo") return <DirectivoView />;
+
   return (
     <div className="op-screen">
       <div className="op-toolbar">
-        <div className="op-mode" role="group" aria-label="Vista">
-          <button type="button" aria-pressed={mode === "operativo"} onClick={() => setMode("operativo")}>Operativo</button>
-          <button type="button" aria-pressed={mode === "directivo"} onClick={() => setMode("directivo")}>Directivo</button>
-        </div>
         <label>
           Periodo
           <select value={bar.periodo} onChange={(event) => update({ periodo: event.target.value })}>
@@ -283,18 +275,9 @@ export default function OperativoView() {
         <p className="op-range">{report ? `${report.periodLabel}. ${report.rangeLabel}.` : error ? "" : "Cargando…"}</p>
       </div>
 
-      <nav className="op-subnav" aria-label="Mercadeo">
-        {LINKS.map((link) => (
-          <a key={link.label} href={link.href} aria-current={link.href === "/mercadeo" && link.label === "Operativo" ? "page" : undefined}>
-            {link.label}
-          </a>
-        ))}
-      </nav>
-
-      {mode === "directivo" ? <Directivo /> : null}
-      {mode === "operativo" && error ? <p className="op-note op-warn">{error}</p> : null}
-      {mode === "operativo" && report?.notice ? <p className="op-note">{report.notice}</p> : null}
-      {mode === "operativo" && report && !error ? (
+      {error ? <p className="op-note op-warn">{error}</p> : null}
+      {report?.notice ? <p className="op-note">{report.notice}</p> : null}
+      {report && !error ? (
         <>
           <BudgetHero report={report} onProject={focusProject} />
           <div className="op-mid">
@@ -314,18 +297,6 @@ export default function OperativoView() {
       ) : null}
       {drill && report ? <DrillDrawer report={report} drill={drill} onClose={() => setDrill(null)} /> : null}
     </div>
-  );
-}
-
-function Directivo() {
-  return (
-    <section className="op-hero op-directivo">
-      <h2>Vista directiva</h2>
-      <p>
-        Esta vista todavía no está dibujada. Operativo es la que decide: consumo de presupuesto, costo por lead,
-        fuente de las reservas y costo por cierre.
-      </p>
-    </section>
   );
 }
 

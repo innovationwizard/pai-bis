@@ -2,10 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-import MercadeoIconNav from "@/app/mercadeo/mercadeo-icon-nav";
-import VentasIconNav from "@/app/ventas/ventas-icon-nav";
+import DepartmentIconNav from "@/components/department-icon-nav";
+import {
+  DEPARTMENT_LABEL,
+  departmentFromPath,
+  iconsFor,
+} from "@/app/pabi/department-icons";
+import {
+  readDashboardTier,
+  useDashboardTier,
+  writeDashboardTier,
+  type DashboardTier,
+} from "@/lib/dashboard-tier";
 import logoHorizontal from "./assets/logo-horizontal.png";
 
 const SECTIONS = [
@@ -22,6 +32,8 @@ function isCurrent(pathname: string, href: string): boolean {
 
 export default function Panel() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { tier } = useDashboardTier();
   const [role, setRole] = useState<string | null | undefined>(undefined);
   const [email, setEmail] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -93,8 +105,16 @@ export default function Panel() {
   if (role === undefined) return null;
 
   const resolvedName = displayName ?? "Usuario";
-  const showVentasNav = pathname === "/ventas" || pathname.startsWith("/ventas/");
-  const showMercadeoNav = pathname.startsWith("/mercadeo/");
+  const department = departmentFromPath(pathname);
+  const icons = department ? iconsFor(department, tier) : [];
+
+  function selectTier(next: DashboardTier) {
+    if (next === readDashboardTier()) return;
+    writeDashboardTier(next);
+    if (!department) return;
+    const root = `/${department}`;
+    if (pathname !== root) router.push(root);
+  }
 
   return (
     <div className="rounded-2xl border border-border px-[clamp(16px,3vw,32px)] py-4 backdrop-blur-sm bg-gradient-to-br from-panel-gradient-from/85 to-panel-gradient-to/70 flex flex-col gap-4">
@@ -102,9 +122,18 @@ export default function Panel() {
         <Image src={logoHorizontal} alt="Puerta Abierta" height={64} className="h-16 w-auto" priority />
       </div>
 
-      <div className="grid items-center gap-3 md:grid-cols-[1fr_auto_1fr]">
-        <div className="hidden md:block" />
-        <nav className="glass-nav" aria-label="Secciones">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-3 md:grid-cols-[1fr_auto_1fr]">
+        <div className="col-start-1 row-start-2 flex justify-start md:col-start-1 md:row-start-1">
+          <div className="tier-switch" role="group" aria-label="Nivel del tablero">
+            <button type="button" aria-pressed={tier === "operativo"} onClick={() => selectTier("operativo")}>
+              Operativo
+            </button>
+            <button type="button" aria-pressed={tier === "directivo"} onClick={() => selectTier("directivo")}>
+              Directivo
+            </button>
+          </div>
+        </div>
+        <nav className="glass-nav col-span-2 row-start-1 justify-self-center md:col-span-1 md:col-start-2" aria-label="Secciones">
           {SECTIONS.map((section) => {
             const current = isCurrent(pathname, section.href);
             return (
@@ -119,7 +148,7 @@ export default function Panel() {
             );
           })}
         </nav>
-        <div ref={accountRef} className="relative flex justify-end">
+        <div ref={accountRef} className="relative col-start-2 row-start-2 flex justify-end md:col-start-3 md:row-start-1">
           <button
             type="button"
             className="glass-chevron"
@@ -147,8 +176,9 @@ export default function Panel() {
           ) : null}
         </div>
       </div>
-      {showVentasNav ? <VentasIconNav /> : null}
-      {showMercadeoNav ? <MercadeoIconNav /> : null}
+      {department && icons.length > 0 ? (
+        <DepartmentIconNav label={DEPARTMENT_LABEL[department]} items={icons} />
+      ) : null}
     </div>
   );
 }
