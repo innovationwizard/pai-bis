@@ -33,7 +33,7 @@ export default function DepartmentSectionPage({
       {item.drill ? (
         <TierDrill drill={item.drill} />
       ) : (
-        <p className="ventas-caption">Este corte está en el recorrido. El gráfico se publica con el dato del departamento.</p>
+        <p className="ventas-caption">Esta vista está en el recorrido. El gráfico se publica con el dato del departamento.</p>
       )}
     </SectionPage>
   );

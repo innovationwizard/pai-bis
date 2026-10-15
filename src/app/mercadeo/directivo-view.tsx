@@ -30,7 +30,7 @@ export default function DirectivoView() {
   return (
     <div className="op-screen">
       <div className="op-toolbar">
-        <p className="op-range">Corte {gastos.semestre.periodo}. El fondeo es el acumulado de cada proyecto.</p>
+        <p className="op-range">Periodo {gastos.semestre.periodo}. El fondeo es el acumulado de cada proyecto.</p>
       </div>
       <section className="op-hero op-hero-budget" aria-label="Gastos de mercadeo contra presupuesto">
         <header className="op-head">

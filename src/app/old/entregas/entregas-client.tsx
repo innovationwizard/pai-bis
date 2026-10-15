@@ -2189,7 +2189,7 @@ function AgendarModal({
 
           {usandoSugerencia && (
             <div style={{ fontSize: 11, color: "#ffd79a", marginTop: -6 }}>
-              Tipo de pago y banco sugeridos desde el snapshot de créditos (corte 5 ago 2026).
+              Tipo de pago y banco sugeridos desde el snapshot de créditos (al 5 ago 2026).
               Verifíquelos antes de guardar.
             </div>
           )}

@@ -129,7 +129,7 @@ export default function CumplimientoClient() {
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
               <KpiCard label="Expedientes" value={nf.format(data.totalExpedientes)} />
               <KpiCard label="Compradores" value={nf.format(data.totalCompradores)} />
-              <KpiCard label="DPI vigentes" value={nf.format(data.dpi.VIGENTE ?? 0)} positive hint="al corte" />
+              <KpiCard label="DPI vigentes" value={nf.format(data.dpi.VIGENTE ?? 0)} positive hint="a la fecha" />
               <KpiCard label="DPI vencidos" value={nf.format(data.dpi.VENCIDO ?? 0)} negative />
               <KpiCard
                 label="DPI fecha absurda"

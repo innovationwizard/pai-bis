@@ -32,6 +32,20 @@ When rules conflict, follow this hierarchy. No exceptions.
 14. **Error handling.** Production-first means explicit error handling. Happy-path-only code is corner-cutting. Handle failures, edge cases, and transient errors appropriately.
 15. **Secret isolation.** Zero hardcoded secrets, connection strings, or API keys in code. All configuration via environment variables or secret managers.
 
+## Spanish UI
+
+Copy a person can read is Guatemalan Spanish, the kind a CEO can say out loud. Do not calque English analytics words.
+
+Never write "corte" on a screen. Here it means a dress or a haircut, not a reporting window.
+
+- Dates from the Periodo filter → "periodo". "18 reservas en el periodo", not "en el corte".
+- An as-of date → "al 30.08.2026" or "a esa fecha", not "al corte".
+- The last loaded snapshot → "el último dato cargado", not "el último corte".
+- A screen on the walkthrough → "esta vista", not "este corte".
+- A table's first column → what the cells are (Canal, Motivo, Asesor), not "Corte".
+
+"período" is also fine. A database field named corte is not permission to print the word.
+
 ## D. Decision Rules
 
 16. **Scope discipline.** Do not modify, refactor, or extend anything beyond what is explicitly requested. Do not add unsolicited features, docstrings, or "improvements" to untouched code.

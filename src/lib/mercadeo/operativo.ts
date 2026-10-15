@@ -444,7 +444,7 @@ export async function buildOperativo(filters: OperativoFilters): Promise<Operati
     rangeLabel: `${range.from} – ${range.to}`,
     partial,
     cplCaption: last
-      ? `Costo por lead de Meta, de enero a ${monthLabel(last, true)}. El último mes llega hasta el fin del corte. Un mes sin leads no se dibuja en cero.`
+      ? `Costo por lead de Meta, de enero a ${monthLabel(last, true)}. El último mes llega hasta el fin del periodo. Un mes sin leads no se dibuja en cero.`
       : "Costo por lead de Meta.",
     notice: centers.length === 0 ? "Ningún proyecto está seleccionado." : store.notice,
     targetTableReady: targets.ready,

@@ -478,7 +478,7 @@ export const HUD_AREAS: HudArea[] = [
             label: "Suspendidos",
             status: "COMPLETA",
             note:
-              "Desplegado en /old/creditos/pipeline: suspendidos por embudo (27 abiertos al corte) con antigüedad en etapa.",
+              "Desplegado en /old/creditos/pipeline: suspendidos por embudo (27 abiertos a esa fecha) con antigüedad en etapa.",
             proof: [{ href: "/old/creditos/pipeline?etapa=Suspendido#tratos", label: "Pipeline — tratos suspendidos" }],
           },
           {
@@ -516,7 +516,7 @@ export const HUD_AREAS: HudArea[] = [
             label: "Aprobación final",
             status: "COMPLETA",
             note:
-              "Desplegado en /old/creditos/pipeline: Resguardo / Resolución por embudo (67 abiertos al corte) — la etapa donde en la práctica se detiene el registro.",
+              "Desplegado en /old/creditos/pipeline: Resguardo / Resolución por embudo (67 abiertos a esa fecha) — la etapa donde en la práctica se detiene el registro.",
             proof: [
               { href: "/old/creditos/pipeline?etapa=Resguardo%20/%20Resolución#tratos", label: "Pipeline — tratos en Resguardo / Resolución" },
             ],

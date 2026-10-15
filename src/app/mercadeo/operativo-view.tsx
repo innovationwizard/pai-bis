@@ -284,7 +284,7 @@ export default function OperativoView({ variant = "home" }: { variant?: "home" |
       </div>
 
       {variant === "reporte" ? (
-        <p className="op-question">¿Este corte compra leads, reservas y cierres dentro del presupuesto?</p>
+        <p className="op-question">¿La pauta de este periodo compra leads, reservas y cierres dentro del presupuesto?</p>
       ) : null}
       {error ? <p className="op-note op-warn">{error}</p> : null}
       {report?.notice ? <p className="op-note">{report.notice}</p> : null}
@@ -324,7 +324,7 @@ function Pyramid({ report }: { report: OperativoReport }) {
   const band = lead.min == null || lead.max == null ? null : `meta ${count(lead.min)}–${count(lead.max)}`;
   const leadDetail = [`${count(lead.leads)} leads`, band, report.partial ? "la meta es del mes completo" : null].filter(Boolean).join(" · ");
   return (
-    <div className="op-kpis" aria-label="Prioridades del corte">
+    <div className="op-kpis" aria-label="Prioridades del periodo">
       <p>
         <strong style={{ color: STATUS_COLOR[report.budgetHeadline.status] }}>{pct(report.budgetHeadline.ratio)}</strong>
         <span>Presupuesto de pauta</span>
@@ -338,7 +338,7 @@ function Pyramid({ report }: { report: OperativoReport }) {
       <p>
         <strong>{count(report.reservaUnits)}</strong>
         <span>Reservas</span>
-        <small>por fuente, en el corte</small>
+        <small>por fuente, en el periodo</small>
       </p>
       <p>
         <strong>{report.cierreHeadline.costo == null ? "Sin ventas" : money(report.cierreHeadline.costo)}</strong>
@@ -358,7 +358,7 @@ function BudgetHero({ report, onProject }: { report: OperativoReport; onProject:
   }));
   const pace = report.partial && headline.paceRatio != null
     ? `Ritmo a hoy ${pct(headline.paceRatio)} del tramo corrido. El presupuesto es del mes completo.`
-    : "Mes cerrado. La barra compara el gasto del corte con el presupuesto del mes.";
+    : "Mes cerrado. La barra compara el gasto del periodo con el presupuesto del mes.";
   return (
     <section className="op-hero op-hero-budget" aria-label="Consumo de presupuesto de pauta">
       <header className="op-head">
@@ -377,7 +377,7 @@ function BudgetHero({ report, onProject }: { report: OperativoReport; onProject:
         </ul>
       </header>
       <div className="op-chart">
-        {rows.length === 0 ? <p className="op-note">No hay proyectos en este corte.</p> : (
+        {rows.length === 0 ? <p className="op-note">No hay proyectos en este periodo.</p> : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart layout="vertical" data={rows} margin={{ left: 8, right: 36, top: 4, bottom: 0 }}>
               <CartesianGrid stroke="#e2e8f0" horizontal={false} />
@@ -404,7 +404,7 @@ function BudgetHero({ report, onProject }: { report: OperativoReport; onProject:
       <details className="op-def">
         <summary>Definición</summary>
         <p>
-          El gasto es Meta y Google de los días del corte, más TikTok, LinkedIn, Pauta Digital y Wati cuando el corte cubre el mes completo.
+          El gasto es Meta y Google de los días del periodo, más TikTok, LinkedIn, Pauta Digital y Wati cuando el periodo cubre el mes completo.
           Un real vacío no entra como cero. El presupuesto ingresado de ese mes gana. Si no hay uno, se usa el presupuesto cargado.
           Un dólar de pauta se convierte a 7.80. Una cuenta en quetzales no se multiplica.
         </p>
@@ -428,7 +428,7 @@ function CplHero({ report, onPoint }: { report: OperativoReport; onPoint: (month
         </div>
       </header>
       <div className="op-chart">
-        {data.length === 0 ? <p className="op-note">No hay meses en este corte.</p> : (
+        {data.length === 0 ? <p className="op-note">No hay meses en este periodo.</p> : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={data}
@@ -476,12 +476,12 @@ function FuenteHero({ report, onFuente }: { report: OperativoReport; onFuente: (
           <h2>Reservas por fuente</h2>
           <p className="op-figure">
             <span>{count(report.reservaUnits)}</span>
-            <small>reservas en el corte</small>
+            <small>reservas en el periodo</small>
           </p>
         </div>
       </header>
       <div className="op-chart">
-        {report.fuentes.length === 0 ? <p className="op-note">No hay reservas en este corte.</p> : (
+        {report.fuentes.length === 0 ? <p className="op-note">No hay reservas en este periodo.</p> : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart layout="vertical" data={report.fuentes} margin={{ left: 8, right: 28, top: 4, bottom: 0 }}>
               <CartesianGrid stroke="#e2e8f0" horizontal={false} />
@@ -521,7 +521,7 @@ function CierreHero({ report, onProject }: { report: OperativoReport; onProject:
         </div>
       </header>
       <div className="op-chart">
-        {rows.length === 0 ? <p className="op-note">No hay ventas con pauta en este corte.</p> : (
+        {rows.length === 0 ? <p className="op-note">No hay ventas con pauta en este periodo.</p> : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart layout="vertical" data={rows} margin={{ left: 8, right: 48, top: 4, bottom: 0 }}>
               <CartesianGrid stroke="#e2e8f0" horizontal={false} />

@@ -563,7 +563,7 @@ export default function Dashboard() {
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.accent, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>Panel de Control Financiero</div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: COLORS.text }}>Cesión de Derechos — Aptos</h1>
-            <div style={{ color: COLORS.textDim, fontSize: 12, marginTop: 4 }}>Corte: Febrero 2026 · {DATA.length} unidades en cartera</div>
+            <div style={{ color: COLORS.textDim, fontSize: 12, marginTop: 4 }}>Periodo: Febrero 2026 · {DATA.length} unidades en cartera</div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {['resumen', 'cartera', 'clientes'].map(v => (

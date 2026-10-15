@@ -281,7 +281,7 @@ export default function PipelineClient() {
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Pipeline de Expedientes de Crédito</h1>
           {activeTab === "resumen" ? <p className="text-sm text-muted mt-1">
-            Pipedrive al {data?.boundary ?? "…"} — corte de la extracción, no la fecha del archivo
+            Pipedrive al {data?.boundary ?? "…"} — fecha de la extracción, no la fecha del archivo
             {data?.fechaExport ? ` (exportado el ${data.fechaExport})` : ""}. Se actualiza colocando
             el nuevo export y regenerando con scripts/extract-creditos-pipedrive.py
           </p> : null}
@@ -739,7 +739,7 @@ export default function PipelineClient() {
             </div>
 
             <p className="text-xs text-muted">
-              Fuente: export de Pipedrive con corte {data.boundary}
+              Fuente: export de Pipedrive al {data.boundary}
               {data.fechaExport ? `, archivo del ${data.fechaExport}` : ""} ·{" "}
               {nf.format(data.totalTratos)} tratos en {data.proyectos.length} proyectos. Ningún monto
               se calcula ni se estima: todos vienen del campo Monto de préstamo tal como está en

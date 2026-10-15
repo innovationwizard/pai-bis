@@ -367,7 +367,7 @@ export function StatusRepartidoCard() {
 /**
  * El Calendario Contable lista "Revisión Dirección General" y "Revisión
  * Ejecutivos" como dos entregables distintos, pero ambos miran exactamente la
- * misma cifra sobre la misma planilla: no son dos cálculos ni dos cortes. Se
+ * misma cifra sobre la misma planilla: no son dos cálculos ni dos lecturas. Se
  * muestran como una sola fila con las dos audiencias rotuladas, en vez de
  * repetir el mismo componente dos veces.
  */
@@ -738,7 +738,7 @@ export function CobrosResumenTable({ data }: { data: CobrosResumen }) {
   return (
     <div className="grid gap-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <KpiCard label={`Cobrado del mes — corte ${data.corte}`} value={money0.format(totalMesEfectuado)} hint={`vs. ${money0.format(totalMesEsperado)} esperado`} />
+        <KpiCard label={`Cobrado del mes — al ${data.corte}`} value={money0.format(totalMesEfectuado)} hint={`vs. ${money0.format(totalMesEsperado)} esperado`} />
         <KpiCard label="Total adeudado" value={money0.format(totalAdeudado)} negative />
         <KpiCard label="Clientes atrasados" value={String(totalAtrasado)} negative />
       </div>
@@ -839,7 +839,7 @@ export function ComisionesVentasChart({ data }: { data: ComisionesVentas }) {
           ))}
         </div>
       ) : null}
-      <SourceNote>Unidades vendidas o reservadas (total − disponible), foto acumulada al corte — no es alta de ventas del mes.</SourceNote>
+      <SourceNote>Unidades vendidas o reservadas (total − disponible), foto acumulada a esa fecha — no es el alta de ventas del mes.</SourceNote>
     </div>
   );
 }

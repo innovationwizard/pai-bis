@@ -20,10 +20,10 @@ const PROJECT_SLUG: Record<string, string> = {
 };
 
 const FORMULAS = [
-  "ROAS = valor de las ventas del corte ÷ pauta del corte.",
+  "ROAS = valor de las ventas del periodo ÷ pauta del periodo.",
   "ROI = (valor de las ventas − pauta) ÷ pauta.",
   "Costo por cierre = pauta ÷ cantidad de ventas.",
-  "La pauta suma Meta y Google en los días del corte. TikTok, LinkedIn, Pauta Digital y Wati entran solo cuando el corte cubre el mes completo. Un real vacío es sin ejecución.",
+  "La pauta suma Meta y Google en los días del periodo. TikTok, LinkedIn, Pauta Digital y Wati entran solo cuando el periodo cubre el mes completo. Un real vacío es sin ejecución.",
   "El uso diario compara Meta y Google de cada día con el presupuesto de las seis líneas repartido entre los días del mes.",
   "Una reserva es un trato con actividad Reserva hecha, contado una vez. Una venta es una venta de las dos puertas. Las dos van en unidades y en quetzales del valor del trato.",
 ];
@@ -237,9 +237,9 @@ async function fetchFiltered(
 ): Promise<Row[]> {
   const counted = await count();
   if (counted.error) throw new Error(counted.error.message);
-  if (counted.count == null) throw new Error("No se pudo contar el corte de Mercadeo.");
+  if (counted.count == null) throw new Error("No se pudo contar el periodo de Mercadeo.");
   if (counted.count > MAX_WINDOW_ROWS) {
-    throw new Error("Ese período es demasiado ancho para la vista principal. Acota el corte.");
+    throw new Error("Ese periodo es demasiado ancho para la vista principal. Elige uno más corto.");
   }
   if (counted.count === 0) return [];
   const pages = Math.ceil(counted.count / PAGE);
@@ -324,7 +324,7 @@ export async function buildReport(filters: Filters): Promise<MercadeoReport> {
     section: filters.section,
     periodLabel: range.label,
     rangeLabel: `${range.from} – ${range.to}`,
-    caption: "La meta de leads y el presupuesto mensual son del mes completo. Meta y Google corren hasta el fin del corte.",
+    caption: "La meta de leads y el presupuesto mensual son del mes completo. Meta y Google corren hasta el fin del periodo.",
     formulas: FORMULAS,
     insights: insights(measured),
     tiles: tiles(measured),
@@ -350,7 +350,7 @@ export async function buildReport(filters: Filters): Promise<MercadeoReport> {
 
 async function load(mercadeo: Db, ventas: Db, bounds: MercadeoBounds): Promise<Loaded> {
   if (bounds.adFrom > bounds.adTo || bounds.dealFrom > bounds.dealTo) {
-    throw new Error("El período no tiene días.");
+    throw new Error("El periodo no tiene días.");
   }
   const adMonthFrom = `${bounds.adFrom.slice(0, 7)}-01`;
   const adMonthTo = `${bounds.adTo.slice(0, 7)}-01`;
@@ -473,7 +473,7 @@ async function load(mercadeo: Db, ventas: Db, bounds: MercadeoBounds): Promise<L
     dealId: text(row.deal_id),
     saleOn: text(row.sale_on).slice(0, 10) || null,
   }));
-  const notice = ads.length === 0 ? "No hay pauta en este corte." : null;
+  const notice = ads.length === 0 ? "No hay pauta en este periodo." : null;
   return { centers, ranges, ads, budgets, budgetKey, deals, attrs, reservaDays, sales, notice };
 }
 
@@ -646,7 +646,7 @@ function pairFor(loaded: Loaded, window: DateWindow, slugs: Set<string>, kind: "
 
 function tiles(cut: Cut): Tile[] {
   const rangeText = cut.leadMin == null || cut.leadMax == null
-    ? "Sin meta en este corte."
+    ? "Sin meta en este periodo."
     : `Meta ${num(cut.leadMin)}–${num(cut.leadMax)}${cut.partial ? ". La meta es del mes completo." : "."}`;
   return [
     { label: "Meta mensual de lead", value: `${num(cut.leads)} leads`, detail: rangeText },
@@ -858,13 +858,13 @@ function platformRows(loaded: Loaded, window: DateWindow, centers: Center[]): Pl
       label: "Meta",
       ventas: meta,
       costo: meta.units > 0 ? metaSpend / meta.units : null,
-      detail: "Gasto Meta del corte ÷ ventas con campaña Meta.",
+      detail: "Gasto Meta del periodo ÷ ventas con campaña Meta.",
     },
     {
       label: "TikTok",
       ventas: tiktok,
       costo: fullMonths.length > 0 && tiktok.units > 0 ? tiktokSpend / tiktok.units : null,
-      detail: fullMonths.length > 0 ? "Real de TikTok de los meses completos ÷ ventas con campaña TikTok." : "Este corte no cubre un mes completo, así que el real de TikTok no entra.",
+      detail: fullMonths.length > 0 ? "Real de TikTok de los meses completos ÷ ventas con campaña TikTok." : "Este periodo no cubre un mes completo, así que el real de TikTok no entra.",
     },
   ];
 }

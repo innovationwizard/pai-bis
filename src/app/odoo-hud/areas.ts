@@ -294,7 +294,7 @@ export const ODOO_HUD_AREAS: HudArea[] = [
             id: "b7",
             label: "Reporte de alertas",
             status: "COMPLETA",
-            note: "[APP] days_delinquent + aging + compliance_status por cuenta (382 en mora al corte). Inexistente en las otras fuentes.",
+            note: "[APP] days_delinquent + aging + compliance_status por cuenta (382 en mora a esa fecha). Inexistente en las otras fuentes.",
           },
         ],
       },

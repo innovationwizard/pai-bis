@@ -115,6 +115,22 @@ function units(value: number | null): string {
   return new Intl.NumberFormat("es-GT", { maximumFractionDigits: 1 }).format(value);
 }
 
+const ROW_HEAD: Record<string, string> = {
+  desistimientos: "Motivo",
+  "ventas-por-canales": "Canal",
+  promociones: "Promoción",
+  descuentos: "Tipo",
+  "subidas-de-precios": "Concepto",
+  "objetivos-de-ventas": "Asesor",
+  "analisis-de-inventario": "Inventario",
+  "tasa-de-conversion": "Paso",
+  "status-de-ventas": "Estado",
+};
+
+function rowHead(section: string): string {
+  return ROW_HEAD[section] ?? "Concepto";
+}
+
 export default function VentasBoard({ section }: { section: string }) {
   const [bar, setBar] = useState<BarState>(INITIAL);
   const [ready, setReady] = useState(false);
@@ -405,7 +421,7 @@ export default function VentasBoard({ section }: { section: string }) {
             <table className="ventas-table">
               <thead>
                 <tr>
-                  <th>Corte</th>
+                  <th>{rowHead(section)}</th>
                   <th>Unidades</th>
                   <th>Quetzales</th>
                 </tr>

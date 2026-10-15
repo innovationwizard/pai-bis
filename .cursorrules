@@ -39,6 +39,19 @@ truth > provided facts > production safety > best practices > completeness > spe
 - No fake business data in production logic, production databases, or as a substitute for requirements.
 - Test fixtures allowed only when labeled, isolated, and never mixed with production paths.
 
+## Spanish UI
+Copy a person can read is Guatemalan Spanish, the kind a CEO can say out loud. Do not calque English analytics words.
+
+Never write "corte" on a screen. Here it means a dress or a haircut, not a reporting window.
+
+- Dates from the Periodo filter → "periodo". "18 reservas en el periodo", not "en el corte".
+- An as-of date → "al 30.08.2026" or "a esa fecha", not "al corte".
+- The last loaded snapshot → "el último dato cargado", not "el último corte".
+- A screen on the walkthrough → "esta vista", not "este corte".
+- A table's first column → what the cells are (Canal, Motivo, Asesor), not "Corte".
+
+"período" is also fine. A database field named corte is not permission to print the word.
+
 ## Stack
 - Next.js 15 (App Router), TypeScript strict, Supabase (Postgres + Auth + RLS + Realtime + Storage), Vercel, D3.js, Zod
 - Claude Vision OCR (@anthropic-ai/sdk) for bank receipt extraction

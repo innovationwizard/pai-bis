@@ -11,8 +11,8 @@ import {
 } from "./period";
 
 const GAP = "No hay datos en PipeDrive";
-const NO_ROWS = "Este corte todavía no tiene filas.";
-const NO_LOSSES = "No hay desistimientos en este corte.";
+const NO_ROWS = "Este periodo todavía no tiene filas.";
+const NO_LOSSES = "No hay desistimientos en este periodo.";
 const VISIT_CAPTION =
   "Una visita de este período que se vuelve venta en un período siguiente no entra en el numerador.";
 
@@ -370,7 +370,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
     for (const [id, list] of grouped) {
       rows.push({ label: labels.get(id) ?? "Sin dato", ...measure(list.length, list.map((sale) => sale.value_gtq)) });
     }
-    if (rows.length === 0) emptyNotice = "No hay ventas en este corte.";
+    if (rows.length === 0) emptyNotice = "No hay ventas en este periodo.";
   }
 
   if (filters.section === "descuentos") {
@@ -380,7 +380,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
         const sale = saleByDeal.get(String(row.deal_id));
         return Boolean(sale && inRange(sale.sale_on, range) && salePasses(sale, true));
       });
-      if (inPeriod.length === 0) emptyNotice = "No hay descuentos en este corte.";
+      if (inPeriod.length === 0) emptyNotice = "No hay descuentos en este periodo.";
       else {
         const grouped = new Map<string, typeof inPeriod>();
         for (const row of inPeriod) {
@@ -407,7 +407,7 @@ export async function buildReport(filters: Filters): Promise<VentasReport> {
       return projectOk(String(tower?.project_id ?? ""));
     });
     if (rises.length === 0) emptyNotice = GAP;
-    else if (inPeriod.length === 0) emptyNotice = "No hay subidas en este corte.";
+    else if (inPeriod.length === 0) emptyNotice = "No hay subidas en este periodo.";
     else {
       rows.push({
         label: "Subidas",

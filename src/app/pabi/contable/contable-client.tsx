@@ -150,7 +150,7 @@ function SessionExpiredBanner() {
       <span aria-hidden="true" className="text-danger text-sm leading-5">&#9888;</span>
       <p className="text-sm text-text-primary m-0">
         <strong>Tu sesión expiró.</strong> Las cifras en vivo (Desistimientos y PCV &amp; Expedientes) dejaron de
-        actualizarse; el resto de la página es el último corte cargado.
+        actualizarse; el resto de la página es el último dato cargado.
       </p>
       <a href="/login" className="text-sm font-semibold text-danger underline underline-offset-2">
         Iniciá sesión de nuevo

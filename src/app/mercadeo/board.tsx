@@ -321,7 +321,7 @@ export default function MercadeoBoard({ section }: { section: string }) {
               {report.campaigns.length > 0 ? <CampaignTable title="Campañas" rows={report.campaigns} /> : null}
               {report.puertaCampaigns.length > 0 ? <CampaignTable title="Puerta Abierta" rows={report.puertaCampaigns} /> : null}
               {report.campaigns.length === 0 && report.puertaCampaigns.length === 0 ? (
-                <p className="mercadeo-note">No hay campañas en este corte.</p>
+                <p className="mercadeo-note">No hay campañas en este periodo.</p>
               ) : null}
             </>
           ) : null}
@@ -410,7 +410,7 @@ function CostCenterBlock({ row }: { row: MercadeoReport["byProject"][number] }) 
 }
 
 function CampaignTable({ title, rows }: { title: string; rows: CampaignRow[] }) {
-  if (rows.length === 0) return <p className="mercadeo-note">No hay campañas en este corte.</p>;
+  if (rows.length === 0) return <p className="mercadeo-note">No hay campañas en este periodo.</p>;
   return (
     <Table title={title} head={["Campaña", "Gasto", "Leads", "Costo por lead", "Alcance", "Impresiones", "Reservas", "Ventas"]}>
       {rows.map((row) => (

@@ -290,7 +290,7 @@ function Efectividad({
       <div className="op-kpis">
         <Kpi label="Gasto Meta" value={money(vista.spendGtq)} detail={`${count(vista.leads)} leads`} />
         <Kpi label="CPL mediano" value={vista.medianCpl == null ? "—" : money(vista.medianCpl)} detail="de las campañas con lead" />
-        <Kpi label="Con venta" value={count(vista.withSales)} detail={vista.rest > 0 ? `${count(vista.rest)} quedan fuera del top` : "en el corte"} />
+        <Kpi label="Con venta" value={count(vista.withSales)} detail={vista.rest > 0 ? `${count(vista.rest)} quedan fuera del top` : "en el periodo"} />
         <Kpi label="Reservas en el top" value={count(vista.byReservas.reduce((sum, row) => sum + row.units, 0))} detail="campañas con reserva" />
       </div>
       <div className="op-mid">
@@ -371,7 +371,7 @@ function CostoPorLead({ vista }: { vista: Extract<MercadeoVista, { section: "cos
       <section className="op-hero op-hero-budget" aria-label="Evolución de costo por lead">
         <header className="op-head"><div><h2>Costo por lead por proyecto</h2></div></header>
         <div className="op-chart">
-          {data.length === 0 ? <p className="op-note">No hay meses en este corte.</p> : (
+          {data.length === 0 ? <p className="op-note">No hay meses en este periodo.</p> : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid stroke="#e2e8f0" vertical={false} />
@@ -435,7 +435,7 @@ function Inversion({
       <section className="op-hero op-hero-budget" aria-label="Inversión acumulada">
         <header className="op-head"><div><h2>Mes y acumulado</h2><p className="op-note">La barra es la pauta del mes. Las líneas son el acumulado.</p></div></header>
         <div className="op-chart">
-          {vista.months.length === 0 ? <p className="op-note">No hay meses en este corte.</p> : (
+          {vista.months.length === 0 ? <p className="op-note">No hay meses en este periodo.</p> : (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
                 data={vista.months}
@@ -462,7 +462,7 @@ function Inversion({
       <section className="op-hero op-hero-cierre" aria-label="Acumulado por proyecto">
         <header className="op-head"><div><h2>Acumulado por proyecto</h2><p className="op-note">La barra gris es el presupuesto. El clic en un mes abre el desglose.</p></div></header>
         <div className="op-chart">
-          {vista.gaps.length === 0 ? <p className="op-note">No hay proyectos en este corte.</p> : (
+          {vista.gaps.length === 0 ? <p className="op-note">No hay proyectos en este periodo.</p> : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={vista.gaps} margin={{ left: 8, right: 28, top: 4, bottom: 0 }}>
                 <CartesianGrid stroke="#e2e8f0" horizontal={false} />
@@ -495,7 +495,7 @@ function Canales({ vista }: { vista: Extract<MercadeoVista, { section: "canales"
     <>
       <div className="op-kpis op-kpis-3">
         <Kpi label="Canales con gasto" value={`${count(vista.active)} de ${count(vista.measured)}`} detail={vista.caption} />
-        <Kpi label="Días del corte" value={count(vista.days)} detail="Meta y Google cuentan días con gasto" />
+        <Kpi label="Días del periodo" value={count(vista.days)} detail="Meta y Google cuentan días con gasto" />
         <Kpi label="Sin ejecución" value={mute.length === 0 ? "Ninguno" : String(mute.length)} detail={mute.length === 0 ? "Todos tienen real o gasto" : mute.join(", ")} />
       </div>
       <section className="op-hero op-hero-budget" aria-label="Gasto por canal">
@@ -535,7 +535,7 @@ function Gestion({
       <section className="op-hero op-hero-budget" aria-label="Presupuesto por proyecto">
         <header className="op-head"><div><h2>Presupuesto por proyecto</h2><p className="op-note">El clic deja solo ese proyecto.</p></div></header>
         <div className="op-chart">
-          {rows.length === 0 ? <p className="op-note">No hay proyectos en este corte.</p> : (
+          {rows.length === 0 ? <p className="op-note">No hay proyectos en este periodo.</p> : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={rows} margin={{ left: 8, right: 36, top: 4, bottom: 0 }}>
                 <CartesianGrid stroke="#e2e8f0" horizontal={false} />
@@ -556,9 +556,9 @@ function Gestion({
         {vista.puerta ? <p className="op-note">Puerta Abierta {money(vista.puerta.actualGtq)} de {money(vista.puerta.targetGtq)}. No suma a los proyectos.</p> : null}
       </section>
       <section className="op-hero op-hero-cierre" aria-label="Ritmo diario">
-        <header className="op-head"><div><h2>Gasto acumulado del corte</h2></div></header>
+        <header className="op-head"><div><h2>Gasto acumulado del periodo</h2></div></header>
         <div className="op-chart">
-          {vista.daily.length === 0 ? <p className="op-note">No hay días en este corte.</p> : (
+          {vista.daily.length === 0 ? <p className="op-note">No hay días en este periodo.</p> : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={vista.daily} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid stroke="#e2e8f0" vertical={false} />
@@ -592,7 +592,7 @@ function Bars<T extends Record<string, string | number | null>>({
   colorOf: (row: T) => string;
   onPick?: (row: T) => void;
 }) {
-  if (rows.length === 0) return <p className="op-note">Nada que graficar en este corte.</p>;
+  if (rows.length === 0) return <p className="op-note">Nada que graficar en este periodo.</p>;
   return (
     <div className="op-chart">
       <ResponsiveContainer width="100%" height="100%">
@@ -629,7 +629,7 @@ function GlanceDrill({ vista, drill, onClose }: { vista: MercadeoVista; drill: D
     return (
       <Overlay title="Puerta Abierta" onClose={onClose}>
         <p className="op-note">Centro de costo propio. No entra en las barras de los proyectos.</p>
-        {list.length === 0 ? <p className="op-note">No hay campañas de Puerta Abierta en este corte.</p> : list.map((row) => (
+        {list.length === 0 ? <p className="op-note">No hay campañas de Puerta Abierta en este periodo.</p> : list.map((row) => (
           <p key={row.campaign} className="op-note">{row.campaign}: {money(row.spendGtq)} · {count(row.leads ?? 0)} leads · {count(row.reservas)} reservas</p>
         ))}
       </Overlay>
