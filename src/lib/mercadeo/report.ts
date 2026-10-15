@@ -108,6 +108,7 @@ type Ad = {
   impressions: number;
   reach: number;
   leads: number;
+  forms: number;
 };
 type Budget = { centerId: string; line: string; month: string; plan: number | null; real: number | null };
 type Range = { min: number | null; max: number | null };
@@ -201,19 +202,67 @@ function toGtq(row: Ad): number {
 }
 
 type Db = ReturnType<ReturnType<typeof createAdminClient>["schema"]>;
+type Row = Record<string, unknown>;
 
-async function fetchAll(db: Db, table: string, select: string, orderBy = ["id"]): Promise<Record<string, unknown>[]> {
-  const rows: Record<string, unknown>[] = [];
-  for (let from = 0; from < 200000; from += 1000) {
-    let query = db.from(table).select(select);
-    for (const column of orderBy) query = query.order(column);
-    const { data, error } = await query.range(from, from + 999);
-    if (error) throw new Error(error.message);
-    const batch = (data ?? []) as unknown as Record<string, unknown>[];
-    rows.push(...batch);
-    if (batch.length < 1000) break;
+const PAGE = 1000;
+const MAX_WINDOW_ROWS = 12000;
+const STORE_TTL_MS = 60_000;
+
+export type MercadeoBounds = {
+  adFrom: string;
+  adTo: string;
+  dealFrom: string;
+  dealTo: string;
+};
+
+const storeCache = new Map<string, { at: number; store: Loaded }>();
+
+export function clearMercadeoCache(): void {
+  storeCache.clear();
+}
+
+function asRows(data: unknown): Row[] {
+  return (data ?? []) as Row[];
+}
+
+async function fetchSmall(db: Db, table: string, select: string): Promise<Row[]> {
+  const { data, error } = await db.from(table).select(select).limit(PAGE);
+  if (error) throw new Error(error.message);
+  return asRows(data);
+}
+
+async function fetchFiltered(
+  count: () => PromiseLike<{ count: number | null; error: { message: string } | null }>,
+  page: (from: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+): Promise<Row[]> {
+  const counted = await count();
+  if (counted.error) throw new Error(counted.error.message);
+  if (counted.count == null) throw new Error("No se pudo contar el corte de Mercadeo.");
+  if (counted.count > MAX_WINDOW_ROWS) {
+    throw new Error("Ese período es demasiado ancho para la vista principal. Acota el corte.");
+  }
+  if (counted.count === 0) return [];
+  const pages = Math.ceil(counted.count / PAGE);
+  const batches = await Promise.all(Array.from({ length: pages }, (_, index) => page(index * PAGE)));
+  const rows: Row[] = [];
+  for (const batch of batches) {
+    if (batch.error) throw new Error(batch.error.message);
+    rows.push(...asRows(batch.data));
   }
   return rows;
+}
+
+async function fetchByIds(db: Db, table: string, column: string, ids: string[], select: string): Promise<Row[]> {
+  const unique = [...new Set(ids)].filter((id) => id.length > 0);
+  if (unique.length === 0) return [];
+  const chunks: string[][] = [];
+  for (let index = 0; index < unique.length; index += 80) chunks.push(unique.slice(index, index + 80));
+  const batches = await Promise.all(chunks.map(async (chunk) => {
+    const { data, error } = await db.from(table).select(select).in(column, chunk);
+    if (error) throw new Error(error.message);
+    return asRows(data);
+  }));
+  return batches.flat();
 }
 
 export function parseFilters(url: URL): Filters {
@@ -252,14 +301,17 @@ function campaignOf(attr: Attr | undefined): string {
 }
 
 export async function buildReport(filters: Filters): Promise<MercadeoReport> {
-  const admin = createAdminClient();
-  const mercadeo = admin.schema("mercadeo");
-  const ventas = admin.schema("ventas");
-  const loaded = await load(mercadeo, ventas);
   const range = resolveRange(filters.preset, filters.customFrom, filters.customTo);
   const windows = [range];
   if (filters.compareN) windows.push(...previousWindows(range, Math.min(12, Math.max(1, filters.n))));
   if (filters.compareYear) windows.push(yearAgoWindow(range));
+  let from = range.from;
+  let to = range.to;
+  for (const window of windows) {
+    if (window.from < from) from = window.from;
+    if (window.to > to) to = window.to;
+  }
+  const loaded = await loadMercadeoStore({ adFrom: from, adTo: to, dealFrom: from, dealTo: to });
 
   const selected = filters.slugs;
   const centers = loaded.centers.filter((center) => selected === null || selected.includes(center.slug));
@@ -296,19 +348,42 @@ export async function buildReport(filters: Filters): Promise<MercadeoReport> {
   };
 }
 
-async function load(mercadeo: Db, ventas: Db): Promise<Loaded> {
-  let centerRows: Record<string, unknown>[];
-  let rangeRows: Record<string, unknown>[];
-  let adRows: Record<string, unknown>[];
-  let budgetRows: Record<string, unknown>[];
-  let attrRows: Record<string, unknown>[];
+async function load(mercadeo: Db, ventas: Db, bounds: MercadeoBounds): Promise<Loaded> {
+  if (bounds.adFrom > bounds.adTo || bounds.dealFrom > bounds.dealTo) {
+    throw new Error("El período no tiene días.");
+  }
+  const adMonthFrom = `${bounds.adFrom.slice(0, 7)}-01`;
+  const adMonthTo = `${bounds.adTo.slice(0, 7)}-01`;
+  let centerRows: Row[];
+  let rangeRows: Row[];
+  let adRows: Row[];
+  let budgetRows: Row[];
+  let projectRows: Row[];
+  let fuenteRowsRaw: Row[];
+  let comprobanteRows: Row[];
+  let saleRows: Row[];
   try {
-    [centerRows, rangeRows, adRows, budgetRows, attrRows] = await Promise.all([
-      fetchAll(mercadeo, "cost_center", "id,slug,name,is_building,sort_order"),
-      fetchAll(mercadeo, "lead_range", "cost_center_id,min_leads,max_leads", ["cost_center_id"]),
-      fetchAll(mercadeo, "ad_day", "id,cost_center_id,platform,campaign_name,day,currency,spend,impressions,reach,leads"),
-      fetchAll(mercadeo, "budget_month", "id,cost_center_id,line_code,month_start,presupuestado,real_gtq"),
-      fetchAll(mercadeo, "deal_attribution", "id,pipedrive_deal_id,platform,campaign_name"),
+    [centerRows, rangeRows, adRows, budgetRows, projectRows, fuenteRowsRaw, comprobanteRows, saleRows] = await Promise.all([
+      fetchSmall(mercadeo, "cost_center", "id,slug,name,is_building,sort_order"),
+      fetchSmall(mercadeo, "lead_range", "cost_center_id,min_leads,max_leads"),
+      fetchFiltered(
+        () => mercadeo.from("ad_day").select("id", { count: "exact", head: true }).gte("day", bounds.adFrom).lte("day", bounds.adTo),
+        (from) => mercadeo.from("ad_day").select("cost_center_id,platform,campaign_name,day,currency,spend,impressions,reach,leads,lead_forms").gte("day", bounds.adFrom).lte("day", bounds.adTo).order("id").range(from, from + PAGE - 1),
+      ),
+      fetchFiltered(
+        () => mercadeo.from("budget_month").select("id", { count: "exact", head: true }).gte("month_start", adMonthFrom).lte("month_start", adMonthTo),
+        (from) => mercadeo.from("budget_month").select("cost_center_id,line_code,month_start,presupuestado,real_gtq").gte("month_start", adMonthFrom).lte("month_start", adMonthTo).order("id").range(from, from + PAGE - 1),
+      ),
+      fetchSmall(ventas, "dim_project", "id,name"),
+      fetchSmall(ventas, "dim_fuente", "id,name"),
+      fetchFiltered(
+        () => ventas.from("fact_comprobante").select("id", { count: "exact", head: true }).gte("comprobante_on", bounds.dealFrom).lte("comprobante_on", bounds.dealTo),
+        (from) => ventas.from("fact_comprobante").select("deal_id,comprobante_on").gte("comprobante_on", bounds.dealFrom).lte("comprobante_on", bounds.dealTo).order("id").range(from, from + PAGE - 1),
+      ),
+      fetchFiltered(
+        () => ventas.from("v_sale").select("deal_id", { count: "exact", head: true }).gte("sale_on", bounds.dealFrom).lte("sale_on", bounds.dealTo),
+        (from) => ventas.from("v_sale").select("deal_id,unit_id,sale_on").gte("sale_on", bounds.dealFrom).lte("sale_on", bounds.dealTo).order("deal_id").order("unit_id").range(from, from + PAGE - 1),
+      ),
     ]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
@@ -317,6 +392,13 @@ async function load(mercadeo: Db, ventas: Db): Promise<Loaded> {
     }
     throw error;
   }
+  const dealIds = [
+    ...comprobanteRows.map((row) => text(row.deal_id)),
+    ...saleRows.map((row) => text(row.deal_id)),
+  ];
+  const dealRows = await fetchByIds(ventas, "dim_deal", "id", dealIds, "id,pipedrive_deal_id,project_id,value_gtq,fuente_id");
+  const pipedriveIds = dealRows.map((row) => text(row.pipedrive_deal_id));
+  const attrRows = await fetchByIds(mercadeo, "deal_attribution", "pipedrive_deal_id", pipedriveIds, "pipedrive_deal_id,platform,campaign_name");
 
   const centers: Center[] = centerRows
     .map((row) => ({
@@ -341,6 +423,7 @@ async function load(mercadeo: Db, ventas: Db): Promise<Loaded> {
     impressions: amount(row.impressions) ?? 0,
     reach: amount(row.reach) ?? 0,
     leads: amount(row.leads) ?? 0,
+    forms: amount(row.lead_forms) ?? 0,
   }));
   const budgets: Budget[] = budgetRows.map((row) => ({
     centerId: text(row.cost_center_id),
@@ -361,13 +444,6 @@ async function load(mercadeo: Db, ventas: Db): Promise<Loaded> {
     attrs.set(id, current);
   }
 
-  const [projectRows, fuenteRowsRaw, dealRows, saleRows, comprobanteRows] = await Promise.all([
-    fetchAll(ventas, "dim_project", "id,name"),
-    fetchAll(ventas, "dim_fuente", "id,name"),
-    fetchAll(ventas, "dim_deal", "id,pipedrive_deal_id,project_id,value_gtq,fuente_id"),
-    fetchAll(ventas, "v_sale", "deal_id,unit_id,sale_on", ["deal_id", "unit_id"]),
-    fetchAll(ventas, "fact_comprobante", "id,deal_id,comprobante_on"),
-  ]);
   const projectSlug = new Map<string, string>();
   for (const row of projectRows) {
     const slug = PROJECT_SLUG[text(row.name)];
@@ -397,9 +473,7 @@ async function load(mercadeo: Db, ventas: Db): Promise<Loaded> {
     dealId: text(row.deal_id),
     saleOn: text(row.sale_on).slice(0, 10) || null,
   }));
-  const notice = ads.length === 0
-    ? "La carga de Mercadeo todavía no tiene filas. Después de la migración 079 hay que correr python3 scripts/mercadeo/load.py."
-    : null;
+  const notice = ads.length === 0 ? "No hay pauta en este corte." : null;
   return { centers, ranges, ads, budgets, budgetKey, deals, attrs, reservaDays, sales, notice };
 }
 
@@ -797,9 +871,123 @@ function platformRows(loaded: Loaded, window: DateWindow, centers: Center[]): Pl
 
 export type MercadeoStore = Loaded;
 
-export async function loadMercadeoStore(): Promise<MercadeoStore> {
+export async function loadMercadeoStore(bounds: MercadeoBounds): Promise<MercadeoStore> {
+  const key = `${bounds.adFrom}|${bounds.adTo}|${bounds.dealFrom}|${bounds.dealTo}`;
+  const hit = storeCache.get(key);
+  if (hit && Date.now() - hit.at < STORE_TTL_MS) return hit.store;
   const admin = createAdminClient();
-  return load(admin.schema("mercadeo"), admin.schema("ventas"));
+  const store = await load(admin.schema("mercadeo"), admin.schema("ventas"), bounds);
+  storeCache.set(key, { at: Date.now(), store });
+  if (storeCache.size > 8) {
+    const oldest = [...storeCache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
+    if (oldest) storeCache.delete(oldest[0]);
+  }
+  return store;
+}
+
+export function storeCampaignsFor(
+  store: MercadeoStore,
+  window: DateWindow,
+  slugs: string[] | null,
+): { main: CampaignRow[]; puerta: CampaignRow[] } {
+  const selected = store.centers.filter((center) => slugs === null || slugs.includes(center.slug));
+  const buildings = selected.filter((center) => center.building);
+  const puerta = selected.find((center) => !center.building) ?? null;
+  return {
+    main: campaignRows(store, window, buildings.length > 0 ? buildings : puerta ? [puerta] : []),
+    puerta: buildings.length > 0 && puerta ? campaignRows(store, window, [puerta]) : [],
+  };
+}
+
+export type ChannelPoint = {
+  label: string;
+  spendGtq: number | null;
+  activeDays: number | null;
+  days: number;
+  leads: number | null;
+  forms: number | null;
+};
+
+export function storeChannels(store: MercadeoStore, window: DateWindow, centerIds: Set<string>): ChannelPoint[] {
+  const days = eachDay(window.from, window.to);
+  const metaDays = new Set<string>();
+  const googleDays = new Set<string>();
+  let metaSpend = 0;
+  let googleSpend = 0;
+  let metaLeadTotal = 0;
+  let googleForms = 0;
+  for (const row of store.ads) {
+    if (!centerIds.has(row.centerId) || row.campaign === EXCLUDED) continue;
+    if (row.day < window.from || row.day > window.to) continue;
+    if (row.platform === "meta") {
+      const spend = toGtq(row);
+      metaSpend += spend;
+      metaLeadTotal += row.leads;
+      if (spend > 0) metaDays.add(row.day);
+    } else if (row.platform === "google") {
+      const spend = toGtq(row);
+      googleSpend += spend;
+      googleForms += row.forms;
+      if (spend > 0) googleDays.add(row.day);
+    }
+  }
+  const months = monthsTouched(window.from, window.to);
+  function workbook(line: string): number | null {
+    let total = 0;
+    let any = false;
+    for (const month of months) {
+      for (const centerId of centerIds) {
+        const row = store.budgetKey.get(`${centerId}|${line}|${month}`);
+        if (row?.real == null) continue;
+        any = true;
+        total += row.real;
+      }
+    }
+    return any ? total : null;
+  }
+  return [
+    { label: "Meta", spendGtq: metaSpend, activeDays: metaDays.size, days: days.length, leads: metaLeadTotal, forms: null },
+    { label: "Google", spendGtq: googleSpend, activeDays: googleDays.size, days: days.length, leads: null, forms: googleForms },
+    { label: "TikTok", spendGtq: workbook("tiktok"), activeDays: null, days: days.length, leads: null, forms: null },
+    { label: "LinkedIn", spendGtq: workbook("linkedin"), activeDays: null, days: days.length, leads: null, forms: null },
+    { label: "Pauta digital", spendGtq: workbook("pauta_digital"), activeDays: null, days: days.length, leads: null, forms: null },
+    { label: "Wati", spendGtq: workbook("wati"), activeDays: null, days: days.length, leads: null, forms: null },
+  ];
+}
+
+export type LinePoint = { label: string; gtq: number | null };
+
+export function storeMonthLines(store: MercadeoStore, month: string, to: string, centerIds: Set<string>): LinePoint[] {
+  const end = monthEnd(month);
+  const sliceTo = end < to ? end : to;
+  const window = { from: month, to: sliceTo, label: month };
+  let meta = 0;
+  let google = 0;
+  for (const row of store.ads) {
+    if (!centerIds.has(row.centerId) || row.campaign === EXCLUDED) continue;
+    if (row.day < window.from || row.day > window.to) continue;
+    if (row.platform === "meta") meta += toGtq(row);
+    else if (row.platform === "google") google += toGtq(row);
+  }
+  function workbook(line: string): number | null {
+    let total = 0;
+    let any = false;
+    for (const centerId of centerIds) {
+      const row = store.budgetKey.get(`${centerId}|${line}|${month}`);
+      if (row?.real == null) continue;
+      any = true;
+      total += row.real;
+    }
+    return any ? total : null;
+  }
+  return [
+    { label: "Meta", gtq: meta },
+    { label: "Google", gtq: google },
+    { label: "TikTok", gtq: workbook("tiktok") },
+    { label: "LinkedIn", gtq: workbook("linkedin") },
+    { label: "Pauta digital", gtq: workbook("pauta_digital") },
+    { label: "Wati", gtq: workbook("wati") },
+  ];
 }
 
 export function storePauta(store: MercadeoStore, window: DateWindow, centerIds: Set<string>): number {
@@ -816,6 +1004,10 @@ export function storeMetaSpend(store: MercadeoStore, window: DateWindow, centerI
 
 export function storeMetaLeads(store: MercadeoStore, window: DateWindow, centerIds: Set<string>): number {
   return metaLeads(store, window, centerIds);
+}
+
+export function storeDaySpend(store: MercadeoStore, centerIds: Set<string>, day: string): number {
+  return daySpend(store, centerIds, day);
 }
 
 export function storePair(

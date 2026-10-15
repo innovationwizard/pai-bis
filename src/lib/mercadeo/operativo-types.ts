@@ -73,6 +73,13 @@ export type TargetEvent = {
   enteredAt: string;
 };
 
+export type LeadBand = {
+  slug: string;
+  label: string;
+  min: number | null;
+  max: number | null;
+};
+
 export type OperativoReport = {
   periodLabel: string;
   rangeLabel: string;
@@ -99,6 +106,8 @@ export type OperativoReport = {
   reservaUnits: number;
   cierre: CierreRow[];
   cierreHeadline: { costo: number | null; ventas: number; pautaGtq: number; scope: string };
+  leadHeadline: { leads: number; cpl: number | null; min: number | null; max: number | null };
+  ranges: LeadBand[];
   targets: TargetCell[];
   targetHistory: TargetEvent[];
 };

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import SectionPage from "@/components/section-page";
-import MercadeoBoard from "../board";
 import { departmentStaticParams, locateIcon } from "@/app/pabi/department-icons";
 import TierDrill from "@/app/pabi/tier-drill";
+import { isGlanceSection } from "@/lib/mercadeo/glance-types";
+import GlanceView from "../glance-view";
+import OperativoView from "../operativo-view";
 import { MERCADEO_SECTIONS } from "../sections";
 
 type MercadeoSectionPageProps = {
@@ -29,12 +31,20 @@ export default async function MercadeoSectionPage({ params }: MercadeoSectionPag
   const { section } = await params;
   const match = MERCADEO_SECTIONS.find((item) => item.slug === section);
   if (match) {
-    const index = MERCADEO_SECTIONS.findIndex((item) => item.slug === section);
-    return (
-      <SectionPage title={`${index + 1}. ${match.title}`}>
-        <MercadeoBoard section={match.slug} />
-      </SectionPage>
-    );
+    if (match.slug === "reporte-maestro") {
+      return (
+        <SectionPage>
+          <OperativoView variant="reporte" />
+        </SectionPage>
+      );
+    }
+    if (isGlanceSection(match.slug)) {
+      return (
+        <SectionPage>
+          <GlanceView section={match.slug} />
+        </SectionPage>
+      );
+    }
   }
   const located = locateIcon("mercadeo", section);
   if (!located?.item.drill) notFound();

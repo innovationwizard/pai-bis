@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole, type Role } from "@/lib/auth";
+import { clearMercadeoCache } from "@/lib/mercadeo/report";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -49,5 +50,6 @@ export async function PATCH(request: Request) {
     }).eq("cost_center_id", id);
     if (update.error) return NextResponse.json({ error: update.error.message }, { status: 500 });
   }
+  clearMercadeoCache();
   return NextResponse.json({ ok: true });
 }

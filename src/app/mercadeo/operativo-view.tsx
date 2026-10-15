@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { BudgetStatus, OperativoReport } from "@/lib/mercadeo/operativo-types";
+import type { BudgetStatus, LeadBand, OperativoReport } from "@/lib/mercadeo/operativo-types";
 import { useDashboardTier } from "@/lib/dashboard-tier";
 import DirectivoView from "./directivo-view";
 
@@ -106,7 +106,7 @@ function readBar(raw: string): BarState {
   return { ...INITIAL, ...parsed, proyectos };
 }
 
-export default function OperativoView() {
+export default function OperativoView({ variant = "home" }: { variant?: "home" | "reporte" }) {
   const { tier, ready: tierReady } = useDashboardTier();
   const [bar, setBar] = useState<BarState>(INITIAL);
   const [ready, setReady] = useState(false);
@@ -114,6 +114,7 @@ export default function OperativoView() {
   const [error, setError] = useState<string | null>(null);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [targetsOpen, setTargetsOpen] = useState(false);
+  const [leadsOpen, setLeadsOpen] = useState(false);
   const [drill, setDrill] = useState<Drill | null>(null);
   const projectsRef = useRef<HTMLDivElement>(null);
 
@@ -144,19 +145,21 @@ export default function OperativoView() {
   }, [projectsOpen]);
 
   useEffect(() => {
-    if (!drill && !targetsOpen) return;
+    if (!drill && !targetsOpen && !leadsOpen) return;
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setDrill(null);
         setTargetsOpen(false);
+        setLeadsOpen(false);
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [drill, targetsOpen]);
+  }, [drill, targetsOpen, leadsOpen]);
 
   useEffect(() => {
-    if (!ready || !tierReady || tier !== "operativo") return;
+    if (!ready) return;
+    if (variant === "home" && (!tierReady || tier !== "operativo")) return;
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(bar));
     const params = new URLSearchParams({ periodo: bar.periodo });
     if (bar.periodo === "custom" && bar.desde && bar.hasta) {
@@ -183,7 +186,7 @@ export default function OperativoView() {
         setError(reason instanceof Error ? reason.message : "No se pudo leer Mercadeo");
       });
     return () => controller.abort();
-  }, [bar, ready, tier, tierReady]);
+  }, [bar, ready, tier, tierReady, variant]);
 
   function update(patch: Partial<BarState>) {
     setBar((current) => ({ ...current, ...patch }));
@@ -218,8 +221,8 @@ export default function OperativoView() {
     });
   }
 
-  if (!tierReady) return <div className="op-screen" aria-busy="true" />;
-  if (tier === "directivo") return <DirectivoView />;
+  if (variant === "home" && !tierReady) return <div className="op-screen" aria-busy="true" />;
+  if (variant === "home" && tier === "directivo") return <DirectivoView />;
 
   return (
     <div className="op-screen">
@@ -269,16 +272,25 @@ export default function OperativoView() {
             </div>
           ) : null}
         </div>
-        <button type="button" className="op-text" onClick={() => { setTargetsOpen(true); setDrill(null); }}>
+        <button type="button" className="op-text" onClick={() => { setTargetsOpen(true); setLeadsOpen(false); setDrill(null); }}>
           Presupuesto
         </button>
+        {variant === "reporte" ? (
+          <button type="button" className="op-text" onClick={() => { setLeadsOpen(true); setTargetsOpen(false); setDrill(null); }}>
+            Meta de leads
+          </button>
+        ) : null}
         <p className="op-range">{report ? `${report.periodLabel}. ${report.rangeLabel}.` : error ? "" : "Cargando…"}</p>
       </div>
 
+      {variant === "reporte" ? (
+        <p className="op-question">¿Este corte compra leads, reservas y cierres dentro del presupuesto?</p>
+      ) : null}
       {error ? <p className="op-note op-warn">{error}</p> : null}
       {report?.notice ? <p className="op-note">{report.notice}</p> : null}
       {report && !error ? (
         <>
+          {variant === "reporte" ? <Pyramid report={report} /> : null}
           <BudgetHero report={report} onProject={focusProject} />
           <div className="op-mid">
             <CplHero report={report} onPoint={(month, slug) => setDrill({ kind: "cpl", month, slug })} />
@@ -288,6 +300,13 @@ export default function OperativoView() {
         </>
       ) : null}
 
+      {leadsOpen && report ? (
+        <LeadDrawer
+          ranges={report.ranges}
+          onClose={() => setLeadsOpen(false)}
+          onSaved={() => setBar((current) => ({ ...current }))}
+        />
+      ) : null}
       {targetsOpen && report ? (
         <TargetDrawer
           report={report}
@@ -296,6 +315,36 @@ export default function OperativoView() {
         />
       ) : null}
       {drill && report ? <DrillDrawer report={report} drill={drill} onClose={() => setDrill(null)} /> : null}
+    </div>
+  );
+}
+
+function Pyramid({ report }: { report: OperativoReport }) {
+  const lead = report.leadHeadline;
+  const band = lead.min == null || lead.max == null ? null : `meta ${count(lead.min)}–${count(lead.max)}`;
+  const leadDetail = [`${count(lead.leads)} leads`, band, report.partial ? "la meta es del mes completo" : null].filter(Boolean).join(" · ");
+  return (
+    <div className="op-kpis" aria-label="Prioridades del corte">
+      <p>
+        <strong style={{ color: STATUS_COLOR[report.budgetHeadline.status] }}>{pct(report.budgetHeadline.ratio)}</strong>
+        <span>Presupuesto de pauta</span>
+        <small>{money(report.budgetHeadline.actualGtq)} de {money(report.budgetHeadline.targetGtq)}</small>
+      </p>
+      <p>
+        <strong>{lead.cpl == null ? "Sin leads" : money(lead.cpl)}</strong>
+        <span>Costo por lead</span>
+        <small>{leadDetail}</small>
+      </p>
+      <p>
+        <strong>{count(report.reservaUnits)}</strong>
+        <span>Reservas</span>
+        <small>por fuente, en el corte</small>
+      </p>
+      <p>
+        <strong>{report.cierreHeadline.costo == null ? "Sin ventas" : money(report.cierreHeadline.costo)}</strong>
+        <span>Costo por cierre</span>
+        <small>{count(report.cierreHeadline.ventas)} ventas · pauta {money(report.cierreHeadline.pautaGtq)}</small>
+      </p>
     </div>
   );
 }
@@ -499,12 +548,79 @@ function CierreHero({ report, onProject }: { report: OperativoReport; onProject:
   );
 }
 
-function TargetDrawer({
+function LeadDrawer({
+  ranges,
+  onClose,
+  onSaved,
+}: {
+  ranges: LeadBand[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [draft, setDraft] = useState(ranges);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  function setBound(slug: string, key: "min" | "max", raw: string) {
+    const next = raw === "" ? null : Number(raw);
+    setDraft((current) => current.map((range) => (
+      range.slug === slug ? { ...range, [key]: next != null && Number.isFinite(next) ? Math.trunc(next) : null } : range
+    )));
+  }
+
+  async function save() {
+    setSaving(true);
+    setMessage(null);
+    for (const range of draft) {
+      const empty = range.min == null && range.max == null;
+      const pair = range.min != null && range.max != null && range.min >= 0 && range.min <= range.max;
+      if (!empty && !pair) {
+        setMessage("Cada meta lleva piso y techo, y el piso no puede pasar el techo.");
+        setSaving(false);
+        return;
+      }
+    }
+    try {
+      const response = await fetch("/api/mercadeo/lead-ranges", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ranges: draft.map((range) => ({ slug: range.slug, min: range.min, max: range.max })) }),
+      });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "No se guardó la meta");
+      setMessage("Meta guardada. Aplica a todos los meses.");
+      onSaved();
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "No se guardó la meta");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Overlay title="Meta mensual de leads" onClose={onClose}>
+      <p className="op-note">Piso y techo del mes. Vacío quiere decir que ese centro no tiene meta.</p>
+      {draft.map((range) => (
+        <label key={range.slug} className="op-target op-target-pair">
+          <span>{range.label}</span>
+          <input aria-label={`Piso ${range.label}`} inputMode="numeric" value={range.min ?? ""} onChange={(event) => setBound(range.slug, "min", event.target.value)} />
+          <input aria-label={`Techo ${range.label}`} inputMode="numeric" value={range.max ?? ""} onChange={(event) => setBound(range.slug, "max", event.target.value)} />
+        </label>
+      ))}
+      <button type="button" className="op-save" disabled={saving} onClick={save}>
+        {saving ? "Guardando…" : "Guardar metas"}
+      </button>
+      {message ? <p className="op-note">{message}</p> : null}
+    </Overlay>
+  );
+}
+
+export function TargetDrawer({
   report,
   onClose,
   onSaved,
 }: {
-  report: OperativoReport;
+  report: Pick<OperativoReport, "months" | "targets" | "targetHistory" | "targetTableReady">;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -644,7 +760,7 @@ function DrillDrawer({ report, drill, onClose }: { report: OperativoReport; dril
   );
 }
 
-function Overlay({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Overlay({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
     <div className="op-overlay">
       <button type="button" className="op-backdrop" aria-label="Cerrar" onClick={onClose} />

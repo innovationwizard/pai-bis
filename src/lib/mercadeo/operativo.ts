@@ -14,6 +14,7 @@ import {
   storeMonthPlan,
   storePauta,
   storePair,
+  type MercadeoBounds,
   type MercadeoStore,
 } from "./report";
 import type {
@@ -119,21 +120,65 @@ function missingTargetTable(message: string): boolean {
   return /pauta_target|PGRST204|PGRST205|schema cache|does not exist|42P01/i.test(message);
 }
 
-async function loadTargets(): Promise<{ ready: boolean; events: { centerId: string; month: string; amount: number; at: string }[] }> {
+export type TargetRead = {
+  ready: boolean;
+  events: { centerId: string; month: string; amount: number; at: string }[];
+};
+
+const targetCache = new Map<string, { at: number; value: TargetRead }>();
+
+export function clearTargetCache(): void {
+  targetCache.clear();
+}
+
+export function operativoBounds(filters: OperativoFilters): MercadeoBounds & { range: DateWindow } {
+  const range = resolveRange(filters.preset, filters.customFrom, filters.customTo);
+  const evo = evolutionMonths(range);
+  return {
+    range,
+    adFrom: evo[0] ?? range.from,
+    adTo: range.to,
+    dealFrom: range.from,
+    dealTo: range.to,
+  };
+}
+
+export async function readTargetEvents(fromMonth: string, toMonth: string): Promise<TargetRead> {
+  const key = `${fromMonth}|${toMonth}`;
+  const hit = targetCache.get(key);
+  if (hit && Date.now() - hit.at < 60_000) return hit.value;
   const db = createAdminClient().schema("mercadeo");
-  const events: { centerId: string; month: string; amount: number; at: string }[] = [];
-  for (let from = 0; from < 20000; from += 1000) {
-    const { data, error } = await db
-      .from("pauta_target")
-      .select("cost_center_id,month_start,amount_gtq,created_at")
-      .order("created_at", { ascending: true })
-      .range(from, from + 999);
-    if (error) {
-      if (missingTargetTable(error.message)) return { ready: false, events: [] };
-      throw new Error(error.message);
+  const counted = await db
+    .from("pauta_target")
+    .select("id", { count: "exact", head: true })
+    .gte("month_start", fromMonth)
+    .lte("month_start", toMonth);
+  if (counted.error) {
+    if (missingTargetTable(counted.error.message)) return { ready: false, events: [] };
+    throw new Error(counted.error.message);
+  }
+  const total = counted.count ?? 0;
+  const pages = Math.max(1, Math.ceil(total / 1000));
+  const batches = total === 0
+    ? []
+    : await Promise.all(Array.from({ length: pages }, (_, index) => {
+      const from = index * 1000;
+      return db
+        .from("pauta_target")
+        .select("cost_center_id,month_start,amount_gtq,created_at")
+        .gte("month_start", fromMonth)
+        .lte("month_start", toMonth)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+    }));
+  const events: TargetRead["events"] = [];
+  for (const batch of batches) {
+    if (batch.error) {
+      if (missingTargetTable(batch.error.message)) return { ready: false, events: [] };
+      throw new Error(batch.error.message);
     }
-    const batch = data ?? [];
-    for (const row of batch) {
+    for (const row of batch.data ?? []) {
       const amount = Number(row.amount_gtq);
       events.push({
         centerId: String(row.cost_center_id),
@@ -142,9 +187,11 @@ async function loadTargets(): Promise<{ ready: boolean; events: { centerId: stri
         at: String(row.created_at),
       });
     }
-    if (batch.length < 1000) break;
   }
-  return { ready: true, events };
+  events.sort((a, b) => a.at.localeCompare(b.at));
+  const value = { ready: true, events };
+  targetCache.set(key, { at: Date.now(), value });
+  return value;
 }
 
 function latestEntered(events: { centerId: string; month: string; amount: number; at: string }[]): Map<string, Entered> {
@@ -256,14 +303,21 @@ function fuenteBars(projects: FuenteProject[]): FuenteBar[] {
 }
 
 export async function buildOperativo(filters: OperativoFilters): Promise<OperativoReport> {
-  const store = await loadMercadeoStore();
-  const range = resolveRange(filters.preset, filters.customFrom, filters.customTo);
+  const bounds = operativoBounds(filters);
+  let targetError: unknown = null;
+  const targetsPromise = readTargetEvents(monthStart(bounds.adFrom), monthStart(bounds.range.to)).catch((error: unknown) => {
+    targetError = error;
+    return { ready: false, events: [] };
+  });
+  const store = await loadMercadeoStore(bounds);
+  const range = bounds.range;
   const selected = filters.slugs;
   const centers = store.centers.filter((center) => selected === null || selected.includes(center.slug));
   const buildings = centers.filter((center) => center.building);
   const puerta = centers.find((center) => !center.building) ?? null;
   const partial = monthsTouched(range.from, range.to).some((month) => month < range.from || monthEnd(month) > range.to);
-  const targets = await loadTargets();
+  const targets = await targetsPromise;
+  if (targetError) throw targetError;
   const latest = latestEntered(targets.events);
   const buildingRows = buildings
     .map((center) => budgetFor(store, range, center, latest, partial))
@@ -369,6 +423,21 @@ export async function buildOperativo(filters: OperativoFilters): Promise<Operati
     }))
     .reverse();
 
+  const leadCenters = buildings.length > 0 ? buildings : puerta ? [puerta] : [];
+  const leadIds = new Set(leadCenters.map((center) => center.id));
+  let leadMin = 0;
+  let leadMax = 0;
+  let anyBand = false;
+  for (const center of leadCenters) {
+    const band = store.ranges.get(center.id);
+    if (band?.min == null || band.max == null) continue;
+    anyBand = true;
+    leadMin += band.min;
+    leadMax += band.max;
+  }
+  const leadMonths = monthsTouched(range.from, range.to).length;
+  const leadCount = storeMetaLeads(store, range, leadIds);
+  const leadSpend = storeMetaSpend(store, range, leadIds);
   const last = evo[evo.length - 1];
   return {
     periodLabel: range.label,
@@ -395,6 +464,16 @@ export async function buildOperativo(filters: OperativoFilters): Promise<Operati
       pautaGtq: cierrePauta,
       scope,
     },
+    leadHeadline: {
+      leads: leadCount,
+      cpl: leadCount > 0 ? leadSpend / leadCount : null,
+      min: anyBand ? leadMin * leadMonths : null,
+      max: anyBand ? leadMax * leadMonths : null,
+    },
+    ranges: store.centers.map((center) => {
+      const band = store.ranges.get(center.id);
+      return { slug: center.slug, label: center.name, min: band?.min ?? null, max: band?.max ?? null };
+    }),
     targets: cells,
     targetHistory: history,
   };

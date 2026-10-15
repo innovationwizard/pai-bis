@@ -710,6 +710,34 @@ body {
 .op-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 0 auto; padding: 0; list-style: none; }
 .op-legend li { display: flex; align-items: center; gap: 6px; color: #334155; font-size: 11px; font-weight: 600; }
 .op-legend i { width: 8px; height: 8px; border-radius: 99px; }
+.op-question { margin: 0; color: #0d2041; font-size: 14px; font-weight: 700; }
+.op-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.op-kpis-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.op-kpis p {
+  margin: 0;
+  padding: 6px 10px 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.op-kpis strong { font-size: 18px; line-height: 1.15; color: #0d2041; }
+.op-kpis span { font-size: 11px; font-weight: 700; color: #334155; }
+.op-kpis small {
+  color: #64748b;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.op-target-pair { grid-template-columns: 1fr 72px 72px; }
 .op-chart { flex: 1; min-height: 0; }
 .op-def { color: #64748b; font-size: 12px; }
 .op-def summary { cursor: pointer; }
@@ -762,6 +790,7 @@ body {
 @media (max-width: 960px) {
   .op-screen { height: auto; min-height: 0; }
   .op-mid { grid-template-columns: 1fr; }
+  .op-kpis, .op-kpis-3 { grid-template-columns: 1fr 1fr; }
   .op-chart { height: 240px; flex: none; }
   .op-hero-budget, .op-hero-cierre { flex: none; }
 }

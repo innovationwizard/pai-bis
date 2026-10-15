@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole, type Role } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clearTargetCache } from "@/lib/mercadeo/operativo";
 import { generateId } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
     });
   }
   if (rows.length === 0) return NextResponse.json({ ok: true, inserted: 0 });
+  clearTargetCache();
   const insert = await db.from("pauta_target").insert(rows);
   if (insert.error) return NextResponse.json({ error: insert.error.message }, { status: 500 });
   return NextResponse.json({ ok: true, inserted: rows.length });
