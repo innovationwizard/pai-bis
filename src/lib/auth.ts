@@ -10,19 +10,32 @@ const superuserEmails = (process.env.SUPERUSER_EMAILS ?? "")
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
 
-async function getSupabaseAuthClient() {
+export async function createUserClient() {
+  if (!supabaseUrl || !supabaseAnonKey) return null;
   const cookieStore = await cookies();
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get: (name: string) => cookieStore.get(name)?.value,
-      set: (_name: string, _value: string, _options: CookieOptions) => {},
-      remove: (_name: string, _options: CookieOptions) => {}
-    }
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        try {
+          for (const { name, value, options } of cookiesToSet) {
+            cookieStore.set(name, value, options);
+          }
+        } catch {
+          // A Server Component cannot write cookies. The middleware writes the refresh.
+          // A route handler can, and must: discarding the new tokens rotates the
+          // refresh token and the next request is rejected.
+        }
+      },
+    },
   });
 }
 
 export async function requireAuth() {
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const supabase = await createUserClient();
+  if (!supabase) {
     return {
       response: NextResponse.json(
         { error: "Faltan variables de entorno de Supabase" },
@@ -30,8 +43,6 @@ export async function requireAuth() {
       )
     };
   }
-
-  const supabase = await getSupabaseAuthClient();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) {
     return { response: NextResponse.json({ error: "No autorizado" }, { status: 401 }) };

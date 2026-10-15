@@ -1,13 +1,9 @@
 import { Suspense } from "react";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createUserClient } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import EntregasClient from "./entregas-client";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 export const metadata: Metadata = {
   title: "Entregas | Boulevard 5",
@@ -16,17 +12,8 @@ export const metadata: Metadata = {
 };
 
 async function getRole(): Promise<string | null> {
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-
-  const cookieStore = await cookies();
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get: (name: string) => cookieStore.get(name)?.value,
-      set: (_name: string, _value: string, _options: CookieOptions) => {},
-      remove: (_name: string, _options: CookieOptions) => {},
-    },
-  });
-
+  const supabase = await createUserClient();
+  if (!supabase) return null;
   const { data } = await supabase.auth.getUser();
   if (!data.user) return null;
   return (data.user.app_metadata?.role as string | undefined) ?? null;

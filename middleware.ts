@@ -36,14 +36,15 @@ export async function middleware(request: NextRequest) {
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get: (name: string) => request.cookies.get(name)?.value,
-      set: (name: string, value: string, options: CookieOptions) => {
-        response.cookies.set({ name, value, ...options });
+      getAll() {
+        return request.cookies.getAll();
       },
-      remove: (name: string, options: CookieOptions) => {
-        response.cookies.set({ name, value: "", ...options });
-      }
-    }
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        for (const { name, value, options } of cookiesToSet) {
+          response.cookies.set(name, value, options);
+        }
+      },
+    },
   });
 
   // getUser() may refresh tokens and write new cookies to `response`.

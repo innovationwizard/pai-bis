@@ -1,11 +1,7 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createUserClient } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Salesperson } from "./types";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 type Success = { salesperson: Salesperson };
 type Failure = { response: NextResponse };
@@ -16,7 +12,8 @@ type Failure = { response: NextResponse };
  * 403 if the user is not linked to a salesperson.
  */
 export async function requireSalesperson(): Promise<Success | Failure> {
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const supabase = await createUserClient();
+  if (!supabase) {
     return {
       response: NextResponse.json(
         { error: "Faltan variables de entorno de Supabase" },
@@ -24,15 +21,6 @@ export async function requireSalesperson(): Promise<Success | Failure> {
       ),
     };
   }
-
-  const cookieStore = await cookies();
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get: (name: string) => cookieStore.get(name)?.value,
-      set: (_name: string, _value: string, _options: CookieOptions) => {},
-      remove: (_name: string, _options: CookieOptions) => {},
-    },
-  });
 
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) {

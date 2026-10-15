@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createUserClient } from "@/lib/auth";
 import ContableClient from "@/app/pabi/contable/contable-client";
 
 export const metadata: Metadata = {
@@ -11,22 +10,9 @@ export const metadata: Metadata = {
     "Reportes de contabilidad para directiva — Cobros, Comisiones, Presupuestos, Desistimientos, Cesión de Derechos, PCV & Expedientes, Contabilidad General y Legal",
 };
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-
-/** Mismo patrón que src/app/page.tsx: lee la sesión desde la cookie en el servidor. */
 async function getUser() {
-  const cookieStore = await cookies();
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get: (name: string) => cookieStore.get(name)?.value,
-      set: (_name: string, _value: string, _options: CookieOptions) => {},
-      remove: (_name: string, _options: CookieOptions) => {},
-    },
-  });
-
+  const supabase = await createUserClient();
+  if (!supabase) return null;
   const { data } = await supabase.auth.getUser();
   return data.user ?? null;
 }
