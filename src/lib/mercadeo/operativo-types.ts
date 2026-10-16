@@ -38,6 +38,14 @@ export type FuenteBar = {
   folded: string[];
 };
 
+export type ReservaLine = {
+  fuente: string;
+  project: string;
+  unidad: string;
+  markedAt: string;
+  usuario: string;
+};
+
 export type FuenteProject = {
   fuente: string;
   slug: string;
@@ -104,6 +112,7 @@ export type OperativoReport = {
   fuentes: FuenteBar[];
   fuenteProjects: FuenteProject[];
   reservaUnits: number;
+  reservas: ReservaLine[];
   cierre: CierreRow[];
   cierreHeadline: { costo: number | null; ventas: number; pautaGtq: number; scope: string };
   leadHeadline: { leads: number; cpl: number | null; min: number | null; max: number | null };

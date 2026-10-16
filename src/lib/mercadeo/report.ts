@@ -112,7 +112,15 @@ type Ad = {
 };
 type Budget = { centerId: string; line: string; month: string; plan: number | null; real: number | null };
 type Range = { min: number | null; max: number | null };
-type DealInfo = { pipedriveId: string; slug: string | null; value: number | null; fuente: string };
+type DealInfo = {
+  pipedriveId: string;
+  slug: string | null;
+  value: number | null;
+  fuente: string;
+  unidad: string;
+  usuario: string;
+};
+type ReservaMark = { dealId: string; day: string; markedAt: string };
 type Attr = { meta: string | null; tiktok: string | null };
 
 const moneyFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
@@ -195,6 +203,16 @@ function percent(part: number, whole: number): string {
 function pairText(pair: Pair): string {
   const monto = pair.sinMonto > 0 && pair.gtq == null ? "sin monto" : gtq(pair.gtq);
   return `${num(pair.units)} · ${monto}`;
+}
+
+function towerShort(name: string): string {
+  return /^[A-Za-z]$/.test(name) ? `T${name.toUpperCase()}` : name;
+}
+
+function unidadOf(tower: string, canonical: string, token2: string): string {
+  if (!canonical) return "Sin unidad";
+  const number = token2 ? `${canonical} / ${token2}` : canonical;
+  return tower ? `${towerShort(tower)} ${number}` : number;
 }
 
 function toGtq(row: Ad): number {
@@ -290,6 +308,7 @@ type Loaded = {
   deals: Map<string, DealInfo>;
   attrs: Map<string, Attr>;
   reservaDays: Map<string, string[]>;
+  reservaMarks: ReservaMark[];
   sales: { dealId: string; saleOn: string | null }[];
   notice: string | null;
 };
@@ -378,7 +397,7 @@ async function load(mercadeo: Db, ventas: Db, bounds: MercadeoBounds): Promise<L
       fetchSmall(ventas, "dim_fuente", "id,name"),
       fetchFiltered(
         () => ventas.from("fact_comprobante").select("id", { count: "exact", head: true }).gte("comprobante_on", bounds.dealFrom).lte("comprobante_on", bounds.dealTo),
-        (from) => ventas.from("fact_comprobante").select("deal_id,comprobante_on").gte("comprobante_on", bounds.dealFrom).lte("comprobante_on", bounds.dealTo).order("id").range(from, from + PAGE - 1),
+        (from) => ventas.from("fact_comprobante").select("deal_id,comprobante_on,marked_as_done_time").gte("comprobante_on", bounds.dealFrom).lte("comprobante_on", bounds.dealTo).order("id").range(from, from + PAGE - 1),
       ),
       fetchFiltered(
         () => ventas.from("v_sale").select("deal_id", { count: "exact", head: true }).gte("sale_on", bounds.dealFrom).lte("sale_on", bounds.dealTo),
@@ -396,7 +415,12 @@ async function load(mercadeo: Db, ventas: Db, bounds: MercadeoBounds): Promise<L
     ...comprobanteRows.map((row) => text(row.deal_id)),
     ...saleRows.map((row) => text(row.deal_id)),
   ];
-  const dealRows = await fetchByIds(ventas, "dim_deal", "id", dealIds, "id,pipedrive_deal_id,project_id,value_gtq,fuente_id");
+  const dealRows = await fetchByIds(ventas, "dim_deal", "id", dealIds, "id,pipedrive_deal_id,project_id,value_gtq,fuente_id,unit_id,asesor_id");
+  const unitRows = await fetchByIds(ventas, "dim_unit", "id", dealRows.map((row) => text(row.unit_id)), "id,tower_id,canonical_unit,unit_token_2");
+  const [towerRows, asesorRows] = await Promise.all([
+    fetchByIds(ventas, "dim_tower", "id", unitRows.map((row) => text(row.tower_id)), "id,name"),
+    fetchByIds(ventas, "dim_asesor", "id", dealRows.map((row) => text(row.asesor_id)), "id,name"),
+  ]);
   const pipedriveIds = dealRows.map((row) => text(row.pipedrive_deal_id));
   const attrRows = await fetchByIds(mercadeo, "deal_attribution", "pipedrive_deal_id", pipedriveIds, "pipedrive_deal_id,platform,campaign_name");
 
@@ -451,6 +475,14 @@ async function load(mercadeo: Db, ventas: Db, bounds: MercadeoBounds): Promise<L
   }
   const fuenteName = new Map<string, string>();
   for (const row of fuenteRowsRaw) fuenteName.set(text(row.id), text(row.name) || "Sin dato");
+  const towerName = new Map<string, string>();
+  for (const row of towerRows) towerName.set(text(row.id), text(row.name));
+  const unitLabel = new Map<string, string>();
+  for (const row of unitRows) {
+    unitLabel.set(text(row.id), unidadOf(towerName.get(text(row.tower_id)) ?? "", text(row.canonical_unit), text(row.unit_token_2)));
+  }
+  const asesorName = new Map<string, string>();
+  for (const row of asesorRows) asesorName.set(text(row.id), text(row.name) || "Sin dato");
   const deals = new Map<string, DealInfo>();
   for (const row of dealRows) {
     deals.set(text(row.id), {
@@ -458,9 +490,12 @@ async function load(mercadeo: Db, ventas: Db, bounds: MercadeoBounds): Promise<L
       slug: projectSlug.get(text(row.project_id)) ?? null,
       value: amount(row.value_gtq),
       fuente: fuenteName.get(text(row.fuente_id)) ?? "Sin dato",
+      unidad: unitLabel.get(text(row.unit_id)) ?? "Sin unidad",
+      usuario: asesorName.get(text(row.asesor_id)) ?? "Sin dato",
     });
   }
   const reservaDays = new Map<string, string[]>();
+  const reservaMarks: ReservaMark[] = [];
   for (const row of comprobanteRows) {
     const dealId = text(row.deal_id);
     const day = text(row.comprobante_on).slice(0, 10);
@@ -468,13 +503,15 @@ async function load(mercadeo: Db, ventas: Db, bounds: MercadeoBounds): Promise<L
     const days = reservaDays.get(dealId) ?? [];
     days.push(day);
     reservaDays.set(dealId, days);
+    const markedAt = text(row.marked_as_done_time);
+    if (markedAt) reservaMarks.push({ dealId, day, markedAt });
   }
   const sales = saleRows.map((row) => ({
     dealId: text(row.deal_id),
     saleOn: text(row.sale_on).slice(0, 10) || null,
   }));
   const notice = ads.length === 0 ? "No hay pauta en este periodo." : null;
-  return { centers, ranges, ads, budgets, budgetKey, deals, attrs, reservaDays, sales, notice };
+  return { centers, ranges, ads, budgets, budgetKey, deals, attrs, reservaDays, reservaMarks, sales, notice };
 }
 
 type Cut = {

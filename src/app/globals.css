@@ -681,7 +681,7 @@ body {
 .op-mode { display: flex; }
 .op-mode button { cursor: pointer; }
 .op-mode button[aria-pressed="true"] { background: #0d2041; color: #fff; border-color: #0d2041; }
-.op-text, .op-save, .op-drawer header button { cursor: pointer; }
+.op-text, .op-save, .op-drawer header button, .op-modal header button { cursor: pointer; }
 .op-save { background: #0d2041; color: #fff; border-color: #0d2041; }
 .op-range { margin: 0 0 4px auto; color: #64748b; font-size: 12px; }
 
@@ -704,7 +704,16 @@ body {
 .op-directivo { flex: 1; justify-content: center; padding: 24px; }
 .op-hero h2 { margin: 0; font-size: 13px; font-weight: 700; color: #0d2041; }
 .op-figure { margin: 0; display: flex; align-items: baseline; gap: 8px; }
-.op-figure span { font-size: 22px; font-weight: 700; color: #0d2041; line-height: 1.1; }
+.op-figure span, .op-count { font-size: 22px; font-weight: 700; color: #0d2041; line-height: 1.1; }
+.op-count {
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.op-kpis .op-count { font-size: 18px; text-align: left; }
 .op-figure small, .op-note { margin: 0; color: #64748b; font-size: 12px; line-height: 1.35; }
 .op-note.op-warn { color: #b45309; }
 .op-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 0 auto; padding: 0; list-style: none; }
@@ -742,6 +751,37 @@ body {
 .op-def { color: #64748b; font-size: 12px; }
 .op-def summary { cursor: pointer; }
 
+.op-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(920px, calc(100% - 32px));
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+}
+.op-modal header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.op-modal h2 { margin: 0; font-size: 16px; color: #0d2041; }
+.op-modal header button {
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #0d2041;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.op-modal-scroll { overflow: auto; }
+.op-modal table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.op-modal th, .op-modal td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; white-space: nowrap; }
+.op-modal th { color: #64748b; font-size: 12px; }
 .op-overlay { position: fixed; inset: 0; z-index: 40; }
 .op-backdrop { position: absolute; inset: 0; border: 0; background: rgba(13, 32, 65, 0.28); }
 .op-drawer {

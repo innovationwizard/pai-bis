@@ -49,7 +49,8 @@ const STATUS_LABEL: Record<BudgetStatus, string> = {
 type Drill =
   | { kind: "fuente"; label: string }
   | { kind: "cierre"; slug: string }
-  | { kind: "cpl"; month: string; slug: string };
+  | { kind: "cpl"; month: string; slug: string }
+  | { kind: "reservas" };
 
 type BarState = {
   periodo: string;
@@ -88,6 +89,22 @@ function pct(value: number | null | undefined): string {
 
 function count(value: number): string {
   return countFormat.format(value);
+}
+
+function markedLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Guatemala",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}`;
 }
 
 function tipNumber(value: unknown): number | null {
@@ -290,11 +307,11 @@ export default function OperativoView({ variant = "home" }: { variant?: "home" |
       {report?.notice ? <p className="op-note">{report.notice}</p> : null}
       {report && !error ? (
         <>
-          {variant === "reporte" ? <Pyramid report={report} /> : null}
+          {variant === "reporte" ? <Pyramid report={report} onReservas={() => setDrill({ kind: "reservas" })} /> : null}
           <BudgetHero report={report} onProject={focusProject} />
           <div className="op-mid">
             <CplHero report={report} onPoint={(month, slug) => setDrill({ kind: "cpl", month, slug })} />
-            <FuenteHero report={report} onFuente={(label) => setDrill({ kind: "fuente", label })} />
+            <FuenteHero report={report} onFuente={(label) => setDrill({ kind: "fuente", label })} onReservas={() => setDrill({ kind: "reservas" })} />
           </div>
           <CierreHero report={report} onProject={(slug) => setDrill({ kind: "cierre", slug })} />
         </>
@@ -314,12 +331,13 @@ export default function OperativoView({ variant = "home" }: { variant?: "home" |
           onSaved={() => setBar((current) => ({ ...current }))}
         />
       ) : null}
-      {drill && report ? <DrillDrawer report={report} drill={drill} onClose={() => setDrill(null)} /> : null}
+      {drill?.kind === "reservas" && report ? <ReservasModal report={report} onClose={() => setDrill(null)} /> : null}
+      {drill && drill.kind !== "reservas" && report ? <DrillDrawer report={report} drill={drill} onClose={() => setDrill(null)} /> : null}
     </div>
   );
 }
 
-function Pyramid({ report }: { report: OperativoReport }) {
+function Pyramid({ report, onReservas }: { report: OperativoReport; onReservas: () => void }) {
   const lead = report.leadHeadline;
   const band = lead.min == null || lead.max == null ? null : `meta ${count(lead.min)}–${count(lead.max)}`;
   const leadDetail = [`${count(lead.leads)} leads`, band, report.partial ? "la meta es del mes completo" : null].filter(Boolean).join(" · ");
@@ -336,7 +354,7 @@ function Pyramid({ report }: { report: OperativoReport }) {
         <small>{leadDetail}</small>
       </p>
       <p>
-        <strong>{count(report.reservaUnits)}</strong>
+        <CountButton value={report.reservaUnits} onClick={onReservas} />
         <span>Reservas</span>
         <small>por fuente, en el periodo</small>
       </p>
@@ -468,14 +486,14 @@ function CplHero({ report, onPoint }: { report: OperativoReport; onPoint: (month
   );
 }
 
-function FuenteHero({ report, onFuente }: { report: OperativoReport; onFuente: (label: string) => void }) {
+function FuenteHero({ report, onFuente, onReservas }: { report: OperativoReport; onFuente: (label: string) => void; onReservas: () => void }) {
   return (
     <section className="op-hero" aria-label="Reservas por fuente">
       <header className="op-head">
         <div>
           <h2>Reservas por fuente</h2>
           <p className="op-figure">
-            <span>{count(report.reservaUnits)}</span>
+            <CountButton value={report.reservaUnits} onClick={onReservas} />
             <small>reservas en el periodo</small>
           </p>
         </div>
@@ -716,7 +734,56 @@ export function TargetDrawer({
   );
 }
 
-function DrillDrawer({ report, drill, onClose }: { report: OperativoReport; drill: Drill; onClose: () => void }) {
+function CountButton({ value, onClick }: { value: number; onClick: () => void }) {
+  if (value <= 0) return <span>{count(value)}</span>;
+  return (
+    <button type="button" className="op-count" onClick={onClick}>
+      {count(value)}
+    </button>
+  );
+}
+
+function ReservasModal({ report, onClose }: { report: OperativoReport; onClose: () => void }) {
+  const rows = report.reservas;
+  return (
+    <div className="op-overlay">
+      <button type="button" className="op-backdrop" aria-label="Cerrar" onClick={onClose} />
+      <div className="op-modal" role="dialog" aria-modal="true" aria-label="Reservas del periodo">
+        <header>
+          <h2>Reservas por fuente</h2>
+          <button type="button" onClick={onClose}>Cerrar</button>
+        </header>
+        <p className="op-note">{count(rows.length)} reservas en el periodo. La hora es de Guatemala.</p>
+        <div className="op-modal-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Fuente</th>
+                <th>Proyecto</th>
+                <th>Unidad</th>
+                <th>Marcado hecho</th>
+                <th>Usuario</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={`${row.markedAt}-${row.project}-${row.unidad}-${row.usuario}`}>
+                  <td>{row.fuente}</td>
+                  <td>{row.project}</td>
+                  <td>{row.unidad}</td>
+                  <td>{markedLabel(row.markedAt)}</td>
+                  <td>{row.usuario}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DrillDrawer({ report, drill, onClose }: { report: OperativoReport; drill: Exclude<Drill, { kind: "reservas" }>; onClose: () => void }) {
   if (drill.kind === "fuente") {
     const bar = report.fuentes.find((row) => row.label === drill.label);
     const rows = drill.label === "Otras fuentes"

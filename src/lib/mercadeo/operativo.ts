@@ -26,6 +26,7 @@ import type {
   FuenteBar,
   FuenteProject,
   OperativoReport,
+  ReservaLine,
   TargetCell,
   TargetEvent,
 } from "./operativo-types";
@@ -374,6 +375,27 @@ export async function buildOperativo(filters: OperativoFilters): Promise<Operati
   fuenteProjects.push(...byKey.values());
   const fuentes = fuenteBars(fuenteProjects);
   const reservaUnits = fuenteProjects.reduce((sum, row) => sum + row.units, 0);
+  const reservaSeen = new Map<string, string>();
+  if (buildingSlugs.size > 0) {
+    for (const mark of store.reservaMarks) {
+      if (mark.day < range.from || mark.day > range.to) continue;
+      const deal = store.deals.get(mark.dealId);
+      if (!deal?.slug || !buildingSlugs.has(deal.slug)) continue;
+      const current = reservaSeen.get(mark.dealId);
+      if (!current || mark.markedAt < current) reservaSeen.set(mark.dealId, mark.markedAt);
+    }
+  }
+  const reservas: ReservaLine[] = [...reservaSeen.entries()].map(([dealId, markedAt]) => {
+    const deal = store.deals.get(dealId);
+    const slug = deal?.slug ?? "";
+    return {
+      fuente: deal?.fuente || "Sin dato",
+      project: buildings.find((center) => center.slug === slug)?.name ?? slug,
+      unidad: deal?.unidad ?? "Sin unidad",
+      markedAt,
+      usuario: deal?.usuario ?? "Sin dato",
+    };
+  }).sort((a, b) => a.markedAt.localeCompare(b.markedAt) || a.project.localeCompare(b.project, "es") || a.unidad.localeCompare(b.unidad, "es"));
 
   const cierreCenters = buildings.length > 0 ? buildings : puerta ? [puerta] : [];
   const cierre: CierreRow[] = cierreCenters
@@ -457,6 +479,7 @@ export async function buildOperativo(filters: OperativoFilters): Promise<Operati
     fuentes,
     fuenteProjects,
     reservaUnits,
+    reservas,
     cierre,
     cierreHeadline: {
       costo: cierreVentas > 0 && cierrePauta > 0 ? cierrePauta / cierreVentas : null,
