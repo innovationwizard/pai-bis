@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import SectionPage from "@/components/section-page";
 import VentasBoard from "../board";
+import GlanceView from "../glance-view";
 import { VENTAS_SECTIONS } from "../sections";
 import { departmentStaticParams, locateIcon } from "@/app/pabi/department-icons";
 import TierDrill from "@/app/pabi/tier-drill";
+import { isVistaSection } from "@/lib/ventas/vista-types";
 
 type VentasSectionPageProps = {
   params: Promise<{ section: string }>;
@@ -29,6 +31,13 @@ export default async function VentasSectionPage({ params }: VentasSectionPagePro
   const { section } = await params;
   const match = VENTAS_SECTIONS.find((item) => item.slug === section);
   if (match) {
+    if (isVistaSection(match.slug)) {
+      return (
+        <SectionPage>
+          <GlanceView section={match.slug} />
+        </SectionPage>
+      );
+    }
     const index = VENTAS_SECTIONS.findIndex((item) => item.slug === section);
     return (
       <SectionPage title={`${index + 1}. ${match.title}`}>

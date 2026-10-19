@@ -803,7 +803,9 @@ body {
 .op-drawer table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .op-drawer th, .op-drawer td { padding: 6px 4px; border-bottom: 1px solid #e2e8f0; text-align: left; }
 .op-target { grid-template-columns: 1fr 120px; align-items: center; }
-.op-target small { grid-column: 1 / -1; color: #64748b; font-weight: 500; }
+.op-target-meta { grid-template-columns: 1fr 72px 88px; align-items: center; }
+.op-target small, .op-target-meta small { grid-column: 1 / -1; color: #64748b; font-weight: 500; }
+.op-target-head { display: grid; grid-template-columns: 1fr 72px 88px; color: #64748b; font-size: 11px; font-weight: 700; }
 .op-history { margin: 0; padding-left: 16px; color: #334155; font-size: 12px; }
 
 @media (min-width: 961px) {
