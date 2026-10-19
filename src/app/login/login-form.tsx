@@ -35,7 +35,7 @@ export default function LoginForm() {
       return;
     }
 
-    const { error: authError } =
+    const { data, error: authError } =
       await supabaseBrowser.auth.signInWithPassword({ email, password });
 
     if (authError) {
@@ -44,9 +44,9 @@ export default function LoginForm() {
       return;
     }
 
-    // Hard navigation (not router.replace) guarantees middleware runs on fresh server request
-    const { data: { user } } = await supabaseBrowser.auth.getUser();
-    const role = user?.app_metadata?.role;
+    // Hard navigation (not router.replace) guarantees middleware runs on fresh server request.
+    // The user comes from the sign-in response. getUser() would rotate the refresh token.
+    const role = data.user?.app_metadata?.role;
     if (role === "ventas") {
       window.location.href = "/old/ventas/dashboard";
     } else {

@@ -1,16 +1,9 @@
 import { redirect } from "next/navigation";
-import { createUserClient } from "@/lib/auth";
+import { getPageUser } from "@/lib/auth";
 import LoginForm from "./login-form";
 
-async function getUser() {
-  const supabase = await createUserClient();
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  return data.user ?? null;
-}
-
 export default async function LoginPage() {
-  const user = await getUser();
+  const user = await getPageUser();
   if (user) {
     const role = user.app_metadata?.role as string | undefined;
     if (role === "ventas") {

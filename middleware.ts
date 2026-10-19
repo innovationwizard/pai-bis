@@ -22,6 +22,12 @@ function isCrawler(request: NextRequest): boolean {
   return CRAWLER_USER_AGENTS.some((bot) => ua.includes(bot.toLowerCase()));
 }
 
+function isPrefetch(request: NextRequest): boolean {
+  if (request.headers.get("next-router-prefetch")) return true;
+  if (request.headers.get("next-router-segment-prefetch")) return true;
+  return request.headers.get("purpose") === "prefetch";
+}
+
 export async function middleware(request: NextRequest) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.next();
@@ -32,7 +38,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const response = NextResponse.next();
+  const pathname = request.nextUrl.pathname;
+  const isApi = pathname === "/api" || pathname.startsWith("/api/");
+
+  // A prefetch must not rotate the refresh token. The browser may drop
+  // Set-Cookie on that response, and the next real request is then 401.
+  // The marker is ours: Next hides next-router-prefetch from server components.
+  if (!isApi && isPrefetch(request)) {
+    const headers = new Headers(request.headers);
+    headers.set("x-auth-prefetch", "1");
+    return NextResponse.next({ request: { headers } });
+  }
+  request.headers.delete("x-auth-prefetch");
+
+  // Recreate the response inside setAll so the forwarded request carries the
+  // rotated session. Server Components and route handlers then see a current
+  // access token and do not refresh it a second time.
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -40,14 +62,18 @@ export async function middleware(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        for (const { name, value } of cookiesToSet) {
+          request.cookies.set(name, value);
+        }
+        supabaseResponse = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) {
-          response.cookies.set(name, value, options);
+          supabaseResponse.cookies.set(name, value, options);
         }
       },
     },
   });
 
-  // getUser() may refresh tokens and write new cookies to `response`.
+  // getUser() may refresh tokens and write new cookies to `supabaseResponse`.
   // Any redirect we return must carry those cookies forward.
   const { data } = await supabase.auth.getUser();
 
@@ -56,14 +82,18 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = pathname;
     const redir = NextResponse.redirect(url);
-    // Copy cookies from the response (may include refreshed auth tokens)
-    for (const cookie of response.cookies.getAll()) {
+    for (const cookie of supabaseResponse.cookies.getAll()) {
       redir.cookies.set(cookie);
     }
     return redir;
   }
 
-  const pathname = request.nextUrl.pathname;
+  // API routes authenticate themselves and answer 401 JSON. Refresh the
+  // session here, then let the handler run. Do not send them to /login.
+  if (isApi) {
+    return supabaseResponse;
+  }
+
   const isLoginRoute = pathname.startsWith("/login");
   const isAuthCallback = pathname === "/auth/callback";
   const isAuthConfirm = pathname === "/auth/confirm";
@@ -101,7 +131,7 @@ export async function middleware(request: NextRequest) {
         return redirectTo("/");
       }
       // Unknown/unhandled role: stay on login page
-      return response;
+      return supabaseResponse;
     }
 
     if (role === "ventas") {
@@ -195,11 +225,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return response;
+  return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    "/((?!_next|api|favicon.ico|favicon.png|og-image.png|og-image.jpg|.*\\.(?:svg|png|jpg|jpeg|gif|webp)).*)"
+    "/((?!_next|favicon.ico|favicon.png|og-image.png|og-image.jpg|.*\\.(?:svg|png|jpg|jpeg|gif|webp)).*)"
   ]
 };

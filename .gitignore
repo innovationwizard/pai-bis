@@ -51,6 +51,9 @@ tsconfig.tsbuildinfo
 *.xlsx
 *.xls
 
+docs/
+docs-mercadeo-oct-09/
+
 ComisionesFebrero/
 ComisionesMarzo/
 scripts/output/

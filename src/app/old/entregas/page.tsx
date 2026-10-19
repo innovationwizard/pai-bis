@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { createUserClient } from "@/lib/auth";
+import { getPageUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import EntregasClient from "./entregas-client";
 
@@ -12,11 +12,8 @@ export const metadata: Metadata = {
 };
 
 async function getRole(): Promise<string | null> {
-  const supabase = await createUserClient();
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) return null;
-  return (data.user.app_metadata?.role as string | undefined) ?? null;
+  const user = await getPageUser();
+  return (user?.app_metadata?.role as string | undefined) ?? null;
 }
 
 export default async function EntregasPage() {

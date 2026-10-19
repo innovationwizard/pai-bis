@@ -1,16 +1,9 @@
 import { redirect } from "next/navigation";
-import { createUserClient, DATA_VIEWER_ROLES } from "@/lib/auth";
+import { getPageUser, DATA_VIEWER_ROLES } from "@/lib/auth";
 import SiteNav from "@/components/site-nav";
 
-async function getUser() {
-  const supabase = await createUserClient();
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  return data.user ?? null;
-}
-
 export default async function DashboardPage() {
-  const user = await getUser();
+  const user = await getPageUser();
 
   if (!user) redirect("/login");
 

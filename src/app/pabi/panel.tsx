@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { loadDisplayedUser, supabaseBrowser } from "@/lib/supabase-browser";
 import DepartmentIconNav from "@/components/department-icon-nav";
 import {
   DEPARTMENT_LABEL,
@@ -42,9 +42,9 @@ export default function Panel() {
   const accountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabaseBrowser.auth.getUser().then(({ data }) => {
-      setRole(data.user?.app_metadata?.role ?? null);
-      setEmail(data.user?.email ?? null);
+    loadDisplayedUser().then((user) => {
+      setRole(user?.app_metadata?.role ?? null);
+      setEmail(user?.email ?? null);
     });
   }, []);
 

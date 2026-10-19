@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { loadDisplayedUser, supabaseBrowser } from "@/lib/supabase-browser";
 import { ADMIN_ROLES, DATA_VIEWER_ROLES } from "@/lib/permissions";
 
 type NavLink = { href: string; label: string; roles?: string[] };
@@ -102,9 +102,9 @@ export default function NavBar() {
 
   // Fetch user identity
   useEffect(() => {
-    supabaseBrowser.auth.getUser().then(({ data }) => {
-      setRole(data.user?.app_metadata?.role ?? null);
-      setEmail(data.user?.email ?? null);
+    loadDisplayedUser().then((user) => {
+      setRole(user?.app_metadata?.role ?? null);
+      setEmail(user?.email ?? null);
     });
   }, []);
 

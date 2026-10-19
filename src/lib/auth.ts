@@ -1,7 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
+import { isPrefetchRequest, readStoredSession } from "@/lib/auth-cookie";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -23,10 +24,14 @@ export async function createUserClient() {
           for (const { name, value, options } of cookiesToSet) {
             cookieStore.set(name, value, options);
           }
-        } catch {
-          // A Server Component cannot write cookies. The middleware writes the refresh.
-          // A route handler can, and must: discarding the new tokens rotates the
-          // refresh token and the next request is rejected.
+        } catch (error) {
+          // Server Components cannot write cookies. Middleware already published
+          // the rotated session on this request, so getUser() must not rotate
+          // again here. A route handler can write; hiding that failure discards
+          // the new refresh token and the next request is 401.
+          const message = error instanceof Error ? error.message : "";
+          if (message.includes("Cookies can only be modified")) return;
+          throw error;
         }
       },
     },
@@ -49,6 +54,26 @@ export async function requireAuth() {
   }
 
   return { user: data.user };
+}
+
+/**
+ * User for a Server Component. On a real request middleware has already
+ * refreshed the session and forwarded the new cookies, so getUser() only
+ * validates. A prefetch reads the cookie and does not rotate.
+ */
+export async function getPageUser(): Promise<User | null> {
+  const headerList = await headers();
+  // Set by middleware only. next-router-prefetch is hidden from headers().
+  if (headerList.get("x-auth-prefetch") === "1" || isPrefetchRequest(headerList)) {
+    if (!supabaseUrl) return null;
+    const jar = await cookies();
+    const session = await readStoredSession(jar.getAll(), supabaseUrl);
+    return session?.user ?? null;
+  }
+  const supabase = await createUserClient();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  return data.user ?? null;
 }
 
 export type Role =

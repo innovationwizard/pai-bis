@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { loadDisplayedUser } from "@/lib/supabase-browser";
 
 /**
  * Current user's role from Supabase app_metadata.
@@ -16,8 +16,8 @@ export function useRole(): string | null | undefined {
 
   useEffect(() => {
     let cancelled = false;
-    supabaseBrowser.auth.getUser().then(({ data }) => {
-      if (!cancelled) setRole(data.user?.app_metadata?.role ?? null);
+    loadDisplayedUser().then((user) => {
+      if (!cancelled) setRole(user?.app_metadata?.role ?? null);
     });
     return () => {
       cancelled = true;

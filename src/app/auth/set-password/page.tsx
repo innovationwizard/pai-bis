@@ -57,7 +57,7 @@ export default function SetPasswordPage() {
 
     setIsLoading(true);
 
-    const { error: updateError } = await supabaseBrowser.auth.updateUser({
+    const { data, error: updateError } = await supabaseBrowser.auth.updateUser({
       password,
       data: { password_set: true },
     });
@@ -71,9 +71,9 @@ export default function SetPasswordPage() {
     // Confirm password_set in app_metadata (immutable by client)
     await fetch("/api/auth/confirm-password-set", { method: "POST" });
 
-    // Hard navigation (not router.replace) guarantees middleware runs on fresh server request
-    const { data: { user } } = await supabaseBrowser.auth.getUser();
-    const role = user?.app_metadata?.role;
+    // Hard navigation (not router.replace) guarantees middleware runs on fresh server request.
+    // Role comes from the update response. getUser() would rotate the refresh token.
+    const role = data.user?.app_metadata?.role;
     if (role === "ventas") {
       window.location.href = "/old/ventas/dashboard";
     } else {
