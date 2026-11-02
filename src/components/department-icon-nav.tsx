@@ -16,7 +16,7 @@ export default function DepartmentIconNav({
   return (
     <nav className="ventas-icons" aria-label={label}>
       {items.map((item) => {
-        const current = pathname === item.href;
+        const current = pathname === item.href || (pathname === "/ventas" && item.href === "/ventas/ventas-totales");
         const Icon = item.icon;
         return (
           <a
