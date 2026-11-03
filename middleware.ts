@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { accessTokenUsable, readStoredSession } from "@/lib/auth-cookie";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -65,17 +66,33 @@ export async function middleware(request: NextRequest) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
+        // A static page answers a conditional request with 304, and the browser
+        // drops Set-Cookie on that response. The refresh token was already
+        // rotated, so the next /api call is 401.
+        if (!isApi) {
+          request.headers.delete("if-none-match");
+          request.headers.delete("if-modified-since");
+        }
         supabaseResponse = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) {
           supabaseResponse.cookies.set(name, value, options);
+        }
+        if (!isApi) {
+          supabaseResponse.headers.set("Cache-Control", "private, no-store");
+          supabaseResponse.headers.set("x-middleware-cache", "no-cache");
         }
       },
     },
   });
 
-  // getUser() may refresh tokens and write new cookies to `supabaseResponse`.
-  // Any redirect we return must carry those cookies forward.
-  const { data } = await supabase.auth.getUser();
+  // getUser() with no argument refreshes during the last 90 seconds of the
+  // access token. That rotation, lost on a later response, signs the user out.
+  // While the token is still valid, only check it. Refresh once it has expired,
+  // and keep the new cookie on this response.
+  const stored = await readStoredSession(request.cookies.getAll(), supabaseUrl);
+  const { data } = stored && accessTokenUsable(stored.access_token)
+    ? await supabase.auth.getUser(stored.access_token)
+    : await supabase.auth.getUser();
 
   /** Create a redirect that preserves any cookies set during getUser() (token refresh). */
   function redirectTo(pathname: string): NextResponse {

@@ -38,6 +38,22 @@ export async function createUserClient() {
   });
 }
 
+type UserClient = NonNullable<Awaited<ReturnType<typeof createUserClient>>>;
+
+/**
+ * User for this request's cookie. Never refreshes: middleware does that once
+ * the access token has expired. A second refresh revokes the login.
+ */
+export async function verifyStoredUser(supabase: UserClient): Promise<User | null> {
+  if (!supabaseUrl) return null;
+  const jar = await cookies();
+  const session = await readStoredSession(jar.getAll(), supabaseUrl);
+  if (!session) return null;
+  const verified = await supabase.auth.getUser(session.access_token);
+  if (verified.error || !verified.data.user) return null;
+  return verified.data.user;
+}
+
 export async function requireAuth() {
   const supabase = await createUserClient();
   if (!supabase) {
@@ -48,18 +64,16 @@ export async function requireAuth() {
       )
     };
   }
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
+  const user = await verifyStoredUser(supabase);
+  if (!user) {
     return { response: NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
   }
-
-  return { user: data.user };
+  return { user };
 }
 
 /**
- * User for a Server Component. On a real request middleware has already
- * refreshed the session and forwarded the new cookies, so getUser() only
- * validates. A prefetch reads the cookie and does not rotate.
+ * User for a Server Component. Prefetch reads the cookie and does not call
+ * Auth. A real request checks the access token and does not refresh it.
  */
 export async function getPageUser(): Promise<User | null> {
   const headerList = await headers();
@@ -72,8 +86,7 @@ export async function getPageUser(): Promise<User | null> {
   }
   const supabase = await createUserClient();
   if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  return data.user ?? null;
+  return verifyStoredUser(supabase);
 }
 
 export type Role =

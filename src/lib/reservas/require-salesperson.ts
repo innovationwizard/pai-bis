@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createUserClient } from "@/lib/auth";
+import { createUserClient, verifyStoredUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Salesperson } from "./types";
 
@@ -22,8 +22,8 @@ export async function requireSalesperson(): Promise<Success | Failure> {
     };
   }
 
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
+  const user = await verifyStoredUser(supabase);
+  if (!user) {
     return {
       response: NextResponse.json({ error: "No autorizado" }, { status: 401 }),
     };
@@ -34,7 +34,7 @@ export async function requireSalesperson(): Promise<Success | Failure> {
   const { data: salesperson, error: spError } = await admin
     .from("salespeople")
     .select("id, full_name, display_name, phone, email, is_active, created_at, updated_at")
-    .eq("user_id", data.user.id)
+    .eq("user_id", user.id)
     .single();
 
   if (spError || !salesperson) {

@@ -8,8 +8,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 export const supabaseBrowser = createBrowserClient(supabaseUrl, supabaseAnonKey);
 
 // createBrowserClient forces autoRefreshToken on in the browser. That timer
-// rotates the refresh token on its own, in parallel with middleware, and the
-// loser of the race deletes the session. Middleware is the only refresher.
+// rotates the refresh token in parallel with middleware, and the loser of the
+// race deletes the session. Middleware refreshes only after the access token expires.
 if (typeof window !== "undefined") {
   const auth = supabaseBrowser.auth as typeof supabaseBrowser.auth & {
     autoRefreshToken: boolean;

@@ -28,6 +28,22 @@ export function isPrefetchRequest(headerList: { get(name: string): string | null
   return headerList.get("purpose") === "prefetch";
 }
 
+/**
+ * The access token is still accepted. Refreshing before this rotates the
+ * refresh token; if that new cookie is dropped, the next request signs the user out.
+ */
+export function accessTokenUsable(accessToken: string, nowMs = Date.now()): boolean {
+  const payload = accessToken.split(".")[1];
+  if (!payload) return false;
+  try {
+    const decoded = JSON.parse(stringFromBase64URL(payload)) as { exp?: unknown };
+    if (typeof decoded.exp !== "number") return false;
+    return decoded.exp * 1000 - nowMs > 15_000;
+  } catch {
+    return false;
+  }
+}
+
 /** Read the session cookie without contacting Auth and without rotating it. */
 export async function readStoredSession(
   cookieList: { name: string; value: string }[],
