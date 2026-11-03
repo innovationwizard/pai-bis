@@ -19,8 +19,8 @@ import {
 import logoHorizontal from "./assets/logo-horizontal.png";
 
 const SECTIONS = [
-  { href: "/ventas", label: "Ventas" },
   { href: "/mercadeo", label: "Mercadeo" },
+  { href: "/ventas", label: "Ventas" },
   { href: "/cobros", label: "Cobros" },
   { href: "/creditos", label: "Créditos" },
   { href: "/entregas", label: "Entregas" },
