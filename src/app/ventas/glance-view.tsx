@@ -6,7 +6,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
   LabelList,
   Legend,
   Line,
@@ -19,16 +18,10 @@ import {
 import type { Choice, StatusVista, TargetEditor, VentasVista, VistaSection } from "@/lib/ventas/vista-types";
 import { isControlVista, ControlScreens } from "./glance-control";
 import { isStockVista, StockScreens } from "./glance-stock";
+import TotalesScreen, { VentaFreshness } from "./totales-view";
 
 const STORAGE_KEY = "pai-ventas-filtros";
 const SERIES_COLOR = ["#0d2041", "#0573b0", "#b45309", "#3d6f8f"];
-const PROJECT_COLOR: Record<string, string> = {
-  benestare: "#0d2041",
-  "bosque-las-tapias": "#0573b0",
-  "boulevard-5": "#3d6f8f",
-  "casa-elisa": "#6d8ea3",
-  "santa-elena": "#1a4a68",
-};
 
 type FilterKey = "asesor" | "torre" | "fuente" | "modelo" | "habitaciones" | "motivo" | "descuento" | "promocion" | "caso" | "estadoUnidad" | "buscar";
 
@@ -144,19 +137,6 @@ function tipNumber(value: unknown): number | null {
 
 function clip(label: string, max = 22): string {
   return label.length <= max ? label : `${label.slice(0, max - 1)}…`;
-}
-
-function projectSlug(label: string): string {
-  return label
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-function projectColor(label: string): string {
-  return PROJECT_COLOR[projectSlug(label)] ?? "#0573b0";
 }
 
 function gapColor(value: number | null): string {
@@ -353,7 +333,7 @@ export default function GlanceView({ section }: { section: VistaSection }) {
   const specific = SPECIFIC[section];
 
   return (
-    <div className="op-screen">
+    <div className={`op-screen${section === "ventas-totales" ? " op-totales" : ""}`}>
       <div className="op-toolbar">
         <label>
           Periodo
@@ -450,12 +430,13 @@ export default function GlanceView({ section }: { section: VistaSection }) {
           {loading ? " Actualizando…" : ""}
           {!show && !error && !loading ? "Cargando…" : ""}
         </p>
+        {show?.section === "ventas-totales" ? <VentaFreshness freshness={show.freshness} /> : null}
       </div>
 
-      {show ? <p className="op-question">{show.question}</p> : null}
+      {show && section !== "ventas-totales" ? <p className="op-question">{show.question}</p> : null}
       {error ? <p className="op-note op-warn">{error}</p> : null}
-      {show?.notice ? <p className="op-note">{show.notice}</p> : null}
-      {show?.section === "ventas-totales" ? <Totales vista={show} onProject={(id, label) => setDrill({ kind: "project", id, label })} /> : null}
+      {show?.notice && section !== "ventas-totales" ? <p className="op-note">{show.notice}</p> : null}
+      {show?.section === "ventas-totales" ? <TotalesScreen vista={show} onProject={(id, label) => setDrill({ kind: "project", id, label })} /> : null}
       {show?.section === "objetivos-de-ventas" ? (
         <Objetivos
           vista={show}
@@ -489,56 +470,6 @@ function Kpi({ label, value, detail, color }: { label: string; value: string; de
       <span>{label}</span>
       <small>{detail}</small>
     </p>
-  );
-}
-
-function Totales({ vista, onProject }: { vista: Extract<VentasVista, { section: "ventas-totales" }>; onProject: (id: string, label: string) => void }) {
-  const delta = vista.priorNetUnits == null ? null : vista.netUnits - vista.priorNetUnits;
-  return (
-    <>
-      <div className="op-kpis">
-        <Kpi label="Neto" value={count(vista.netUnits)} detail={delta == null ? "unidades" : `${signed(delta)} vs anterior`} color={delta == null ? undefined : gapColor(delta)} />
-        <Kpi label="Quetzales netos" value={money(vista.netGtq)} detail={`${count(vista.grossUnits)} brutas`} />
-        <Kpi label="Desistimientos" value={count(vista.lossUnits)} detail={money(vista.lossGtq)} color={vista.lossUnits > 0 ? "#b91c1c" : undefined} />
-        <Kpi label="Brutas" value={count(vista.grossUnits)} detail={money(vista.grossGtq)} />
-      </div>
-      <section className="op-hero op-hero-budget" aria-label="Ventas del periodo">
-        <header className="op-head">
-          <div>
-            <h2>Neto del periodo</h2>
-            <p className="op-note">{vista.caption}</p>
-          </div>
-        </header>
-        <div className="op-chart">
-          {vista.daily.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={vista.daily} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                <CartesianGrid stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={32} />
-                <Tooltip formatter={(value, name) => [count(tipNumber(value)), String(name)]} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="dia" name="Del día" fill="#d6e4ee" isAnimationActive={false} />
-                <Line type="monotone" dataKey="neto" name="Acumulado" stroke="#0d2041" strokeWidth={2} dot={false} isAnimationActive={false} />
-                {vista.priorLabel ? <Line type="monotone" dataKey="anterior" name={vista.priorLabel} stroke="#94a3b8" strokeDasharray="4 3" dot={false} connectNulls={false} isAnimationActive={false} /> : null}
-                {vista.yearLabel ? <Line type="monotone" dataKey="anio" name={vista.yearLabel} stroke="#0573b0" strokeDasharray="2 3" dot={false} connectNulls={false} isAnimationActive={false} /> : null}
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </section>
-      <section className="op-hero" aria-label="Neto por proyecto" style={{ flex: 1 }}>
-        <header className="op-head"><div><h2>Neto por proyecto</h2></div></header>
-        <Bars
-          rows={vista.byProject}
-          nameKey="label"
-          valueKey="units"
-          format={(value) => count(value)}
-          colorOf={(row) => projectColor(row.label)}
-          onPick={(row) => onProject(row.id, row.label)}
-        />
-      </section>
-    </>
   );
 }
 

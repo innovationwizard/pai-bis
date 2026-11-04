@@ -14,21 +14,23 @@ import {
   type DateWindow,
   type PeriodPreset,
 } from "./period";
-import type {
-  CanalesVista,
-  Choice,
-  DailyPoint,
-  MeasureRow,
-  ObjetivosVista,
-  RhythmPoint,
-  SaleLine,
-  StatusRow,
-  StatusVista,
-  TargetCell,
-  TargetEditor,
-  TotalesVista,
-  VentasVista,
-  VistaSection,
+import { loadTotalesBridge, type TotalesBridge } from "./totales-bridge";
+import {
+  VENTA_DEFINITION,
+  type CanalesVista,
+  type Choice,
+  type DailyPoint,
+  type MeasureRow,
+  type ObjetivosVista,
+  type RhythmPoint,
+  type SaleLine,
+  type StatusRow,
+  type StatusVista,
+  type TargetCell,
+  type TargetEditor,
+  type TotalesVista,
+  type VentasVista,
+  type VistaSection,
 } from "./vista-types";
 import { buildControlVista, isControlSection } from "./vista-operativo";
 import { buildStockVista, isStockSection } from "./vista-operativo";
@@ -40,7 +42,7 @@ const CACHE_MS = 30_000;
 const DIM_MS = 5 * 60_000;
 const NO_SALES = "Este periodo todavía no tiene ventas.";
 const QUESTIONS: Record<VistaSection, string> = {
-  "ventas-totales": "¿Cuánto vendimos en el periodo, ya netos los desistimientos?",
+  "ventas-totales": VENTA_DEFINITION,
   "objetivos-de-ventas": "¿El periodo va sobre la meta, por proyecto y por asesor?",
   "status-de-ventas": "A la fecha de cierre, ¿hay déficit o excedente, por proyecto y por asesor?",
   "ventas-por-canales": "¿Qué canales están produciendo las ventas del periodo?",
@@ -55,7 +57,7 @@ const QUESTIONS: Record<VistaSection, string> = {
   promociones: "¿Qué promociones están cerrando ventas, y qué peso tienen?",
 };
 
-const SALE_COLUMNS = "deal_id,project_id,tower_id,asesor_id,fuente_id,sale_on,value_gtq,lost_on";
+const SALE_COLUMNS = "deal_id,unit_id,project_id,tower_id,asesor_id,fuente_id,sale_on,value_gtq,lost_on";
 
 export type VistaFilters = {
   preset: PeriodPreset;
@@ -82,6 +84,7 @@ type Filters = VistaFilters;
 
 type Sale = {
   dealId: string;
+  unitId: string;
   projectId: string;
   towerId: string;
   asesorId: string;
@@ -174,6 +177,7 @@ async function loadDims(client: Db): Promise<Dims> {
 function mapSale(row: Record<string, unknown>): Sale {
   return {
     dealId: String(row.deal_id),
+    unitId: row.unit_id == null ? "" : String(row.unit_id),
     projectId: String(row.project_id),
     towerId: String(row.tower_id),
     asesorId: String(row.asesor_id),
@@ -457,6 +461,104 @@ function joinNotice(parts: Array<string | null>): string | null {
   return unique.length ? unique.join(" ") : null;
 }
 
+function fullMonth(range: DateWindow): boolean {
+  return range.from === monthStart(range.from) && range.to === monthEnd(range.from);
+}
+
+function promedioOf(units: number, gtq: number | null): number | null {
+  if (units <= 0 || gtq == null) return null;
+  return gtq / units;
+}
+
+function unitsPhrase(value: number): string {
+  const rounded = Number.isInteger(value) ? String(value) : String(round1(value));
+  const noun = Math.abs(value) === 1 ? "unidad" : "unidades";
+  return `${rounded} ${noun}`;
+}
+
+function lastNumber(values: Array<number | null>): number | null {
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] != null) return values[index];
+  }
+  return null;
+}
+
+function paceInsight(netUnits: number, daily: DailyPoint[], monthly: boolean): string {
+  if (daily.length === 0 || netUnits === 0) return "En este periodo no hay ventas netas.";
+  let last = 0;
+  for (let index = 1; index < daily.length; index += 1) {
+    if (daily[index].neto !== daily[index - 1].neto) last = index;
+  }
+  const reached = unitsPhrase(daily[last].neto);
+  const when = daily[last].label;
+  const flat = last < daily.length - 1;
+  if (monthly) {
+    return flat ? `El acumulado llega a ${reached} en ${when} y no se mueve después.` : `El acumulado cierra en ${reached} en ${when}.`;
+  }
+  return flat
+    ? `El acumulado llega a ${reached} el día ${when} y el ritmo queda plano después.`
+    : `El acumulado cierra en ${reached} el día ${when}.`;
+}
+
+function targetBook(
+  cells: TargetCell[],
+  filters: Filters,
+  months: string[],
+): Map<string, { units: number | null; gtq: number | null }> | null {
+  if (filters.torreId) return null;
+  const scoped = scopedCells(cells, filters, months);
+  const map = new Map<string, { units: number | null; gtq: number | null }>();
+  for (const month of months) {
+    const mine = scoped.filter((cell) => cell.month === month);
+    const units = sumNullable(mine.map((cell) => cell.units));
+    const gtq = sumNullable(mine.map((cell) => cell.gtq));
+    if (units == null && gtq == null) continue;
+    map.set(month, { units, gtq });
+  }
+  return map.size ? map : null;
+}
+
+function accrueMeta(
+  monthly: boolean,
+  range: DateWindow,
+  months: string[],
+  length: number,
+  book: Map<string, { units: number | null; gtq: number | null }> | null,
+  key: "units" | "gtq",
+): Array<number | null> {
+  const blank = Array.from({ length }, () => null as number | null);
+  if (!book) return blank;
+  if (!monthly) {
+    const days = eachDay(range.from, range.to);
+    if (days.length !== length) return blank;
+    let run = 0;
+    let seen = false;
+    return days.map((day) => {
+      const target = book.get(monthStart(day))?.[key];
+      if (target == null) return seen ? round1(run) : null;
+      seen = true;
+      const dim = inclusiveDays(monthStart(day), monthEnd(day));
+      run += dim > 0 ? target / dim : 0;
+      return round1(run);
+    });
+  }
+  if (months.length !== length) return blank;
+  let run = 0;
+  let seen = false;
+  return months.map((month) => {
+    const target = book.get(month)?.[key];
+    if (target == null) return seen ? round1(run) : null;
+    seen = true;
+    const end = monthEnd(month);
+    const overlapFrom = range.from > month ? range.from : month;
+    const overlapTo = range.to < end ? range.to : end;
+    if (overlapFrom > overlapTo) return round1(run);
+    const dim = inclusiveDays(month, end);
+    run += dim > 0 ? target * (inclusiveDays(overlapFrom, overlapTo) / dim) : 0;
+    return round1(run);
+  });
+}
+
 function buildTotales(
   filters: Filters,
   range: DateWindow,
@@ -467,6 +569,8 @@ function buildTotales(
   spanLosses: Sale[],
   capped: boolean,
   choices: VentasVista["choices"],
+  cells: TargetCell[],
+  bridge: TotalesBridge,
 ): TotalesVista {
   const gross = moneyOf(sales);
   const loss = moneyOf(losses);
@@ -475,8 +579,9 @@ function buildTotales(
   const buckets = monthly ? months : null;
   const current = accumulate(sales, losses, buckets, range.from, range.to);
   const bars = monthly ? null : dailyBars(sales, losses, range.from, range.to);
-  const priorCount = filters.compareN ? filters.n : months.length === 1 ? 1 : 0;
-  const priors = priorCount > 0 ? previousWindows(range, priorCount) : [];
+  const priorCount = filters.compareN ? filters.n : 1;
+  const priors = previousWindows(range, priorCount);
+  const immediate = priors[0] ?? null;
   const priorSeries = priors.map((window) =>
     accumulate(
       spanSales.filter((sale) => inWindow(sale.saleOn, window)),
@@ -486,6 +591,16 @@ function buildTotales(
       window.to,
     ),
   );
+  const monthAligned =
+    monthly && immediate
+      ? accumulate(
+          spanSales.filter((sale) => inWindow(sale.saleOn, immediate)),
+          spanLosses.filter((sale) => inWindow(sale.lostOn, immediate)),
+          monthsTouched(immediate.from, immediate.to),
+          immediate.from,
+          immediate.to,
+        )
+      : null;
   const yearWindow = filters.compareYear ? yearAgoWindow(range) : null;
   const yearSeries = yearWindow
     ? accumulate(
@@ -496,20 +611,33 @@ function buildTotales(
         yearWindow.to,
       )
     : null;
+  const book = targetBook(cells, filters, months);
+  const meta = accrueMeta(monthly, range, months, current.units.length, book, "units");
+  const metaGtq = accrueMeta(monthly, range, months, current.units.length, book, "gtq");
   const daily: DailyPoint[] = current.units.map((neto, index) => {
-    const anteriorValues = priorSeries
-      .map((series) => series.units[index])
-      .filter((value): value is number => value != null);
-    const anterior = anteriorValues.length
-      ? round1(anteriorValues.reduce((sum, value) => sum + value, 0) / anteriorValues.length)
-      : null;
+    let anterior: number | null = null;
+    let anteriorGtq: number | null = null;
+    if (monthly && monthAligned && monthAligned.units.length === current.units.length) {
+      anterior = monthAligned.units[index] ?? null;
+      anteriorGtq = monthAligned.gtq[index] ?? null;
+    } else if (!monthly) {
+      const usable = priorSeries.filter((series) => series.units.length === current.units.length);
+      if (usable.length > 0) {
+        anterior = round1(usable.reduce((sum, series) => sum + series.units[index], 0) / usable.length);
+        anteriorGtq = round1(usable.reduce((sum, series) => sum + series.gtq[index], 0) / usable.length);
+      }
+    }
     return {
       label: monthly ? shortMonth(months[index]) : String(index + 1),
       dia: bars ? bars[index] : neto - (index > 0 ? current.units[index - 1] : 0),
       neto,
       netoGtq: current.gtq[index],
-      anterior: monthly ? null : anterior,
+      anterior,
+      anteriorGtq,
       anio: yearSeries?.units[index] ?? null,
+      anioGtq: yearSeries?.gtq[index] ?? null,
+      meta: meta[index] ?? null,
+      metaGtq: metaGtq[index] ?? null,
     };
   });
   const byProject = scopedProjects(dims, filters, [...sales, ...losses])
@@ -525,16 +653,22 @@ function buildTotales(
     })
     .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
   const list = linesOf(sales, losses, dims);
-  const priorNet = priorSeries[0] ? priorSeries[0].units[priorSeries[0].units.length - 1] ?? null : null;
+  const heroPrior = priorSeries[0] ?? null;
+  const priorNetUnits = heroPrior ? heroPrior.units[heroPrior.units.length - 1] ?? null : null;
+  const priorNetGtq = heroPrior ? heroPrior.gtq[heroPrior.gtq.length - 1] ?? null : null;
+  const netUnits = gross.units - loss.units;
+  const netGtq = subtract(gross, loss);
+  const targetUnits = book ? sumNullable([...book.values()].map((cell) => cell.units)) : null;
+  const targetGtq = book ? sumNullable([...book.values()].map((cell) => cell.gtq)) : null;
   return {
     section: "ventas-totales",
     question: QUESTIONS["ventas-totales"],
     periodLabel: range.label,
     rangeLabel: windowLabel(range),
-    caption: monthly
-      ? "Cada barra es el neto del mes. La línea es el neto acumulado. Una venta entra el día en que se cumplen las dos puertas."
-      : "Cada barra es el neto del día. La línea es el neto acumulado. La punteada es el mismo tramo del periodo anterior.",
-    notice: noticeFor(gross.units, gross.sin, capped),
+    caption: VENTA_DEFINITION,
+    definition: VENTA_DEFINITION,
+    freshness: bridge.freshness,
+    notice: joinNotice([noticeFor(gross.units, gross.sin, capped), bridge.notice]),
     projects: projectChoices(dims),
     choices,
     lines: list.lines,
@@ -544,15 +678,28 @@ function buildTotales(
     grossGtq: gross.gtq,
     lossUnits: loss.units,
     lossGtq: loss.gtq,
-    netUnits: gross.units - loss.units,
-    netGtq: subtract(gross, loss),
+    lossPriorUnits: immediate ? spanLosses.filter((sale) => inWindow(sale.lostOn, immediate)).length : null,
+    netUnits,
+    netGtq,
     sinMonto: gross.sin,
-    priorLabel: priors[0] ? (priorCount > 1 ? `Promedio de ${priorCount} periodos` : "Periodo anterior") : null,
-    priorNetUnits: priorNet,
+    priorLabel: immediate ? (fullMonth(range) ? "vs mes anterior" : "vs el mismo tramo anterior") : null,
+    priorNetUnits,
+    priorNetGtq,
+    compareLabel: immediate ? (filters.compareN && filters.n > 1 ? `Promedio de ${filters.n} periodos` : "Periodo anterior") : null,
     yearLabel: yearWindow ? "Año anterior" : null,
     yearNetUnits: yearSeries ? yearSeries.units[yearSeries.units.length - 1] ?? null : null,
+    targetUnits,
+    targetGtq,
+    targetNote: filters.torreId ? "La meta no se parte por torre." : null,
+    expectedUnits: lastNumber(meta),
+    promedio: promedioOf(netUnits, netGtq),
+    promedioPrior: priorNetUnits == null ? null : promedioOf(priorNetUnits, priorNetGtq),
+    paceInsight: paceInsight(netUnits, daily, monthly),
     daily,
     byProject,
+    funnel: bridge.funnel,
+    blockers: bridge.blockers,
+    blockerTotal: bridge.blockerTotal,
   };
 }
 
@@ -961,7 +1108,7 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
   const client = db();
   const compare = section === "ventas-totales";
   const months = monthsTouched(range.from, range.to);
-  const priorCount = compare ? (filters.compareN ? filters.n : months.length === 1 ? 1 : 0) : 0;
+  const priorCount = compare ? (filters.compareN ? filters.n : 1) : 0;
   const windows: DateWindow[] = [range];
   if (priorCount > 0) windows.push(...previousWindows(range, priorCount));
   if (compare && filters.compareYear) windows.push(yearAgoWindow(range));
@@ -1002,7 +1149,38 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
 
   let body: VentasVista;
   if (section === "ventas-totales") {
-    body = buildTotales(filters, range, dims, sales, losses, scopedSpan, scopedLossSpan, capped, choices);
+    const grossNow = moneyOf(sales);
+    const lossNow = moneyOf(losses);
+    const priorWindow = previousWindows(range, 1)[0] ?? null;
+    const [bridge, targetCells] = await Promise.all([
+      loadTotalesBridge({
+        range,
+        prior: priorWindow,
+        projectIds: filters.projectIds,
+        asesorId: filters.asesorId,
+        torreId: filters.torreId,
+        projectName: (id) => dims.projects.find((project) => project.id === id)?.name ?? "Sin dato",
+        asesorName: (id) => dims.asesores.get(id)?.name ?? "Sin dato",
+        sales: sales.flatMap((sale) =>
+          sale.saleOn
+            ? [{
+                dealId: sale.dealId,
+                unitId: sale.unitId,
+                projectId: sale.projectId,
+                asesorId: sale.asesorId,
+                valueGtq: sale.valueGtq,
+                saleOn: sale.saleOn,
+              }]
+            : [],
+        ),
+        netUnits: grossNow.units - lossNow.units,
+        netGtq: subtract(grossNow, lossNow),
+        lossCount: lossNow.units,
+        today,
+      }),
+      loadTargets(client, dims, months),
+    ]);
+    body = buildTotales(filters, range, dims, sales, losses, scopedSpan, scopedLossSpan, capped, choices, targetCells.cells, bridge);
   } else if (section === "objetivos-de-ventas") {
     body = buildObjetivos(filters, range, dims, sales, targetBook, capped, choices);
   } else if (section === "status-de-ventas") {

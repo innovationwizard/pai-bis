@@ -20,7 +20,83 @@ export function isVistaSection(slug: string): slug is VistaSection {
   return (VISTA_SECTIONS as readonly string[]).includes(slug);
 }
 
+export const VENTA_DEFINITION =
+  "Venta = recibo publicado (Odoo) + Recepción de Promesa Firmada (Pipedrive). Fecha = la más reciente de ambas.";
+
+export const VENTA_RULES: readonly { label: string; text: string }[] = [
+  {
+    label: "Reservas",
+    text: "Actividades de Pipedrive de tipo Reserva, finalizadas, dentro del periodo. Respetan los filtros de proyecto, asesor y torre.",
+  },
+  {
+    label: "Promesas firmadas",
+    text: "La última actividad de Pipedrive cuyo asunto es exactamente «Recepción de Promesa Firmada».",
+  },
+  {
+    label: "Recibos publicados",
+    text: "El primer recibo de entrada publicado en Odoo que coincide con la unidad: proyecto, torre, unidad y modelo.",
+  },
+  {
+    label: "Venta neta",
+    text: "El trato tiene las dos puertas. La fecha es la más reciente de las dos, en hora de Guatemala. Al periodo se le restan los desistimientos.",
+  },
+  {
+    label: "Desistimientos",
+    text: "Ventas que ya se habían contado y se cancelaron en el periodo.",
+  },
+];
+
 export type Choice = { id: string; label: string };
+
+export type StageDeal = {
+  key: string;
+  unit: string;
+  deal: string;
+  project: string;
+  asesor: string;
+  day: string | null;
+  gtq: number | null;
+};
+
+export type FunnelStage = {
+  id: "reservas" | "promesas" | "recibos" | "netas";
+  label: string;
+  source: string;
+  grain: string;
+  count: number;
+  gtq: number | null;
+  priorCount: number | null;
+  priorGtq: number | null;
+  conversion: number | null;
+  deals: StageDeal[];
+  dropped: StageDeal[];
+  entered: StageDeal[];
+  droppedTitle: string;
+  enteredTitle: string;
+  footnote: string | null;
+  listTotal: number;
+  droppedTotal: number;
+  enteredTotal: number;
+};
+
+export type BlockerRow = {
+  id: string;
+  unit: string;
+  deal: string;
+  project: string;
+  asesor: string;
+  stage: string;
+  missing: string;
+  severity: "alta" | "media";
+  days: number | null;
+  gtq: number | null;
+};
+
+export type Freshness = {
+  label: string;
+  stale: boolean;
+  note: string | null;
+};
 
 export type SaleLine = {
   dealId: string;
@@ -90,24 +166,43 @@ export type DailyPoint = {
   neto: number;
   netoGtq: number;
   anterior: number | null;
+  anteriorGtq: number | null;
   anio: number | null;
+  anioGtq: number | null;
+  meta: number | null;
+  metaGtq: number | null;
 };
 
 export type TotalesVista = VistaBase & {
   section: "ventas-totales";
+  definition: string;
+  freshness: Freshness;
   grossUnits: number;
   grossGtq: number | null;
   lossUnits: number;
   lossGtq: number | null;
+  lossPriorUnits: number | null;
   netUnits: number;
   netGtq: number | null;
   sinMonto: number;
   priorLabel: string | null;
   priorNetUnits: number | null;
+  priorNetGtq: number | null;
+  compareLabel: string | null;
   yearLabel: string | null;
   yearNetUnits: number | null;
+  targetUnits: number | null;
+  targetGtq: number | null;
+  targetNote: string | null;
+  expectedUnits: number | null;
+  promedio: number | null;
+  promedioPrior: number | null;
+  paceInsight: string;
   daily: DailyPoint[];
   byProject: { id: string; label: string; units: number; gtq: number | null }[];
+  funnel: FunnelStage[];
+  blockers: BlockerRow[];
+  blockerTotal: number;
 };
 
 export type MeasureRow = {
