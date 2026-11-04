@@ -119,12 +119,12 @@ export default function Panel() {
   return (
     <>
       <div className="section-header rounded-2xl border border-border px-[clamp(16px,3vw,32px)] py-4 backdrop-blur-sm bg-gradient-to-br from-panel-gradient-from/85 to-panel-gradient-to/70">
-        <div className="relative flex min-h-16 items-center">
+        <div className="relative flex min-h-14 items-center">
           <Image
             src={logoHorizontal}
             alt="Puerta Abierta"
-            height={64}
-            className="relative z-10 h-16 w-auto shrink-0"
+            height={56}
+            className="relative z-10 h-14 w-auto shrink-0"
             priority
           />
           <nav className="glass-nav absolute top-1/2 left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" aria-label="Secciones">
