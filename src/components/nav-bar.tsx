@@ -203,7 +203,7 @@ export default function NavBar() {
   const roleColor = ROLE_COLORS[role ?? ""] ?? "#64748b";
 
   return (
-    <nav className="flex flex-wrap gap-2 items-center text-[13px]">
+    <nav className="section-header flex flex-wrap gap-2 items-center text-[13px]">
       {links.map((item, i) =>
         item === "divider" ? (
           <span key={i} className="text-border select-none">
