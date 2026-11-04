@@ -480,6 +480,44 @@ body {
   grid-row: 2;
 }
 
+/*
+ * Department pages never scroll the window. The header stays a fixed-height
+ * sibling. The board and the vertical nav scroll inside their own boxes, so a
+ * tall section cannot change the layout width and shift the centered menu.
+ */
+main:has(.section-page) {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+main:has(.section-page) > .section-header {
+  flex: none;
+}
+
+main:has(.section-page) > .section-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+main:has(.section-page) > .section-page:has(> .section-header) {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+main:has(.section-page) > .section-page > .section-page-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+main:has(.section-page) > .section-page > .section-sidebar {
+  min-height: 0;
+  overflow: auto;
+}
+
 .section-sidebar {
   --section-icon: 36px;
   --section-pad: 8px;
