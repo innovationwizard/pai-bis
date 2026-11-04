@@ -142,7 +142,7 @@ export default function Panel() {
               );
             })}
           </nav>
-          <div className="relative z-10 ml-auto flex shrink-0 items-center gap-3">
+          <div className="absolute right-0 top-1/2 z-10 flex -translate-y-1/2 items-center gap-3">
             <div className="tier-switch tier-switch-compact" role="group" aria-label="Nivel del tablero">
               <button
                 type="button"
