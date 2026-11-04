@@ -12,7 +12,9 @@ const metadataBase = new URL(
 );
 
 const baseUrl = metadataBase.origin;
-const ogImageUrl = `${baseUrl}/og-image.jpg`;
+// Facebook and WhatsApp cache the picture by this exact address. Bump the
+// query when the file changes, or a rescrape keeps the previous picture.
+const ogImageUrl = `${baseUrl}/og-image.jpg?v=20261104`;
 
 const fbAppId = process.env.NEXT_PUBLIC_FB_APP_ID;
 
