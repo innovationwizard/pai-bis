@@ -32,8 +32,8 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { MERCADEO_SECTIONS, mercadeoSectionPath } from "@/app/mercadeo/sections";
-import { VENTAS_SECTIONS, ventasSectionPath } from "@/app/ventas/sections";
+import { MERCADEO_SECTIONS, mercadeoSectionPath } from "@/app/(panel)/mercadeo/sections";
+import { VENTAS_SECTIONS, ventasSectionPath } from "@/app/(panel)/ventas/sections";
 import type { DashboardTier } from "@/lib/dashboard-tier";
 
 export type DepartmentId = "ventas" | "mercadeo" | "cobros" | "creditos" | "entregas";

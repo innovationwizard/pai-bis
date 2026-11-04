@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { DepartmentIcon } from "@/app/pabi/department-icons";
+import {
+  DEPARTMENT_LABEL,
+  departmentFromPath,
+  iconsFor,
+  type DepartmentIcon,
+} from "@/app/pabi/department-icons";
+import { useDashboardTier } from "@/lib/dashboard-tier";
 
 const STORAGE_KEY = "pai-section-nav-expanded";
 
@@ -82,7 +89,7 @@ export default function SectionSidebar({
           const current = isCurrent(pathname, item.href);
           const Icon = item.icon;
           return (
-            <a
+            <Link
               key={item.slug}
               href={item.href}
               aria-label={item.title}
@@ -94,10 +101,19 @@ export default function SectionSidebar({
               </span>
               <span className="section-sidebar-label">{item.title}</span>
               <span className="section-sidebar-tip" aria-hidden="true">{item.title}</span>
-            </a>
+            </Link>
           );
         })}
       </div>
     </nav>
   );
+}
+
+export function DepartmentSectionSidebar() {
+  const pathname = usePathname();
+  const { tier } = useDashboardTier();
+  const department = departmentFromPath(pathname);
+  const icons = department ? iconsFor(department, tier) : [];
+  if (!department || icons.length === 0) return null;
+  return <SectionSidebar label={DEPARTMENT_LABEL[department]} items={icons} />;
 }

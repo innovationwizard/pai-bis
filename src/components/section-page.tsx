@@ -1,10 +1,10 @@
-import SiteNav from "@/components/site-nav";
 import type { ReactNode } from "react";
+import { DepartmentSectionSidebar } from "@/components/section-sidebar";
 
 export default function SectionPage({ title, children }: { title?: string; children?: ReactNode }) {
   return (
     <div className="section-page">
-      <SiteNav />
+      <DepartmentSectionSidebar />
       <div className="section-page-body">
         {title ? (
           <div className="p-[clamp(16px,3vw,32px)] max-w-[1400px] mx-auto">

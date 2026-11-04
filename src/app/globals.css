@@ -434,7 +434,7 @@ body {
 .section-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto;
+  grid-template-rows: auto;
   column-gap: clamp(16px, 3vw, 28px);
   row-gap: clamp(16px, 3vw, 28px);
   align-items: stretch;
@@ -446,6 +446,10 @@ body {
   grid-template-columns: auto minmax(0, 1fr);
 }
 
+.section-page:has(> .section-header) {
+  grid-template-rows: auto auto;
+}
+
 .section-page > .section-header {
   grid-column: 1 / -1;
   grid-row: 1;
@@ -454,13 +458,13 @@ body {
 
 .section-page > .section-sidebar {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
   align-self: stretch;
 }
 
 .section-page > .section-page-body {
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -471,8 +475,9 @@ body {
   grid-column: 2;
 }
 
-.section-page:not(:has(> .section-header)) > .section-page-body {
-  grid-row: 1;
+.section-page:has(> .section-header) > .section-sidebar,
+.section-page:has(> .section-header) > .section-page-body {
+  grid-row: 2;
 }
 
 .section-sidebar {
@@ -1061,6 +1066,10 @@ body {
   main:has(.op-screen) > .section-page {
     flex: 1 1 auto;
     min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  main:has(.op-screen) > .section-page:has(> .section-header) {
     grid-template-rows: auto minmax(0, 1fr);
   }
 
