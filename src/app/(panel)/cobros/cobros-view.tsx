@@ -314,10 +314,11 @@ export default function CobrosView({ section }: { section: CobrosSection }) {
         ) : null}
         <button type="button" className="op-text" onClick={() => setBar(INITIAL)}>Restablecer</button>
         <p className="op-range">
-          {show ? `${show.periodLabel}. ${show.rangeLabel}.` : ""}
+          {show ? `${show.periodLabel}: ${show.rangeLabel}.` : ""}
           {loading ? " Actualizando…" : ""}
         </p>
       </div>
+      <hr className="op-filter-rule" />
 
       {show ? <p className="op-question">{show.question}</p> : null}
       {error ? <p className="op-note op-warn">{error}</p> : null}

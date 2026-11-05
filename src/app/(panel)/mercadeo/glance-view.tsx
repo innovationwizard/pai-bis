@@ -246,8 +246,9 @@ export default function GlanceView({ section }: { section: GlanceSection }) {
             Presupuesto
           </button>
         ) : null}
-        <p className="op-range">{show ? `${show.periodLabel}. ${show.rangeLabel}.` : error ? "" : "Cargando…"}</p>
+        <p className="op-range">{show ? `${show.periodLabel}: ${show.rangeLabel}.` : error ? "" : "Cargando…"}</p>
       </div>
+      <hr className="op-filter-rule" />
 
       {show ? <p className="op-question">{show.question}</p> : null}
       {error ? <p className="op-note op-warn">{error}</p> : null}

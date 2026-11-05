@@ -249,12 +249,13 @@ export default function MercadeoBoard({ section }: { section: string }) {
           Restablecer
         </button>
       </div>
+      <hr className="op-filter-rule" />
 
       {section === "canales" ? <Metricool /> : null}
       {error ? <p className="mercadeo-note">{error}</p> : null}
       {report && !error ? (
         <>
-          <p className="mercadeo-note">{report.periodLabel}. {report.rangeLabel}. {report.caption}</p>
+          <p className="mercadeo-note">{report.periodLabel}: {report.rangeLabel}. {report.caption}</p>
           {report.notice ? <p className="mercadeo-note">{report.notice}</p> : null}
           {section !== "canales" && report.insights.length > 0 ? (
             <div className="mercadeo-insights">

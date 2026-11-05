@@ -18,7 +18,7 @@ import {
 import type { Choice, StatusVista, TargetEditor, VentasVista, VistaSection } from "@/lib/ventas/vista-types";
 import { isControlVista, ControlScreens } from "./glance-control";
 import { isStockVista, StockScreens } from "./glance-stock";
-import TotalesScreen, { VentaFreshness } from "./totales-view";
+import TotalesScreen from "./totales-view";
 
 const STORAGE_KEY = "pai-ventas-filtros";
 const SERIES_COLOR = ["#0d2041", "#0573b0", "#b45309", "#3d6f8f"];
@@ -426,12 +426,14 @@ export default function GlanceView({ section }: { section: VistaSection }) {
         ) : null}
         <button type="button" className="op-text" onClick={() => setBar(INITIAL)}>Restablecer</button>
         <p className="op-range">
-          {show ? `${show.periodLabel}. ${show.rangeLabel}.` : ""}
+          {show ? `${show.periodLabel}: ${show.rangeLabel}.` : ""}
+          {show?.section === "ventas-totales" ? <span className="op-fresh">{show.freshness.label}</span> : null}
           {loading ? " Actualizando…" : ""}
           {!show && !error && !loading ? "Cargando…" : ""}
         </p>
-        {show?.section === "ventas-totales" ? <VentaFreshness freshness={show.freshness} /> : null}
       </div>
+      <hr className="op-filter-rule" />
+      {show?.section === "ventas-totales" && show.freshness.note ? <p className="op-note">{show.freshness.note}</p> : null}
 
       {show && section !== "ventas-totales" ? <p className="op-question">{show.question}</p> : null}
       {error ? <p className="op-note op-warn">{error}</p> : null}

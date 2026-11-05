@@ -297,8 +297,9 @@ export default function OperativoView({ variant = "home" }: { variant?: "home" |
             Meta de leads
           </button>
         ) : null}
-        <p className="op-range">{report ? `${report.periodLabel}. ${report.rangeLabel}.` : error ? "" : "Cargando…"}</p>
+        <p className="op-range">{report ? `${report.periodLabel}: ${report.rangeLabel}.` : error ? "" : "Cargando…"}</p>
       </div>
+      <hr className="op-filter-rule" />
 
       {variant === "reporte" ? (
         <p className="op-question">¿La pauta de este periodo compra leads, reservas y cierres dentro del presupuesto?</p>

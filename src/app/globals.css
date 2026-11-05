@@ -956,7 +956,16 @@ main:has(.section-page) > .section-page > .section-sidebar {
 .op-mode button[aria-pressed="true"] { background: #0d2041; color: #fff; border-color: #0d2041; }
 .op-text, .op-save, .op-drawer header button, .op-modal header button { cursor: pointer; }
 .op-save { background: #0d2041; color: #fff; border-color: #0d2041; }
-.op-range { margin: 0 0 4px auto; color: #64748b; font-size: 12px; }
+.op-range { margin: 0 0 4px auto; color: #64748b; font-size: 12px; font-weight: 400; }
+.op-fresh { margin-left: 16px; font-size: inherit; font-weight: inherit; color: inherit; }
+.op-filter-rule {
+  width: 100%;
+  height: 0;
+  margin: 8px 0 2px;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  flex: 0 0 auto;
+}
 
 .op-subnav { align-items: center; }
 .op-subnav a { display: inline-flex; align-items: center; text-decoration: none; }

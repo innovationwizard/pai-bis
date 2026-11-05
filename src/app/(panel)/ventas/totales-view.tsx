@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { BlockerRow, Freshness, FunnelStage, StageDeal, TotalesVista } from "@/lib/ventas/vista-types";
-import { VENTA_DEFINITION, VENTA_RULES } from "@/lib/ventas/vista-types";
 
 const moneyFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 1 });
@@ -61,14 +60,16 @@ function csvCell(value: string): string {
 export function VentaFreshness({ freshness }: { freshness: Freshness }) {
   return (
     <div className="vt-stamp">
-      <p className={freshness.stale ? "vt-stale" : undefined}>{freshness.label}</p>
-      <VentaDefinition />
+      <p>{freshness.label}</p>
+      {/* <VentaDefinition /> */}
       {freshness.note ? <p className="vt-stale-note">{freshness.note}</p> : null}
     </div>
   );
 }
 
 export function VentaDefinition() {
+  return null;
+  /*
   return (
     <details className="vt-def">
       <summary>Cómo calculamos Venta</summary>
@@ -85,6 +86,7 @@ export function VentaDefinition() {
       </div>
     </details>
   );
+  */
 }
 
 export default function TotalesScreen({

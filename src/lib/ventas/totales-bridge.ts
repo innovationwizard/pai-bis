@@ -827,22 +827,16 @@ function freshnessOf(input: { pipedrive: string | null; odoo: string | null; odo
   if (input.odooRows === 0) notes.push("No hay recibos de Odoo cargados. Sin esa lectura no hay venta neta.");
   if (!latest) {
     return {
-      label: "Sin movimientos cargados · Fuentes: Pipedrive + Odoo",
+      label: "Sin movimientos cargados",
       stale: true,
-      note: notes.join(" ") || "No hay un movimiento de Pipedrive ni de Odoo en la lectura.",
+      note: notes.join(" ") || "No hay un movimiento cargado en la lectura.",
     };
   }
   const latestDay = guatemalaDay(latest);
   const stale = latestDay <= addDays(input.today, -4);
   if (stale) notes.push(`El último movimiento cargado es del ${stampText(latest)}. Hoy es ${dotted(input.today)}.`);
-  if (input.pipedrive && input.odoo) {
-    const left = guatemalaDay(input.pipedrive);
-    const right = guatemalaDay(input.odoo);
-    const gap = Math.abs(inclusiveDays(left < right ? left : right, left < right ? right : left) - 1);
-    if (gap > 2) notes.push(`Pipedrive al ${stampText(input.pipedrive)}. Odoo al ${stampText(input.odoo)}.`);
-  }
   return {
-    label: `Datos al ${stampText(latest)} · Fuentes: Pipedrive + Odoo`,
+    label: `Datos al ${stampText(latest)}`,
     stale: stale || input.odooRows === 0,
     note: notes.length ? notes.join(" ") : null,
   };
