@@ -33,7 +33,6 @@ import {
   Wallet,
 } from "lucide-react";
 import { MERCADEO_SECTIONS, mercadeoSectionPath } from "@/app/(panel)/mercadeo/sections";
-import { VENTAS_SECTIONS, ventasSectionPath } from "@/app/(panel)/ventas/sections";
 import type { DashboardTier } from "@/lib/dashboard-tier";
 
 export type DepartmentId = "ventas" | "mercadeo" | "cobros" | "creditos" | "entregas";
@@ -152,7 +151,7 @@ const ENTREGAS_OPERATIVO: readonly DepartmentIcon[] = [
 
 const CATALOG: Record<DepartmentId, Record<DashboardTier, readonly DepartmentIcon[]>> = {
   ventas: {
-    operativo: mapSections(VENTAS_SECTIONS, ventasSectionPath),
+    operativo: [],
     directivo: VENTAS_DIRECTIVO,
   },
   mercadeo: {

@@ -21,7 +21,7 @@ export function isVistaSection(slug: string): slug is VistaSection {
 }
 
 export const VENTA_DEFINITION =
-  "Venta = recibo publicado (Odoo) + Recepción de Promesa Firmada (Pipedrive). Fecha = la más reciente de ambas.";
+  "Venta neta = recibo publicado (Odoo) + Recepción de Promesa Firmada (Pipedrive). Fecha = la más reciente de ambas.";
 
 export const VENTA_RULES: readonly { label: string; text: string }[] = [
   {

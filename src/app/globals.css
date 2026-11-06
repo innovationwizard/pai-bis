@@ -1467,3 +1467,109 @@ main:has(.section-page) > .section-page > .section-sidebar {
   .vt-project { grid-template-columns: 1fr; }
   .vt-hero-figure b { font-size: 36px; }
 }
+
+.vc-command {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding: 8px clamp(16px, 2vw, 28px) 40px;
+}
+
+.vc-head { display: flex; flex-direction: column; gap: 8px; }
+.vc-definition {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+  color: #0d2041;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.vc-command .op-fresh[data-stale="true"] { color: #b45309; font-weight: 700; }
+
+.vc-grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 8px 20px;
+  min-width: 0;
+}
+.vc-card { min-width: 0; padding: 4px 0 0; }
+.vc-card h2 {
+  margin: 0;
+  color: #0d2041;
+  font-size: 15px;
+  font-weight: 700;
+}
+.vc-card > h2:not(:first-child) { margin-top: 18px; }
+.vc-command h3 {
+  margin: 14px 0 4px;
+  color: #0d2041;
+  font-size: 14px;
+  font-weight: 700;
+}
+.vc-sub {
+  margin: 2px 0 8px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.vc-figure {
+  margin: 2px 0 4px;
+  color: #0d2041;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.vc-figure span {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #334155;
+}
+.vc-chart { width: 100%; min-width: 0; }
+.vc-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+.vc-tabs button {
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #0d2041;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vc-tabs button[aria-pressed="true"] {
+  background: #0d2041;
+  color: #fff;
+  border-color: #0d2041;
+}
+.vc-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: #0d2041;
+  font-size: 13px;
+  font-weight: 700;
+}
+.vc-chip button {
+  height: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #0d2041;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 960px) {
+  .vc-grid-2 { grid-template-columns: minmax(0, 1fr); }
+  .vc-figure { font-size: 22px; }
+}
