@@ -2,16 +2,16 @@
 
 import { useEffect, useReducer, useRef, useState, type CSSProperties } from "react";
 import { FIXTURE } from "./fixture";
-import { chartSummary, formatPct, previousOf, projectById, readoutFor } from "./format";
+import { chartSummary, previousOf, projectById, readoutFor } from "./format";
 import { INSIGHTS } from "./insights";
 import { markOpacity, PROJECT_HUE, visibleProjects } from "./model";
 import { useCountUp, useRove } from "./motion";
 import { Comparison, Ranking, Waterfall } from "./panels";
 import { Drawer, Origen, Shortcuts } from "./overlays";
 import { FlowView, TreemapView } from "./hero-views";
+import VerticalBars from "./bars";
 import { Panel, Ticks, cx } from "./frame";
 import { initialState, reducer, spotlightOf, type Target } from "./state";
-import Sunburst from "./sunburst";
 import styles from "./centro.module.css";
 
 function Count({ value }: { value: number }) {
@@ -321,10 +321,10 @@ export default function CentroDeMando() {
           </div>
 
           <div ref={heroRef} className={styles.heroWrap}>
-          <Panel className={cx(styles.fill, styles.hero)} labelledBy="cdm-sun-title">
+          <Panel className={cx(styles.fill, styles.hero)} labelledBy="cdm-bar-title">
             <div className={styles.heroHead}>
-              <h2 id="cdm-sun-title" className={styles.srOnly}>
-                Total, proyecto y asesor.
+              <h2 id="cdm-bar-title" className={styles.srOnly}>
+                Barras por proyecto. Al elegir un proyecto, sus asesores.
               </h2>
               <nav className={styles.crumbs} aria-label="Total, proyecto y asesor">
                 <button type="button" className={styles.crumb} aria-current={trailProject ? undefined : "page"} onClick={onTotal}>
@@ -354,14 +354,14 @@ export default function CentroDeMando() {
               </nav>
               <div className={styles.heroTools}>
                 <div className={styles.seg} role="group" aria-label="Vista del gráfico">
-                  {(["sunburst", "treemap", "flujo"] as const).map((view) => (
+                  {(["barras", "treemap", "flujo"] as const).map((view) => (
                     <button
                       key={view}
                       type="button"
                       aria-pressed={state.view === view}
                       onClick={() => dispatch({ type: "set-view", view })}
                     >
-                      {view === "sunburst" ? "Sunburst" : view === "treemap" ? "Treemap" : "Flujo"}
+                      {view === "barras" ? "Barras" : view === "treemap" ? "Treemap" : "Flujo"}
                     </button>
                   ))}
                 </div>
@@ -372,28 +372,7 @@ export default function CentroDeMando() {
               {presentNote ? <p className={styles.caption}>{presentNote}</p> : null}
             </div>
             <div className={styles.heroChart}>
-              {state.view === "sunburst" ? (
-                <Sunburst
-                  focusProjectId={state.focusProjectId}
-                  spotlight={spotlight}
-                  selected={state.selected}
-                  opacityFor={(arc) =>
-                    markOpacity(
-                      { kind: arc.kind, projectId: arc.projectId, advisorId: arc.advisorId },
-                      spotlight,
-                      state.focusProjectId,
-                      state.selected,
-                    )
-                  }
-                  centerValue={focus ? focus.reservas : FIXTURE.total.reservas}
-                  centerShare={focus ? `${formatPct(focus.reservas, FIXTURE.total.reservas)} del total` : "octubre 2026"}
-                  onProject={onProject}
-                  onAdvisor={onAdvisor}
-                  onTotal={onTotal}
-                  onHover={onHover}
-                  onKbd={onKbd}
-                />
-              ) : null}
+              {state.view === "barras" ? <VerticalBars {...handlers} /> : null}
               {state.view === "treemap" ? <TreemapView {...handlers} /> : null}
               {state.view === "flujo" ? <FlowView {...handlers} /> : null}
             </div>

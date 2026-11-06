@@ -12,7 +12,7 @@ export type State = {
   origen: boolean;
   metaOn: boolean;
   metaValue: number;
-  view: "sunburst" | "treemap" | "flujo";
+  view: "barras" | "treemap" | "flujo";
   shortcuts: boolean;
 };
 
@@ -42,7 +42,7 @@ export function initialState(): State {
     origen: false,
     metaOn: false,
     metaValue: 4,
-    view: "sunburst",
+    view: "barras",
     shortcuts: false,
   };
 }
