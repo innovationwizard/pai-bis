@@ -74,7 +74,7 @@ Pati (Patricia) is the single-operator Control Tower managing 350+ clients, 4 pr
 | `/api/reservas/` namespace | Zero conflicts with existing `/api/` routes |
 | `rv_*` enum types | Avoids collision with any existing PostgreSQL types |
 | `SECURITY DEFINER` + `FOR UPDATE` | Atomic state transitions prevent double-booking race conditions |
-| React 18 kept | Existing app dependency — no upgrade risk |
+| React 18 kept | Existing app dependency — no upgrade risk. Superseded 2026-11-04: the app is on React 19.3.1 (changelog 099) |
 | Tailwind for new pages only | Existing app uses globals.css — gradual adoption |
 
 ## Files changed

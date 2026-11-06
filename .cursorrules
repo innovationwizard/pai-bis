@@ -53,7 +53,7 @@ Never write "corte" on a screen. Here it means a dress or a haircut, not a repor
 "período" is also fine. A database field named corte is not permission to print the word.
 
 ## Stack
-- Next.js 15 (App Router), TypeScript strict, Supabase (Postgres + Auth + RLS + Realtime + Storage), Vercel, D3.js, Zod
+- Next.js 16 (App Router), React 19.3.1 (`react` and `react-dom` ^19.3.1; `@types/react` and `@types/react-dom` ^19.3.0), TypeScript strict, Supabase (Postgres + Auth + RLS + Realtime + Storage), Vercel, D3.js, Zod
 - Claude Vision OCR (@anthropic-ai/sdk) for bank receipt extraction
 - `@/*` → `./src/*`
 - RLS mandatory. No service-role keys in client components. UUID v7 for all PKs.

@@ -111,7 +111,8 @@ This system — the Reserve Deposit Observer — is the foundational step toward
 ## Project Context
 
 ### Stack
-- **Framework:** Next.js 15 (App Router)
+- **Framework:** Next.js 16 (App Router)
+- **UI:** React 19.3.1 (`react` and `react-dom` ^19.3.1; `@types/react` and `@types/react-dom` ^19.3.0)
 - **Language:** TypeScript (strict mode)
 - **Backend:** Supabase (Postgres + Auth + RLS)
 - **Hosting:** Vercel (Frontend/Edge)
