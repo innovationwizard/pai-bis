@@ -34,6 +34,13 @@ export function jsonOk<T>(payload: T, init?: ResponseInit) {
   return NextResponse.json(payload, init);
 }
 
+/** Authenticated JSON. A public cache entry can be revalidated as 304, and the browser then drops Set-Cookie. */
+export function privateJson<T>(body: T, status = 200) {
+  const response = NextResponse.json(body, { status });
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
 type ParseResult<T> =
   | { data: T; error?: undefined }
   | { data?: undefined; error: ApiError };

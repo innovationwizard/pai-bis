@@ -29,7 +29,20 @@ function isPrefetch(request: NextRequest): boolean {
   return request.headers.get("purpose") === "prefetch";
 }
 
-export async function middleware(request: NextRequest) {
+const PRIVATE = "private, no-store";
+
+function seal(response: NextResponse): NextResponse {
+  response.headers.set("Cache-Control", PRIVATE);
+  return response;
+}
+
+/** A 304 cannot carry Set-Cookie. Drop the validators before any session work. */
+function stripConditional(request: NextRequest) {
+  request.headers.delete("if-none-match");
+  request.headers.delete("if-modified-since");
+}
+
+export async function proxy(request: NextRequest) {
   if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.next();
   }
@@ -41,6 +54,7 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isApi = pathname === "/api" || pathname.startsWith("/api/");
+  const isPublicApi = pathname.startsWith("/api/public/");
 
   // A prefetch must not rotate the refresh token. The browser may drop
   // Set-Cookie on that response, and the next real request is then 401.
@@ -48,14 +62,18 @@ export async function middleware(request: NextRequest) {
   if (!isApi && isPrefetch(request)) {
     const headers = new Headers(request.headers);
     headers.set("x-auth-prefetch", "1");
-    return NextResponse.next({ request: { headers } });
+    headers.delete("if-none-match");
+    headers.delete("if-modified-since");
+    return seal(NextResponse.next({ request: { headers } }));
   }
   request.headers.delete("x-auth-prefetch");
+  stripConditional(request);
 
   // Recreate the response inside setAll so the forwarded request carries the
   // rotated session. Server Components and route handlers then see a current
   // access token and do not refresh it a second time.
   let supabaseResponse = NextResponse.next({ request });
+  if (!isPublicApi) seal(supabaseResponse);
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -66,21 +84,15 @@ export async function middleware(request: NextRequest) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
-        // A static page answers a conditional request with 304, and the browser
-        // drops Set-Cookie on that response. The refresh token was already
-        // rotated, so the next /api call is 401.
-        if (!isApi) {
-          request.headers.delete("if-none-match");
-          request.headers.delete("if-modified-since");
-        }
+        // The new refresh token has already been issued. This response must be
+        // a 200 the browser is allowed to store, or the next call reuses the
+        // old token and Supabase revokes the login.
+        stripConditional(request);
         supabaseResponse = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) {
           supabaseResponse.cookies.set(name, value, options);
         }
-        if (!isApi) {
-          supabaseResponse.headers.set("Cache-Control", "private, no-store");
-          supabaseResponse.headers.set("x-middleware-cache", "no-cache");
-        }
+        seal(supabaseResponse);
       },
     },
   });
@@ -102,7 +114,7 @@ export async function middleware(request: NextRequest) {
     for (const cookie of supabaseResponse.cookies.getAll()) {
       redir.cookies.set(cookie);
     }
-    return redir;
+    return seal(redir);
   }
 
   // API routes authenticate themselves and answer 401 JSON. Refresh the
@@ -132,8 +144,7 @@ export async function middleware(request: NextRequest) {
     const role = (data.user.app_metadata?.role as string | undefined) ?? null;
 
     // These mirror ADMIN_ROLES and DATA_VIEWER_ROLES from src/lib/auth.ts.
-    // Defined locally because middleware runs in Edge Runtime and cannot
-    // import from src/lib/. Keep in sync manually.
+    // Kept here so this file does not import src/lib/auth.ts. Keep in sync.
     // DATA_PAGE_ROLES excludes master/torredecontrol because those are
     // handled by ADMIN_PAGE_ROLES in the if/else chain above.
     const ADMIN_PAGE_ROLES = ["master", "torredecontrol"];
@@ -242,7 +253,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return supabaseResponse;
+  return isPublicApi ? supabaseResponse : seal(supabaseResponse);
 }
 
 export const config = {

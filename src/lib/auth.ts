@@ -54,19 +54,22 @@ export async function verifyStoredUser(supabase: UserClient): Promise<User | nul
   return verified.data.user;
 }
 
+function authJson(error: string, status: number) {
+  const response = NextResponse.json({ error }, { status });
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
 export async function requireAuth() {
   const supabase = await createUserClient();
   if (!supabase) {
     return {
-      response: NextResponse.json(
-        { error: "Faltan variables de entorno de Supabase" },
-        { status: 500 }
-      )
+      response: authJson("Faltan variables de entorno de Supabase", 500)
     };
   }
   const user = await verifyStoredUser(supabase);
   if (!user) {
-    return { response: NextResponse.json({ error: "No autorizado" }, { status: 401 }) };
+    return { response: authJson("No autorizado", 401) };
   }
   return { user };
 }
@@ -162,7 +165,7 @@ export async function requireSuperuser() {
     isSuperuser(auth.user?.email ?? null) ||
     hasRole(auth.user ?? null, ["master"]);
   if (!allowed) {
-    return { response: NextResponse.json({ error: "No autorizado" }, { status: 403 }) };
+    return { response: authJson("No autorizado", 403) };
   }
   return auth;
 }
@@ -176,7 +179,7 @@ export async function requireRole(roles: Role[]) {
     isSuperuser(auth.user?.email ?? null) ||
     hasRole(auth.user ?? null, roles);
   if (!allowed) {
-    return { response: NextResponse.json({ error: "No autorizado" }, { status: 403 }) };
+    return { response: authJson("No autorizado", 403) };
   }
   return auth;
 }

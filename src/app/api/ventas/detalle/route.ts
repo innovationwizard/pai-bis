@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { privateJson } from "@/lib/api";
 import { requireRole, type Role } from "@/lib/auth";
 import { parseVistaFilters } from "@/lib/ventas/vista";
 import { buildUnitDetalle, isStockSection } from "@/lib/ventas/vista-operativo";
@@ -13,13 +13,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const section = url.searchParams.get("section") ?? "";
   if (!isStockSection(section) || section === "tasa-de-conversion") {
-    return NextResponse.json({ error: "Esa lista no existe." }, { status: 404 });
+    return privateJson({ error: "Esa lista no existe." }, 404);
   }
   try {
     const detalle = await buildUnitDetalle(section, parseVistaFilters(url));
-    return NextResponse.json(detalle);
+    return privateJson(detalle);
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo leer el inventario";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return privateJson({ error: message }, 500);
   }
 }

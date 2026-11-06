@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
+import { connection } from "next/server";
 import { AuthHashRedirect } from "@/components/auth-hash-redirect";
 import "./globals.css";
 
@@ -65,7 +66,14 @@ type RootLayoutProps = {
   children: ReactNode;
 };
 
-export default function RootLayout({ children }: RootLayoutProps) {
+// Every page renders on the request. A prerendered document is served from the
+// CDN, including as a 304, and that response never runs the session proxy.
+// The browser then drops Set-Cookie, the next refresh reuses a dead token,
+// and Supabase revokes the login. The screens answer "No autorizado".
+export const dynamic = "force-dynamic";
+
+export default async function RootLayout({ children }: RootLayoutProps) {
+  await connection();
   return (
     <html lang="es-419">
       <body>
