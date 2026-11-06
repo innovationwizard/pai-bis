@@ -29,14 +29,14 @@ export function Drawer({
         <Ticks />
         {found ? (
           <>
-            <p className={styles.caption}>Captura · {found.project.label}</p>
+            <p className={styles.caption}>{found.project.label}</p>
             <div className={styles.drawerHead}>
               <h2 id="cdm-drawer-title">{found.advisor.name}</h2>
               <button type="button" className={styles.btn} data-autofocus="drawer" onClick={onClose}>
                 Cerrar
               </button>
             </div>
-            <p className={styles.caption}>Esta ficha es de la captura. No es un dato en vivo.</p>
+            <p className={styles.caption}>No es un dato en vivo.</p>
             <table className={styles.table}>
               <tbody>
                 <tr>
@@ -73,7 +73,7 @@ export function Drawer({
             </table>
           </>
         ) : (
-          <p>No está en la captura.</p>
+          <p>No está en los datos.</p>
         )}
         {labelledBy ? <span className={styles.srOnly}>{labelledBy}</span> : null}
       </aside>
@@ -105,7 +105,7 @@ export function Shortcuts({ onClose }: { onClose: () => void }) {
           <li>Esc: alejar, o cerrar la ficha y los paneles.</li>
           <li>Clic con Mayús: seleccionar varios proyectos.</li>
         </ul>
-        <p className={styles.caption}>Captura. No es un dato en vivo.</p>
+        <p className={styles.caption}>No es un dato en vivo.</p>
       </div>
     </div>
   );
@@ -141,7 +141,7 @@ export function Origen({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className={styles.caption}>
-          {FIXTURE.badge}. Captura de Pipedrive Insights. No es una consulta en vivo.
+          {FIXTURE.badge}. Pipedrive Insights. No es una consulta en vivo.
         </p>
         <dl className={styles.filters}>
           <dt>Periodo</dt>
@@ -165,7 +165,7 @@ export function Origen({ onClose }: { onClose: () => void }) {
                 return (
                   <li key={name}>
                     {name}
-                    {barred ? "" : " · sin barra en la captura"}
+                    {barred ? "" : " · sin barra"}
                   </li>
                 );
               })}
@@ -173,7 +173,7 @@ export function Origen({ onClose }: { onClose: () => void }) {
           </section>
         ))}
         <p className={styles.caption}>
-          En la captura, Bosque Las Tapias muestra 0 0. El cambio se lee como 0 y el porcentaje como 0.
+          Bosque Las Tapias muestra 0 0. El cambio se lee como 0 y el porcentaje como 0.
         </p>
         <p className={styles.caption}>
           Mes anterior, derivado: total {previousOf(FIXTURE.total.reservas, FIXTURE.total.change)}

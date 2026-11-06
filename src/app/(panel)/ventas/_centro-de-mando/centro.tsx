@@ -261,7 +261,7 @@ export default function CentroDeMando() {
                   <span>{FIXTURE.total.reservas}</span>
                 </span>
               </span>
-              <span className={styles.caption}>{FIXTURE.metric} · captura</span>
+              <span className={styles.caption}>{FIXTURE.metric}</span>
             </button>
 
             <div className={styles.tiles} role="group" aria-label="Proyectos">
@@ -324,7 +324,7 @@ export default function CentroDeMando() {
           <Panel className={cx(styles.fill, styles.hero)} labelledBy="cdm-sun-title">
             <div className={styles.heroHead}>
               <h2 id="cdm-sun-title" className={styles.srOnly}>
-                Total, proyecto y asesor. Captura.
+                Total, proyecto y asesor.
               </h2>
               <nav className={styles.crumbs} aria-label="Total, proyecto y asesor">
                 <button type="button" className={styles.crumb} aria-current={trailProject ? undefined : "page"} onClick={onTotal}>
@@ -365,7 +365,6 @@ export default function CentroDeMando() {
                     </button>
                   ))}
                 </div>
-                <span className={styles.caption}>captura</span>
                 <button type="button" className={styles.btn} onClick={presentHero}>
                   Pantalla completa
                 </button>
@@ -387,7 +386,7 @@ export default function CentroDeMando() {
                     )
                   }
                   centerValue={focus ? focus.reservas : FIXTURE.total.reservas}
-                  centerShare={focus ? `${formatPct(focus.reservas, FIXTURE.total.reservas)} del total` : "de la captura"}
+                  centerShare={focus ? `${formatPct(focus.reservas, FIXTURE.total.reservas)} del total` : "octubre 2026"}
                   onProject={onProject}
                   onAdvisor={onAdvisor}
                   onTotal={onTotal}
@@ -403,7 +402,7 @@ export default function CentroDeMando() {
 
           <Panel className={cx(styles.fill, styles.scroll)} labelledBy="cdm-rank-title">
             <div className={styles.rankHead}>
-              <h2 id="cdm-rank-title" className={styles.panelTitle}>Asesores · captura</h2>
+              <h2 id="cdm-rank-title" className={styles.panelTitle}>Asesores</h2>
             </div>
             <div className={styles.metaBox}>
               <label className={styles.metaToggle}>
@@ -441,15 +440,15 @@ export default function CentroDeMando() {
 
         <div className={styles.bottom}>
           <Panel labelledBy="cdm-bridge-title">
-            <h2 id="cdm-bridge-title" className={styles.panelTitle}>Puente del mes · captura</h2>
+            <h2 id="cdm-bridge-title" className={styles.panelTitle}>Puente del mes</h2>
             <Waterfall {...handlers} />
           </Panel>
           <Panel labelledBy="cdm-cmp-title">
-            <h2 id="cdm-cmp-title" className={styles.panelTitle}>Mes pasado y mes anterior · captura</h2>
+            <h2 id="cdm-cmp-title" className={styles.panelTitle}>Mes pasado y mes anterior</h2>
             <Comparison {...handlers} />
           </Panel>
           <Panel labelledBy="cdm-insight-title">
-            <h2 id="cdm-insight-title" className={styles.panelTitle}>De la captura</h2>
+            <h2 id="cdm-insight-title" className={styles.panelTitle}>Octubre 2026</h2>
             <ul className={styles.insightList}>
               {INSIGHTS.map((line) => (
                 <li key={line}>{line}</li>

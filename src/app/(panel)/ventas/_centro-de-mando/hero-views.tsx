@@ -123,7 +123,7 @@ export function TreemapView(handlers: ChartHandlers) {
   }
 
   return (
-    <div className={styles.chartSlot} data-rove="" style={{ minHeight: 180 }} role="group" aria-label="Treemap de la captura">
+    <div className={styles.chartSlot} data-rove="" style={{ minHeight: 180 }} role="group" aria-label="Treemap">
       {ready ? (
         <ResponsiveContainer width="100%" height="100%">
           <Treemap
@@ -238,7 +238,7 @@ export function FlowView(handlers: ChartHandlers) {
   }
 
   return (
-    <div className={styles.chartSlot} data-rove="" style={{ minHeight: 180 }} role="group" aria-label="Flujo de la captura">
+    <div className={styles.chartSlot} data-rove="" style={{ minHeight: 180 }} role="group" aria-label="Flujo">
       {ready ? (
         <ResponsiveContainer width="100%" height="100%">
           <Sankey

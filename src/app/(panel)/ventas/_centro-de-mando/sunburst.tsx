@@ -71,7 +71,7 @@ export default function Sunburst({
       className={styles.sun}
       viewBox="-52 -52 104 104"
       role="group"
-      aria-label="Gráfico de la captura por proyecto y asesor"
+      aria-label="Gráfico por proyecto y asesor"
     >
       <rect
         x={-52}
@@ -186,10 +186,7 @@ export default function Sunburst({
       <text y={7.2} textAnchor="middle" fill="#64748b" fontSize={2.5} pointerEvents="none">
         {centerShare}
       </text>
-      <text y={10.4} textAnchor="middle" fill="#64748b" fontSize={2.2} pointerEvents="none">
-        captura
-      </text>
-      <title>{`Captura ${FIXTURE.badge}`}</title>
+      <title>{FIXTURE.badge}</title>
     </svg>
   );
 }

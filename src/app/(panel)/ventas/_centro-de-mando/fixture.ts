@@ -1,5 +1,5 @@
 /**
- * Captura SSOT del 2026-11-06, leída de Pipedrive Insights.
+ * SSOT del 2026-11-06, leída de Pipedrive Insights.
  * Fuente: docs/redesign/reference/ssot-1-general.png y ssot-2-proyectos.png.
  * Periodo Mes pasado (octubre 2026). Métrica: Cantidad de actividades.
  * Tipo de actividad: Reserva. Estado: Finalizada.
@@ -22,7 +22,7 @@ export type Project = {
   advisors: readonly Advisor[];
   /** Orden del filtro de asesores en el panel del proyecto. */
   advisorFilter: readonly string[];
-  /** Nombres del filtro sin barra. La captura no trae su cantidad. */
+  /** Nombres del filtro sin barra. La fuente no trae su cantidad. */
   filterWithoutBar: readonly string[];
   pipelines: readonly string[];
 };
@@ -45,7 +45,7 @@ export type Fixture = {
 };
 
 export const FIXTURE: Fixture = {
-  badge: "Captura SSOT · 6 nov 2026",
+  badge: "SSOT · 6 nov 2026",
   periodChip: "Mes pasado · oct 2026",
   period: "Mes pasado",
   month: "octubre 2026",

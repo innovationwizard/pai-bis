@@ -2,7 +2,7 @@ import { FIXTURE, type Fixture } from "./fixture";
 import { formatPct } from "./format";
 
 /**
- * Lectura descriptiva de la captura. Sin causa y sin cifras fuera del fixture
+ * Lectura descriptiva del SSOT. Sin causa y sin cifras fuera del fixture
  * y de las participaciones que salen de él.
  */
 export function insightLines(fixture: Fixture): readonly string[] {

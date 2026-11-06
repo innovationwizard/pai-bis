@@ -152,7 +152,7 @@ export function Waterfall(handlers: Handlers) {
   return (
     <div>
       <p id="cdm-bridge-sum" className={styles.srOnly}>
-        Puente del mes, captura. Mes anterior {BRIDGE.steps[0]?.valueLabel}, derivado.
+        Puente del mes. Mes anterior {BRIDGE.steps[0]?.valueLabel}, derivado.
         {BRIDGE.steps.map((step) => ` ${step.name} ${step.valueLabel}`).join(".")}.
       </p>
       <div className={styles.bridgeHeads} aria-hidden="true">
@@ -234,7 +234,7 @@ export function Comparison(handlers: Handlers) {
   return (
     <div>
       <p id="cdm-cmp-sum" className={styles.srOnly}>
-        Mes pasado contra mes anterior, captura. El mes anterior es derivado.
+        Mes pasado contra mes anterior. El mes anterior es derivado.
         {COMPARE.map((col) => ` ${col.name}: ${col.reservas} y ${col.previous}`).join(".")}.
       </p>
       <p className={styles.legend}>
