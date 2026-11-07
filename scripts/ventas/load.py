@@ -33,13 +33,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 from partner_parse import canonical_unit, parse_partner_name, self_check
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-PIPEDRIVE = (
-    "/Users/orion-tech/go/singularity/_ Agents_Extract_PipeDrive/"
-    "repo-orion-odoo19-etl-pipedrive/output/resolved"
-)
-ODOO_RAW = "/Users/orion-tech/go/singularity/_ Agents_Extract_Odoo15/output/raw"
+PIPEDRIVE = "/Users/orion-tech/go/singularity/extraction_pipedrive/output/resolved"
+ODOO_RAW = "/Users/orion-tech/go/singularity/extraction_odoo15/output/raw"
 ODOO_MESSAGES = (
-    "/Users/orion-tech/go/singularity/orion_pa+p_extraccion_odoo15/"
+    "/Users/orion-tech/go/singularity/extraction_odoo15/"
     "output/messages/account.move.jsonl"
 )
 GUATEMALA = ZoneInfo("America/Guatemala")
@@ -227,6 +224,7 @@ class Api:
         request = urllib.request.Request(
             self.base + path, data=data, headers=headers, method=method
         )
+        table = path.split("?", 1)[0].rsplit("/", 1)[-1]
         for attempt in range(6):
             try:
                 with urllib.request.urlopen(request, timeout=180) as response:
@@ -238,11 +236,28 @@ class Api:
                 if error.code == 416:
                     return 416, dict(error.headers), []
                 if error.code in (429, 500, 502, 503, 504) and attempt < 5:
-                    time.sleep(2**attempt)
+                    print(
+                        f"  {table}: attempt {attempt + 1} failed, retrying (HTTP {error.code})",
+                        flush=True,
+                    )
+                    time.sleep(2**(attempt + 1))
                     continue
+                if error.code in (429, 500, 502, 503, 504):
+                    if detail:
+                        error.add_note(detail[:800])
+                    raise
                 raise RuntimeError(
                     f"{method} {path} failed ({error.code}): {detail[:800]}"
                 ) from error
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                if attempt < 5:
+                    print(
+                        f"  {table}: attempt {attempt + 1} failed, retrying ({type(error).__name__})",
+                        flush=True,
+                    )
+                    time.sleep(2**(attempt + 1))
+                    continue
+                raise
         raise RuntimeError(f"{method} {path} failed after retries")
 
     def fetch_all(self, table: str, select: str) -> list[dict[str, object]]:
@@ -759,6 +774,14 @@ def main() -> None:
                 published[move_id] = (stamp, message_id)
 
     print("matching recibos", flush=True)
+    existing_partners = {
+        str(row["odoo_partner_id"]): str(row["id"])
+        for row in api.fetch_all("odoo_partner", "id,odoo_partner_id")
+    }
+    existing_payments = {
+        str(row["odoo_payment_id"]): str(row["id"])
+        for row in api.fetch_all("fact_recibo", "id,odoo_payment_id")
+    }
     partner_rows: dict[str, dict[str, object]] = {}
     payment_rows: list[dict[str, object]] = []
     matched = 0
@@ -835,7 +858,7 @@ def main() -> None:
         if partner_odoo is not None:
             key = str(partner_odoo)
             if key not in partner_rows:
-                partner_uuid = uuid7()
+                partner_uuid = existing_partners.get(key) or uuid7()
                 partner_rows[key] = {
                     "id": partner_uuid,
                     "odoo_partner_id": key,
@@ -853,7 +876,7 @@ def main() -> None:
         state = text_or_none(move.get("state")) if move else None
         payment_rows.append(
             {
-                "id": uuid7(),
+                "id": existing_payments.get(str(record["id"])) or uuid7(),
                 "odoo_payment_id": str(record["id"]),
                 "odoo_move_id": str(move_id) if move_id is not None else None,
                 "partner_id": partner_uuid,
