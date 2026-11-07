@@ -626,8 +626,38 @@ def main() -> None:
     pcv_activity: dict[str, tuple[str, str]] = {}
     comprobante_days: dict[str, set[str]] = {}
     skipped_activity_deals = 0
+    project_by_deal = {
+        str(row["pipedrive_deal_id"]): str(row["project_id"]) for row in deal_rows
+    }
+    activity_month_counts: dict[tuple[str, str, str], int] = {}
+    skipped_activity_no_due = 0
+    skipped_activity_no_deal = 0
+    skipped_activity_no_asesor = 0
+    skipped_activity_no_project = 0
     with open(os.path.join(PIPEDRIVE, "activities.csv"), newline="", encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
+            due = as_date(row.get("due_date"))
+            if not due:
+                skipped_activity_no_due += 1
+            else:
+                activity_deal = (row.get("deal_id") or "").strip()
+                if not activity_deal:
+                    skipped_activity_no_deal += 1
+                else:
+                    owner_source = (row.get("user_id") or "").strip()
+                    asesor_id = asesores.get(owner_source) if owner_source else None
+                    if asesor_id is None:
+                        skipped_activity_no_asesor += 1
+                    else:
+                        activity_project = project_by_deal.get(activity_deal)
+                        if activity_project is None:
+                            skipped_activity_no_project += 1
+                        else:
+                            month_start = f"{due[:7]}-01"
+                            month_key = (asesor_id, activity_project, month_start)
+                            activity_month_counts[month_key] = (
+                                activity_month_counts.get(month_key, 0) + 1
+                            )
             if row.get("is_deleted") == "true":
                 continue
             activity_type = row.get("type") or ""
@@ -727,6 +757,27 @@ def main() -> None:
     api.upsert("fact_reception", receptions, "pipedrive_activity_id")
     api.upsert("fact_visit", visits, "pipedrive_activity_id")
     api.upsert("fact_pcv_issuance", pcv_rows, "deal_id")
+    activity_month_rows: list[dict[str, object]] = [
+        {
+            "asesor_id": asesor_id,
+            "project_id": project_id,
+            "month_start": month_start,
+            "activities": total,
+        }
+        for (asesor_id, project_id, month_start), total in activity_month_counts.items()
+    ]
+    print(
+        f"skipped_activity_no_due {skipped_activity_no_due} "
+        f"skipped_activity_no_deal {skipped_activity_no_deal} "
+        f"skipped_activity_no_asesor {skipped_activity_no_asesor} "
+        f"skipped_activity_no_project {skipped_activity_no_project}",
+        flush=True,
+    )
+    api.upsert(
+        "fact_asesor_activity_month",
+        activity_month_rows,
+        "asesor_id,project_id,month_start",
+    )
 
     print("reading Odoo partners, moves, and publication notes", flush=True)
     partner_names: dict[int, str] = {}
@@ -924,8 +975,24 @@ def main() -> None:
         "fact_case_mark",
         "fact_price_rise",
         "fact_target",
+        "fact_asesor_activity_month",
     ):
-        print(f"  {table}: {api.count(table)}", flush=True)
+        if table == "fact_asesor_activity_month":
+            _, headers, _ = api.request(
+                "GET",
+                f"/{table}?select=asesor_id",
+                range_header="0-0",
+                prefer="count=exact",
+            )
+            content = headers.get("Content-Range") or headers.get("content-range") or ""
+            if "/" not in content:
+                amount = 0
+            else:
+                total = content.rsplit("/", 1)[1]
+                amount = 0 if total == "*" else int(total)
+        else:
+            amount = api.count(table)
+        print(f"  {table}: {amount}", flush=True)
     print(f"  match_unresolved: {api.count('fact_recibo', '&match_unresolved=eq.true')}", flush=True)
     _, sale_headers, _ = api.request(
         "GET",
