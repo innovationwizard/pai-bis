@@ -644,7 +644,7 @@ def main() -> None:
                 if not activity_deal:
                     skipped_activity_no_deal += 1
                 else:
-                    owner_source = (row.get("user_id") or "").strip()
+                    owner_source = (row.get("owner_id") or "").strip()
                     asesor_id = asesores.get(owner_source) if owner_source else None
                     if asesor_id is None:
                         skipped_activity_no_asesor += 1
