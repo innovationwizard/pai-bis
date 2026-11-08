@@ -24,25 +24,25 @@ OUT_DIR = Path(__file__).resolve().parents[2] / "scripts" / "migrations"
 CENT = Decimal("0.01")
 RATE = Decimal("0.000001")
 
-# Mapping, five-project and whole-book posted cobros.
+# Mapping, five-project and whole-book posted cobros. Baseline updated 2026-11-08 from the 2026-11-07 extract: +59 GTQ cobros (43 dated October, 16 dated November) over the previous baseline.
 EXPECT_ALL = {
-    "GTQ": (8822, Decimal("73380489.37")),
+    "GTQ": (8881, Decimal("73768585.37")),
     "USD": (67, Decimal("1284690.47")),
 }
 EXPECT_PROJECT_GTQ = {
-    "boulevard-5": (5829, Decimal("66352535.79")),
-    "benestare": (2303, Decimal("3481746.52")),
-    "bosque-las-tapias": (666, Decimal("1393418.96")),
+    "boulevard-5": (5848, Decimal("66621896.07")),
+    "benestare": (2329, Decimal("3530540.12")),
+    "bosque-las-tapias": (679, Decimal("1413361.08")),
 }
 EXPECT_PROJECT_USD = {
     "boulevard-5": (43, Decimal("504470.47"), Decimal("3858110.03")),
     "benestare": (1, Decimal("425.00"), Decimal("3200.00")),
     "bosque-las-tapias": (0, Decimal("0.00"), Decimal("0.00")),
 }
-EXPECT_FIVE_GTQ = (8798, Decimal("71227701.27"))
+EXPECT_FIVE_GTQ = (8856, Decimal("71565797.27"))
 EXPECT_FIVE_USD = (44, Decimal("504895.47"), Decimal("3861310.03"))
-EXPECT_DS_GTQ = (883, Decimal("3277785.18"))
-EXPECT_COBROS = 8889
+EXPECT_DS_GTQ = (912, Decimal("3347404.09"))
+EXPECT_COBROS = 8948
 
 
 def money(value: object) -> Decimal | None:
@@ -286,6 +286,114 @@ def write_inserts(path: Path, header: str, table: str, columns: str, tuples: lis
     path.write_text("".join(parts), encoding="utf-8")
 
 
+def print_cobros_report(cobros: list[dict]) -> None:
+    def format_count(value: int) -> str:
+        return str(value)
+
+    def format_money(value: Decimal) -> str:
+        return format(value.quantize(CENT, rounding=ROUND_HALF_UP), "f")
+
+    def amount_of(rows: list[dict]) -> Decimal:
+        return sum((row["amount"] for row in rows), Decimal("0.00"))
+
+    def debit_of(rows: list[dict]) -> Decimal:
+        return sum(((row["debit_gtq"] or Decimal("0.00")) for row in rows), Decimal("0.00"))
+
+    rows_out: list[tuple[str, str, str, str]] = []
+
+    def add_count(label: str, actual: int, expected: int) -> None:
+        rows_out.append(
+            (label, format_count(actual), format_count(expected), format_count(actual - expected))
+        )
+
+    def add_money(label: str, actual: Decimal, expected: Decimal) -> None:
+        rows_out.append(
+            (label, format_money(actual), format_money(expected), format_money(actual - expected))
+        )
+
+    add_count("cobros", len(cobros), EXPECT_COBROS)
+
+    for currency, (expected_count, expected_amount) in EXPECT_ALL.items():
+        picked = [row for row in cobros if row["currency"] == currency]
+        add_count(f"{currency} count", len(picked), expected_count)
+        add_money(f"{currency} amount", amount_of(picked), expected_amount)
+
+    five_gtq = [
+        row
+        for row in cobros
+        if row["parts"]["project_slug"] in EXPECT_PROJECT_GTQ and row["currency"] == "GTQ"
+    ]
+    add_count("five GTQ count", len(five_gtq), EXPECT_FIVE_GTQ[0])
+    add_money("five GTQ amount", amount_of(five_gtq), EXPECT_FIVE_GTQ[1])
+
+    five_usd = [
+        row
+        for row in cobros
+        if row["parts"]["project_slug"] in EXPECT_PROJECT_USD and row["currency"] == "USD"
+    ]
+    add_count("five USD count", len(five_usd), EXPECT_FIVE_USD[0])
+    add_money("five USD amount", amount_of(five_usd), EXPECT_FIVE_USD[1])
+    add_money("five USD debit", debit_of(five_usd), EXPECT_FIVE_USD[2])
+
+    ds_gtq = [
+        row for row in cobros if row["parts"]["is_desistimiento"] and row["currency"] == "GTQ"
+    ]
+    add_count("DS GTQ count", len(ds_gtq), EXPECT_DS_GTQ[0])
+    add_money("DS GTQ amount", amount_of(ds_gtq), EXPECT_DS_GTQ[1])
+
+    for slug, (expected_count, expected_amount) in EXPECT_PROJECT_GTQ.items():
+        picked = [
+            row for row in cobros if row["parts"]["project_slug"] == slug and row["currency"] == "GTQ"
+        ]
+        add_count(f"{slug} GTQ count", len(picked), expected_count)
+        add_money(f"{slug} GTQ amount", amount_of(picked), expected_amount)
+
+    for slug, (expected_count, expected_amount, expected_debit) in EXPECT_PROJECT_USD.items():
+        picked = [
+            row for row in cobros if row["parts"]["project_slug"] == slug and row["currency"] == "USD"
+        ]
+        add_count(f"{slug} USD count", len(picked), expected_count)
+        add_money(f"{slug} USD amount", amount_of(picked), expected_amount)
+        add_money(f"{slug} USD debit", debit_of(picked), expected_debit)
+
+    header = ("label", "actual", "expected", "difference")
+    widths = [len(cell) for cell in header]
+    for line in rows_out:
+        for index, cell in enumerate(line):
+            widths[index] = max(widths[index], len(cell))
+
+    def emit(line: tuple[str, str, str, str]) -> None:
+        print(
+            f"{line[0]:<{widths[0]}}  {line[1]:>{widths[1]}}  {line[2]:>{widths[2]}}  {line[3]:>{widths[3]}}",
+            flush=True,
+        )
+
+    emit(header)
+    for line in rows_out:
+        emit(line)
+
+    by_month: dict[str, int] = defaultdict(int)
+    after_cutoff = 0
+    for row in cobros:
+        move_date = row["move_date"]
+        if not move_date:
+            continue
+        day = str(move_date)[:10]
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+            continue
+        by_month[day[:7]] += 1
+        if day > "2026-10-31":
+            after_cutoff += 1
+
+    after_label = "after 2026-10-31"
+    month_width = max([len(after_label), *(len(month) for month in by_month)], default=len(after_label))
+    count_width = max([len(str(after_cutoff)), *(len(str(count)) for count in by_month.values())], default=1)
+    print(flush=True)
+    for month in sorted(by_month):
+        print(f"{month:<{month_width}}  {by_month[month]:>{count_width}}", flush=True)
+    print(f"{after_label:<{month_width}}  {after_cutoff:>{count_width}}", flush=True)
+
+
 def main() -> None:
     check_samples()
     if not RAW.exists():
@@ -391,6 +499,9 @@ def main() -> None:
         )
 
     cobros = [row for row in prepared if is_cobro(row, row["move"])]
+    if "--report" in sys.argv[1:]:
+        print_cobros_report(cobros)
+        sys.exit(0)
     if len(cobros) != EXPECT_COBROS:
         raise SystemExit(f"cobro count {len(cobros)} != {EXPECT_COBROS}")
 
