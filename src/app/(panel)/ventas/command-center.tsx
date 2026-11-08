@@ -511,6 +511,7 @@ export default function CommandCenter() {
         </article>
         <article className="vc-card">
           <h2>Status contra la fecha de cierre</h2>
+          <p className="vc-sub">Reservas</p>
           {status ? (
             <>
               <p className="vc-sub">
@@ -538,6 +539,7 @@ export default function CommandCenter() {
         <div className="vc-grid-2">
           <article className="vc-card">
             <h2>Ventas contra objetivos por proyecto</h2>
+            <p className="vc-sub">Reservas</p>
             <p className="vc-sub">Rojo: debajo de la meta. Azul: en la meta o arriba. Sin barra gris: sin meta.</p>
             {objetivos ? (
               <>
@@ -555,6 +557,7 @@ export default function CommandCenter() {
           </article>
           <article className="vc-card">
             <h2>Ventas contra objetivos por asesor</h2>
+            <p className="vc-sub">Reservas</p>
             <p className="vc-sub">Por unidades, de mayor a menor.</p>
             {objetivos ? (
               <GoalBars

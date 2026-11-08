@@ -497,6 +497,7 @@ function Objetivos({
         <header className="op-head">
           <div>
             <h2>Real contra meta</h2>
+            <p className="op-note">Reservas</p>
             <p className="op-note">{vista.caption}</p>
           </div>
         </header>
@@ -512,7 +513,7 @@ function Objetivos({
       <section className="op-hero" aria-label="Brecha por asesor" style={{ flex: 1 }}>
         <header className="op-head">
           <div>
-            <h2>{asesorRows.mode === "gap" ? "Brecha por asesor" : "Ventas por asesor"}</h2>
+            <h2>Reservas</h2>
             <p className="op-note">{asesorRows.note}</p>
           </div>
         </header>
@@ -551,6 +552,7 @@ function Status({
         <header className="op-head">
           <div>
             <h2>Ritmo hacia la fecha de cierre</h2>
+            <p className="op-note">Reservas</p>
             <p className="op-note">{vista.caption}</p>
           </div>
         </header>
@@ -572,7 +574,7 @@ function Status({
       </section>
       <div className="op-mid">
         <section className="op-hero" aria-label="Ritmo por proyecto">
-          <header className="op-head"><div><h2>Por proyecto</h2></div></header>
+          <header className="op-head"><div><h2>Por proyecto</h2><p className="op-note">Reservas</p></div></header>
           <Grouped
             rows={vista.byProject}
             bars={[
@@ -586,7 +588,7 @@ function Status({
         <section className="op-hero" aria-label="Brecha por asesor">
           <header className="op-head">
             <div>
-              <h2>{asesorRows.mode === "gap" ? "Brecha por asesor" : "Ventas por asesor"}</h2>
+              <h2>Reservas</h2>
               <p className="op-note">{asesorRows.note}</p>
             </div>
           </header>
