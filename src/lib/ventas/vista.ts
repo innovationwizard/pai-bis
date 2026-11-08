@@ -94,6 +94,8 @@ type Sale = {
   valueGtq: number | null;
 };
 
+type Reserva = { day: string; projectId: string; asesorId: string };
+
 type Named = { id: string; name: string; sin: boolean };
 type Dims = {
   projects: Named[];
@@ -233,6 +235,81 @@ async function fetchIslands(
   return { rows, capped: batches.some((batch) => batch.capped) };
 }
 
+async function loadReservas(
+  client: Db,
+  window: { from: string; to: string },
+  filters: Filters,
+): Promise<{ rows: Reserva[]; capped: boolean }> {
+  if (filters.projectIds && filters.projectIds.length === 0) return { rows: [], capped: false };
+  const raw: { dealId: string | null; day: string }[] = [];
+  let capped = false;
+  for (let offset = 0; offset < CAP; offset += PAGE) {
+    const { data, error } = await client
+      .from("fact_comprobante")
+      .select("id,deal_id,comprobante_on")
+      .gte("comprobante_on", window.from)
+      .lte("comprobante_on", window.to)
+      .order("id")
+      .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as unknown as Record<string, unknown>[];
+    for (const row of batch) {
+      const day = typeof row.comprobante_on === "string" ? row.comprobante_on.slice(0, 10) : "";
+      if (!day) continue;
+      raw.push({ dealId: row.deal_id == null || row.deal_id === "" ? null : String(row.deal_id), day });
+    }
+    if (batch.length < PAGE) break;
+    if (offset + PAGE >= CAP) capped = true;
+  }
+
+  const dealIds = [...new Set(raw.flatMap((row) => (row.dealId ? [row.dealId] : [])))];
+  const deals = new Map<string, { projectId: string; asesorId: string; unitId: string | null }>();
+  for (let index = 0; index < dealIds.length; index += 80) {
+    const slice = dealIds.slice(index, index + 80);
+    const { data, error } = await client.from("dim_deal").select("id,project_id,asesor_id,unit_id").in("id", slice);
+    if (error) throw new Error(error.message);
+    for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
+      const id = row.id == null ? "" : String(row.id);
+      if (!id) continue;
+      deals.set(id, {
+        projectId: row.project_id == null ? "" : String(row.project_id),
+        asesorId: row.asesor_id == null ? "" : String(row.asesor_id),
+        unitId: row.unit_id == null || row.unit_id === "" ? null : String(row.unit_id),
+      });
+    }
+  }
+
+  const towers = new Map<string, string>();
+  if (filters.torreId) {
+    const unitIds = [...new Set([...deals.values()].flatMap((deal) => (deal.unitId ? [deal.unitId] : [])))];
+    for (let index = 0; index < unitIds.length; index += 80) {
+      const slice = unitIds.slice(index, index + 80);
+      const { data, error } = await client.from("dim_unit").select("id,tower_id").in("id", slice);
+      if (error) throw new Error(error.message);
+      for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
+        if (row.id == null) continue;
+        towers.set(String(row.id), row.tower_id == null ? "" : String(row.tower_id));
+      }
+    }
+  }
+
+  const open = filters.projectIds === null && !filters.asesorId && !filters.torreId;
+  const rows: Reserva[] = [];
+  for (const row of raw) {
+    if (!row.dealId) {
+      if (open) rows.push({ day: row.day, projectId: "", asesorId: "" });
+      continue;
+    }
+    const deal = deals.get(row.dealId);
+    if (!deal) continue;
+    if (!projectOk(deal.projectId, filters)) continue;
+    if (filters.asesorId && deal.asesorId !== filters.asesorId) continue;
+    if (filters.torreId && (deal.unitId ? towers.get(deal.unitId) ?? "" : "") !== filters.torreId) continue;
+    rows.push({ day: row.day, projectId: deal.projectId, asesorId: deal.asesorId });
+  }
+  return { rows, capped };
+}
+
 function missingTable(message: string): boolean {
   return /target_event|PGRST204|PGRST205|schema cache|does not exist|42P01/i.test(message);
 }
@@ -269,7 +346,7 @@ async function loadTargets(client: Db, dims: Dims, months: string[]): Promise<Ta
   const ready = await eventsReady(client);
   const [snapshot, events] = await Promise.all([
     client
-      .from("fact_target")
+      .from("v_target_roster")
       .select("asesor_id,project_id,month_start,target_units,target_gtq")
       .gte("month_start", from)
       .lte("month_start", to),
@@ -454,6 +531,12 @@ function noticeFor(units: number, sinMonto: number, capped: boolean): string | n
   if (units === 0) return NO_SALES;
   if (sinMonto > 0) return `${sinMonto} ventas sin monto. Entran en las unidades y no en los quetzales.`;
   return null;
+}
+
+function reservaNotice(units: number, sinMonto: number, capped: boolean, reservas: number): string | null {
+  const notice = noticeFor(units, sinMonto, capped);
+  if (notice === NO_SALES && reservas > 0) return null;
+  return notice;
 }
 
 function joinNotice(parts: Array<string | null>): string | null {
@@ -707,25 +790,27 @@ function measureRows(
   ids: string[],
   labelOf: (id: string) => string,
   sales: Sale[],
+  reservas: Reserva[],
   cells: TargetCell[],
   keyOfSale: (sale: Sale) => string,
+  keyOfReserva: (row: Reserva) => string,
   keyOfCell: (cell: TargetCell) => string,
 ): MeasureRow[] {
   return ids
     .map((id) => {
-      const group = sales.filter((sale) => keyOfSale(sale) === id);
-      const money = moneyOf(group);
+      const money = moneyOf(sales.filter((sale) => keyOfSale(sale) === id));
+      const units = reservas.filter((row) => keyOfReserva(row) === id).length;
       const mine = cells.filter((cell) => keyOfCell(cell) === id);
       const targetUnits = sumNullable(mine.map((cell) => cell.units));
       const targetGtq = sumNullable(mine.map((cell) => cell.gtq));
       return {
         id,
         label: labelOf(id),
-        units: money.units,
+        units,
         targetUnits,
         gtq: money.gtq,
         targetGtq,
-        gapUnits: gap(money.units, targetUnits),
+        gapUnits: gap(units, targetUnits),
         gapGtq: money.gtq == null || targetGtq == null ? null : round1(money.gtq - targetGtq),
       };
     })
@@ -742,6 +827,7 @@ function buildObjetivos(
   range: DateWindow,
   dims: Dims,
   sales: Sale[],
+  reservas: Reserva[],
   book: TargetBook,
   capped: boolean,
   choices: VentasVista["choices"],
@@ -749,13 +835,15 @@ function buildObjetivos(
   const months = monthsTouched(range.from, range.to);
   const cells = scopedCells(book.cells, filters, months);
   const gross = moneyOf(sales);
+  const units = reservas.length;
   const targetUnits = sumNullable(cells.map((cell) => cell.units));
   const targetGtq = sumNullable(cells.map((cell) => cell.gtq));
   const projectIds = scopedProjects(dims, filters, sales);
   for (const cell of cells) if (!projectIds.includes(cell.projectId)) projectIds.push(cell.projectId);
-  const asesorIds = [...new Set([...sales.map((sale) => sale.asesorId), ...cells.map((cell) => cell.asesorId)])];
+  for (const row of reservas) if (row.projectId && !projectIds.includes(row.projectId)) projectIds.push(row.projectId);
+  const asesorIds = [...new Set([...sales.map((sale) => sale.asesorId), ...cells.map((cell) => cell.asesorId), ...reservas.map((row) => row.asesorId)].filter(Boolean))];
   const list = linesOf(sales, [], dims);
-  const baseNotice = noticeFor(gross.units, gross.sin, capped);
+  const baseNotice = reservaNotice(gross.units, gross.sin, capped, reservas.length);
   const metaNotice = targetUnits == null ? "Este periodo no tiene meta. Entra las unidades y los quetzales del mes." : null;
   return {
     section: "objetivos-de-ventas",
@@ -769,26 +857,30 @@ function buildObjetivos(
     lines: list.lines,
     listShown: list.lines.length,
     listTotal: list.total,
-    units: gross.units,
+    units,
     targetUnits,
     gtq: gross.gtq,
     targetGtq,
-    ratio: targetUnits ? gross.units / targetUnits : null,
-    gapUnits: gap(gross.units, targetUnits),
+    ratio: targetUnits ? units / targetUnits : null,
+    gapUnits: gap(units, targetUnits),
     byProject: measureRows(
       projectIds,
       (id) => dims.projects.find((project) => project.id === id)?.name ?? "Sin dato",
       sales,
+      reservas,
       cells,
       (sale) => sale.projectId,
+      (row) => row.projectId,
       (cell) => cell.projectId,
     ),
     byAsesor: measureRows(
       asesorIds,
       (id) => dims.asesores.get(id)?.name ?? "Sin dato",
       sales,
+      reservas,
       cells,
       (sale) => sale.asesorId,
+      (row) => row.asesorId,
       (cell) => cell.asesorId,
     ),
     editor: book.editor,
@@ -804,8 +896,10 @@ function statusRows(
   ids: string[],
   labelOf: (id: string) => string,
   sales: Sale[],
+  reservas: Reserva[],
   cells: TargetCell[],
   keyOfSale: (sale: Sale) => string,
+  keyOfReserva: (row: Reserva) => string,
   keyOfCell: (cell: TargetCell) => string,
   range: DateWindow,
   today: string,
@@ -813,6 +907,7 @@ function statusRows(
   return ids
     .map((id) => {
       const money = moneyOf(sales.filter((sale) => keyOfSale(sale) === id));
+      const units = reservas.filter((row) => keyOfReserva(row) === id).length;
       const mine = cells.filter((cell) => keyOfCell(cell) === id);
       const targetUnits = sumNullable(mine.map((cell) => cell.units));
       const targetGtq = sumNullable(mine.map((cell) => cell.gtq));
@@ -821,10 +916,10 @@ function statusRows(
       return {
         id,
         label: labelOf(id),
-        units: money.units,
+        units,
         paceUnits: paceUnits == null ? null : round1(paceUnits),
         targetUnits,
-        gapUnits: gap(money.units, paceUnits),
+        gapUnits: gap(units, paceUnits),
         gtq: money.gtq,
         paceGtq: paceGtq == null ? null : round1(paceGtq),
         targetGtq,
@@ -846,16 +941,13 @@ function toneOf(gapUnits: number | null): StatusVista["tone"] {
   return "en-linea";
 }
 
-function salesByDay(sales: Sale[]): Map<string, number> {
+function reservasByDay(reservas: Reserva[]): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const sale of sales) {
-    if (!sale.saleOn) continue;
-    counts.set(sale.saleOn, (counts.get(sale.saleOn) ?? 0) + 1);
-  }
+  for (const row of reservas) counts.set(row.day, (counts.get(row.day) ?? 0) + 1);
   return counts;
 }
 
-function buildRhythm(range: DateWindow, sales: Sale[], cells: TargetCell[], today: string): RhythmPoint[] {
+function buildRhythm(range: DateWindow, reservas: Reserva[], cells: TargetCell[], today: string): RhythmPoint[] {
   const months = monthsTouched(range.from, range.to);
   const hasUnits = cells.some((cell) => cell.units != null);
   if (months.length === 1 && inclusiveDays(range.from, range.to) <= 45) {
@@ -866,7 +958,7 @@ function buildRhythm(range: DateWindow, sales: Sale[], cells: TargetCell[], toda
     const pace = sumNullable(cells.map((cell) => paceValue(cell.units, monthFactor(cell.month, range, today))));
     const monthDays = inclusiveDays(monthStart(range.from), monthEnd(range.from));
     const domain = eachDay(start, end);
-    const byDay = salesByDay(sales);
+    const byDay = reservasByDay(reservas);
     let real = 0;
     return domain.map((day, index) => {
       if (day >= range.from && day <= range.to && day <= today) real += byDay.get(day) ?? 0;
@@ -889,7 +981,7 @@ function buildRhythm(range: DateWindow, sales: Sale[], cells: TargetCell[], toda
   for (const month of months) {
     const end = monthEnd(month);
     const sliceTo = range.to < end ? range.to : end;
-    real += sales.filter((sale) => sale.saleOn != null && sale.saleOn >= month && sale.saleOn <= sliceTo).length;
+    real += reservas.filter((row) => row.day >= month && row.day <= sliceTo).length;
     const monthTarget = sumNullable(cells.filter((cell) => cell.month === month).map((cell) => cell.units));
     if (monthTarget != null) ritmo += monthTarget * monthFactor(month, range, today);
     points.push({
@@ -920,6 +1012,7 @@ function buildStatus(
   today: string,
   dims: Dims,
   sales: Sale[],
+  reservas: Reserva[],
   book: TargetBook,
   capped: boolean,
   choices: VentasVista["choices"],
@@ -927,6 +1020,7 @@ function buildStatus(
   const months = monthsTouched(range.from, range.to);
   const cells = scopedCells(book.cells, filters, months);
   const gross = moneyOf(sales);
+  const units = reservas.length;
   const targetUnits = sumNullable(cells.map((cell) => cell.units));
   const targetGtq = sumNullable(cells.map((cell) => cell.gtq));
   const paceUnitsRaw = sumNullable(cells.map((cell) => paceValue(cell.units, monthFactor(cell.month, range, today))));
@@ -935,10 +1029,11 @@ function buildStatus(
   const paceGtq = paceGtqRaw == null ? null : round1(paceGtqRaw);
   const projectIds = scopedProjects(dims, filters, sales);
   for (const cell of cells) if (!projectIds.includes(cell.projectId)) projectIds.push(cell.projectId);
-  const asesorIds = [...new Set([...sales.map((sale) => sale.asesorId), ...cells.map((cell) => cell.asesorId)])];
+  for (const row of reservas) if (row.projectId && !projectIds.includes(row.projectId)) projectIds.push(row.projectId);
+  const asesorIds = [...new Set([...sales.map((sale) => sale.asesorId), ...cells.map((cell) => cell.asesorId), ...reservas.map((row) => row.asesorId)].filter(Boolean))];
   const list = linesOf(sales, [], dims);
   const dates = dayLabel(range, today);
-  const baseNotice = noticeFor(gross.units, gross.sin, capped);
+  const baseNotice = reservaNotice(gross.units, gross.sin, capped, reservas.length);
   const metaNotice = targetUnits == null ? "Este periodo no tiene meta. El ritmo aparece cuando entra la meta del mes." : null;
   return {
     section: "status-de-ventas",
@@ -952,24 +1047,26 @@ function buildStatus(
     lines: list.lines,
     listShown: list.lines.length,
     listTotal: list.total,
-    tone: toneOf(gap(gross.units, paceUnitsRaw)),
-    units: gross.units,
+    tone: toneOf(gap(units, paceUnitsRaw)),
+    units,
     paceUnits,
     targetUnits,
-    gapUnits: gap(gross.units, paceUnitsRaw),
+    gapUnits: gap(units, paceUnitsRaw),
     gtq: gross.gtq,
     paceGtq,
     targetGtq,
     gapGtq: gross.gtq == null || paceGtqRaw == null ? null : round1(gross.gtq - paceGtqRaw),
     closeOn: dates.closeOn,
     dayLabel: dates.dayLabel,
-    rhythm: buildRhythm(range, sales, cells, today),
+    rhythm: buildRhythm(range, reservas, cells, today),
     byProject: statusRows(
       projectIds,
       (id) => dims.projects.find((project) => project.id === id)?.name ?? "Sin dato",
       sales,
+      reservas,
       cells,
       (sale) => sale.projectId,
+      (row) => row.projectId,
       (cell) => cell.projectId,
       range,
       today,
@@ -978,8 +1075,10 @@ function buildStatus(
       asesorIds,
       (id) => dims.asesores.get(id)?.name ?? "Sin dato",
       sales,
+      reservas,
       cells,
       (sale) => sale.asesorId,
+      (row) => row.asesorId,
       (cell) => cell.asesorId,
       range,
       today,
@@ -1117,10 +1216,11 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
   const needsLoss = section === "ventas-totales";
   const needsTarget = section === "objetivos-de-ventas" || section === "status-de-ventas";
   const dims = await loadDims(client);
-  const [sold, lost, book] = await Promise.all([
+  const [sold, lost, book, reservas] = await Promise.all([
     fetchIslands(client, "sale_on", windows, filters.projectIds),
     needsLoss ? fetchIslands(client, "lost_on", windows, filters.projectIds) : Promise.resolve({ rows: [] as Sale[], capped: false }),
     needsTarget ? loadTargets(client, dims, months) : Promise.resolve(null),
+    needsTarget ? loadReservas(client, range, filters) : Promise.resolve({ rows: [] as Reserva[], capped: false }),
   ]);
   const targetBook = book ?? (await loadTargets(client, dims, []));
 
@@ -1145,7 +1245,7 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
   );
   const scopedSpan = applySpecific(sold.rows, filters, section);
   const scopedLossSpan = applySpecific(lost.rows, filters, section);
-  const capped = sold.capped || lost.capped;
+  const capped = sold.capped || lost.capped || reservas.capped;
 
   let body: VentasVista;
   if (section === "ventas-totales") {
@@ -1182,9 +1282,9 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
     ]);
     body = buildTotales(filters, range, dims, sales, losses, scopedSpan, scopedLossSpan, capped, choices, targetCells.cells, bridge);
   } else if (section === "objetivos-de-ventas") {
-    body = buildObjetivos(filters, range, dims, sales, targetBook, capped, choices);
+    body = buildObjetivos(filters, range, dims, sales, reservas.rows, targetBook, capped, choices);
   } else if (section === "status-de-ventas") {
-    body = buildStatus(filters, range, today, dims, sales, targetBook, capped, choices);
+    body = buildStatus(filters, range, today, dims, sales, reservas.rows, targetBook, capped, choices);
   } else {
     const trail = applySpecific(sold.rows, filters, section);
     body = buildCanales(filters, range, dims, sales, trail, capped, choices);
