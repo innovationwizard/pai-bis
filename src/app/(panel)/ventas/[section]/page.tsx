@@ -5,8 +5,17 @@ import VentasBoard from "../board";
 import GlanceView from "../glance-view";
 import { VENTAS_SECTIONS } from "../sections";
 import { departmentStaticParams, locateIcon } from "@/app/pabi/department-icons";
+import GhostCard from "@/app/pabi/ghost-card";
 import TierDrill from "@/app/pabi/tier-drill";
 import { isVistaSection } from "@/lib/ventas/vista-types";
+
+function drillMissing(slug: string): string | null {
+  if (slug === "cierre-mensual-de-ventas") return "comisiones de ventas, sin fuente en vivo";
+  if (slug === "cesion-clientes" || slug === "cesion-directivo") {
+    return "cesión de derechos, sin fuente en vivo";
+  }
+  return null;
+}
 
 type VentasSectionPageProps = {
   params: Promise<{ section: string }>;
@@ -47,9 +56,10 @@ export default async function VentasSectionPage({ params }: VentasSectionPagePro
   }
   const located = locateIcon("ventas", section);
   if (!located?.item.drill) notFound();
+  const missing = drillMissing(section);
   return (
     <SectionPage title={`${located.index + 1}. ${located.item.title}`}>
-      <TierDrill drill={located.item.drill} />
+      {missing === null ? <TierDrill drill={located.item.drill} /> : <GhostCard missing={missing} />}
     </SectionPage>
   );
 }

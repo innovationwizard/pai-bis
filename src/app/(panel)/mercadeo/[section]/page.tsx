@@ -2,11 +2,19 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import SectionPage from "@/components/section-page";
 import { departmentStaticParams, locateIcon } from "@/app/pabi/department-icons";
+import GhostCard from "@/app/pabi/ghost-card";
 import TierDrill from "@/app/pabi/tier-drill";
 import { isGlanceSection } from "@/lib/mercadeo/glance-types";
 import GlanceView from "../glance-view";
 import OperativoView from "../operativo-view";
 import { MERCADEO_SECTIONS } from "../sections";
+
+function drillMissing(slug: string): string | null {
+  if (slug === "gastos-mercadeo" || slug === "fondeos" || slug === "centros-de-costos") {
+    return "presupuestos de mercadeo, sin fuente en vivo";
+  }
+  return null;
+}
 
 type MercadeoSectionPageProps = {
   params: Promise<{ section: string }>;
@@ -48,9 +56,10 @@ export default async function MercadeoSectionPage({ params }: MercadeoSectionPag
   }
   const located = locateIcon("mercadeo", section);
   if (!located?.item.drill) notFound();
+  const missing = drillMissing(section);
   return (
     <SectionPage title={`${located.index + 1}. ${located.item.title}`}>
-      <TierDrill drill={located.item.drill} />
+      {missing === null ? <TierDrill drill={located.item.drill} /> : <GhostCard missing={missing} />}
     </SectionPage>
   );
 }

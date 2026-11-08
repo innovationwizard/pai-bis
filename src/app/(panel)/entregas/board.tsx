@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import DataAsOf from "@/app/pabi/data-as-of";
 import { ESTADO_LABELS, ESTADOS, MILESTONE_LABELS } from "@/lib/entregas/constants";
 import type { EntregaCitaFull, EntregaEstado, EntregaMilestone } from "@/lib/entregas/types";
-import GhostCard from "./ghost-card";
+import GhostCard from "@/app/pabi/ghost-card";
 
 const ZONE = "America/Guatemala";
 
