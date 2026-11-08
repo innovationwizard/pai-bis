@@ -1,16 +1,21 @@
 """Load the Créditos read model from the Pipedrive raw extract.
 
-Run from the repo root, after migration 082 is applied and the creditos
-schema is exposed in the Data API:
+Run from the repo root. Migration 089 has to be applied first, and the
+creditos schema has to be exposed in the Data API:
 
     python3 scripts/creditos/load.py
+    python3 scripts/creditos/load.py --check
+
+The load stages the rows and replaces the live facts in one transaction
+through creditos.swap_load(). --check parses and prints counts without
+writing.
 
 Reads output/raw JSONL, not the resolved CSV. The resolved deals.csv keeps
 only one column named Tipo de Crédito and drops the other field.
 
-Replaces fact_deal, fact_activity, fact_file, and fact_note. Does not touch
-public.pai_credito_expediente, ventas, or mercadeo. Does not invent a stage
-or an option label: an unknown stage id or option id fails the load.
+Does not touch public.pai_credito_expediente, ventas, or mercadeo. Does not
+invent a stage or an option label: an unknown stage id or option id fails
+the load. The dimension seed from migration 082 still has to be loaded.
 """
 
 from __future__ import annotations
@@ -18,6 +23,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -276,6 +282,56 @@ class Api:
     def delete_filtered(self, table: str, filt: str) -> None:
         self.request("DELETE", f"/{table}?{filt}", prefer="return=minimal")
 
+    def swap_load(self) -> dict[str, object]:
+        headers = {
+            "apikey": self.key,
+            "Authorization": f"Bearer {self.key}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Content-Profile": "creditos",
+            "Accept-Profile": "creditos",
+        }
+        call = urllib.request.Request(
+            self.base + "/rpc/swap_load",
+            data=b"{}",
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(call, timeout=600) as response:
+                raw = response.read()
+                body: object = json.loads(raw.decode("utf-8")) if raw else None
+        except Exception as error:
+            detail = str(error)
+            if isinstance(error, urllib.error.HTTPError):
+                body_text = error.read().decode("utf-8", errors="replace").strip()
+                if body_text:
+                    detail = body_text
+            raise RuntimeError(
+                "swap_load failed or timed out; check creditos.v_deal row count before rerunning: "
+                f"{detail}"
+            ) from error
+        if not isinstance(body, dict):
+            raise RuntimeError(
+                "swap_load failed or timed out; check creditos.v_deal row count before rerunning: "
+                f"response was {body!r}"
+            )
+        return body
+
+
+def content_range_total(headers: dict[str, str], table: str) -> int:
+    raw: str | None = None
+    for key, value in headers.items():
+        if key.lower() == "content-range":
+            raw = str(value).strip()
+            break
+    total = ""
+    if raw is not None and "/" in raw:
+        total = raw.rsplit("/", 1)[1].strip()
+    if not total.isdigit():
+        raise RuntimeError(f"{table} count missing Content-Range total ({raw!r})")
+    return int(total)
+
 
 def stream_jsonl(name: str):
     path = os.path.join(RAW, name)
@@ -491,15 +547,48 @@ def main() -> None:
         flush=True,
     )
     print(f"activities {len(activities)}, files {len(files)}, scanner notes {len(notes)}", flush=True)
-    print("replacing crédito facts", flush=True)
-    api.delete_filtered("fact_note", "pipedrive_note_id=gt.0")
-    api.delete_filtered("fact_file", "pipedrive_file_id=gt.0")
-    api.delete_filtered("fact_activity", "pipedrive_activity_id=gt.0")
-    api.delete_filtered("fact_deal", "pipedrive_deal_id=gt.0")
-    api.insert("fact_deal", deals)
-    api.insert("fact_activity", activities)
-    api.insert("fact_file", files)
-    api.insert("fact_note", notes)
+    if "--check" in sys.argv:
+        print("check only, nothing written", flush=True)
+        sys.exit(0)
+    print("clearing staging", flush=True)
+    api.delete_filtered("load_fact_note", "pipedrive_note_id=gt.0")
+    api.delete_filtered("load_fact_file", "pipedrive_file_id=gt.0")
+    api.delete_filtered("load_fact_activity", "pipedrive_activity_id=gt.0")
+    api.delete_filtered("load_fact_deal", "pipedrive_deal_id=gt.0")
+    print("staging", flush=True)
+    api.insert("load_fact_deal", deals)
+    api.insert("load_fact_activity", activities)
+    api.insert("load_fact_file", files)
+    api.insert("load_fact_note", notes)
+    staged = (
+        ("load_fact_deal", len(deals)),
+        ("load_fact_activity", len(activities)),
+        ("load_fact_file", len(files)),
+        ("load_fact_note", len(notes)),
+    )
+    for table, want in staged:
+        _, headers, _ = api.request(
+            "GET",
+            f"/{table}?select=id",
+            range_header="0-0",
+            prefer="count=exact",
+        )
+        got = content_range_total(headers, table)
+        if got != want:
+            raise RuntimeError(f"{table} staged {got}, expected {want}")
+    print("swapping", flush=True)
+    swapped = api.swap_load()
+    print(json.dumps(swapped, ensure_ascii=False), flush=True)
+    live = (
+        ("fact_deal", len(deals)),
+        ("fact_activity", len(activities)),
+        ("fact_file", len(files)),
+        ("fact_note", len(notes)),
+    )
+    for key, want in live:
+        got = swapped.get(key)
+        if got != want:
+            raise RuntimeError(f"{key} swapped {got}, expected {want}")
 
     open_rows = api.fetch_all(
         "v_open_stage",
