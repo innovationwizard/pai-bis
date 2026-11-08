@@ -32,10 +32,7 @@ import openpyxl
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "docs-mercadeo-oct-09"
-PIPEDRIVE = Path(
-    "/Users/orion-tech/go/singularity/_ Agents_Extract_PipeDrive/"
-    "repo-orion-odoo19-etl-pipedrive/output/resolved"
-)
+PIPEDRIVE = Path("/Users/orion-tech/go/singularity/extraction_pipedrive/output/resolved")
 EXCLUDED = "cons_guat__kpa_LeadsWebsiteBoulevard_fb_lds_cpa_11noval20nov"
 BATCH = 80
 MONTHS = {
