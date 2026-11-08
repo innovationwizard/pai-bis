@@ -55,16 +55,16 @@ BEGIN
   FROM cobros.v_cobro WHERE project_slug = 'boulevard-5' AND currency = 'USD';
   SELECT count(*) INTO v_garbage FROM cobros.plan_month WHERE ocr_garbage;
 
-  IF v_cobros <> 8889
-     OR v_gtq_n <> 8822 OR v_gtq <> 73380489.37
+  IF v_cobros <> 8948
+     OR v_gtq_n <> 8881 OR v_gtq <> 73768585.37
      OR v_usd_n <> 67 OR v_usd <> 1284690.47
-     OR v_five_gtq_n <> 8798 OR v_five_gtq <> 71227701.27
-     OR v_ds_n <> 883 OR v_ds <> 3277785.18
+     OR v_five_gtq_n <> 8856 OR v_five_gtq <> 71565797.27
+     OR v_ds_n <> 912 OR v_ds <> 3347404.09
      OR v_debit_mismatch <> 0
      OR v_empty <> 0
-     OR v_b5_gtq_n <> 5829 OR v_b5_gtq <> 66352535.79
-     OR v_bnt_gtq_n <> 2303 OR v_bnt_gtq <> 3481746.52
-     OR v_tap_gtq_n <> 666 OR v_tap_gtq <> 1393418.96
+     OR v_b5_gtq_n <> 5848 OR v_b5_gtq <> 66621896.07
+     OR v_bnt_gtq_n <> 2329 OR v_bnt_gtq <> 3530540.12
+     OR v_tap_gtq_n <> 679 OR v_tap_gtq <> 1413361.08
      OR v_b5_usd_n <> 43
      OR v_b5_usd <> 504470.47
      OR v_b5_debit <> 3858110.03
