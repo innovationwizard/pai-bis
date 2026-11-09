@@ -199,7 +199,7 @@ const PRESETS = new Set<PeriodPreset>(["este-mes", "mes-anterior", "este-trimest
 
 export function parseCobrosFilters(url: URL): CobrosFilters {
   const presetRaw = url.searchParams.get("periodo");
-  const preset: PeriodPreset = presetRaw && PRESETS.has(presetRaw as PeriodPreset) ? (presetRaw as PeriodPreset) : "este-mes";
+  const preset: PeriodPreset = presetRaw && PRESETS.has(presetRaw as PeriodPreset) ? (presetRaw as PeriodPreset) : "este-ano";
   const projects = url.searchParams.getAll("proyecto").filter(Boolean);
   const marcaRaw = url.searchParams.get("marca");
   const monedaRaw = url.searchParams.get("moneda");
