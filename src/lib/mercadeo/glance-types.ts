@@ -20,6 +20,7 @@ type VistaBase = {
   question: string;
   periodLabel: string;
   rangeLabel: string;
+  adAsOf: string | null;
   caption: string;
   notice: string | null;
   projects: ProjectChoice[];

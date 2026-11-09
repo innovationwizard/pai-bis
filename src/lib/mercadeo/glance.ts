@@ -97,6 +97,7 @@ export async function buildVista(section: GlanceSection, filters: OperativoFilte
   const base = {
     periodLabel: report.periodLabel,
     rangeLabel: report.rangeLabel,
+    adAsOf: report.adAsOf,
     notice: report.notice,
     projects: report.projects,
   };

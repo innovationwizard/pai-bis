@@ -105,6 +105,15 @@ function windowForMonth(month: string, range: DateWindow): DateWindow {
   return { from: month, to, label: monthLabel(month) };
 }
 
+function latestAdDay(store: MercadeoStore): string | null {
+  let latest: string | null = null;
+  for (const row of store.ads) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(row.day)) continue;
+    if (latest == null || row.day > latest) latest = row.day;
+  }
+  return latest;
+}
+
 export function parseOperativoFilters(url: URL): OperativoFilters {
   const preset = url.searchParams.get("periodo");
   const allowed: PeriodPreset[] = ["este-mes", "mes-anterior", "este-trimestre", "este-ano", "custom"];
@@ -464,6 +473,7 @@ export async function buildOperativo(filters: OperativoFilters): Promise<Operati
   return {
     periodLabel: range.label,
     rangeLabel: `${range.from} – ${range.to}`,
+    adAsOf: latestAdDay(store),
     partial,
     cplCaption: last
       ? `Costo por lead de Meta, de enero a ${monthLabel(last, true)}. El último mes llega hasta el fin del periodo. Un mes sin leads no se dibuja en cero.`

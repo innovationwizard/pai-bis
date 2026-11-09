@@ -91,6 +91,7 @@ export type LeadBand = {
 export type OperativoReport = {
   periodLabel: string;
   rangeLabel: string;
+  adAsOf: string | null;
   partial: boolean;
   cplCaption: string;
   notice: string | null;

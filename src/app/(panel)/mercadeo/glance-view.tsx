@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import type { BudgetStatus } from "@/lib/mercadeo/operativo-types";
 import type { GlanceSection, MercadeoVista } from "@/lib/mercadeo/glance-types";
+import DataAsOf from "@/app/pabi/data-as-of";
 import { Overlay, TargetDrawer } from "./operativo-view";
 
 const STORAGE_KEY = "pai-mercadeo-filtros";
@@ -195,6 +196,7 @@ export default function GlanceView({ section }: { section: GlanceSection }) {
 
   return (
     <div className="op-screen">
+      {show ? <DataAsOf timestamp={show.adAsOf} dateOnly /> : null}
       <div className="op-toolbar">
         <label>
           Periodo

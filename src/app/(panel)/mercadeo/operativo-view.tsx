@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import type { BudgetStatus, LeadBand, OperativoReport } from "@/lib/mercadeo/operativo-types";
 import { useDashboardTier } from "@/lib/dashboard-tier";
+import DataAsOf from "@/app/pabi/data-as-of";
 import DirectivoView from "./directivo-view";
 
 const STORAGE_KEY = "pai-mercadeo-filtros";
@@ -243,6 +244,7 @@ export default function OperativoView({ variant = "home" }: { variant?: "home" |
 
   return (
     <div className="op-screen">
+      {report ? <DataAsOf timestamp={report.adAsOf} dateOnly /> : null}
       <div className="op-toolbar">
         <label>
           Periodo
