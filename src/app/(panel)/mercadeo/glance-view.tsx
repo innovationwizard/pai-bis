@@ -48,7 +48,7 @@ type BarState = {
   proyectos: string[] | null;
 };
 
-const INITIAL: BarState = { periodo: "este-mes", desde: "", hasta: "", proyectos: null };
+const INITIAL: BarState = { periodo: "este-ano", desde: "", hasta: "", proyectos: null };
 
 const moneyFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });

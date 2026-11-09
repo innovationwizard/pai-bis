@@ -110,7 +110,7 @@ export function parseOperativoFilters(url: URL): OperativoFilters {
   const allowed: PeriodPreset[] = ["este-mes", "mes-anterior", "este-trimestre", "este-ano", "custom"];
   const slugs = url.searchParams.getAll("proyecto");
   return {
-    preset: allowed.includes(preset as PeriodPreset) ? (preset as PeriodPreset) : "este-mes",
+    preset: allowed.includes(preset as PeriodPreset) ? (preset as PeriodPreset) : "este-ano",
     customFrom: url.searchParams.get("desde"),
     customTo: url.searchParams.get("hasta"),
     slugs: slugs.length === 0 ? null : slugs.includes("ninguno") ? [] : slugs,

@@ -63,7 +63,7 @@ type BarState = {
 };
 
 const INITIAL: BarState = {
-  periodo: "este-mes",
+  periodo: "este-ano",
   desde: "",
   hasta: "",
   comparar: false,
