@@ -67,6 +67,7 @@ export type FunnelStage = {
   gtq: number | null;
   priorCount: number | null;
   priorGtq: number | null;
+  priorByProject: { id: string; count: number }[] | null;
   conversion: number | null;
   deals: StageDeal[];
   dropped: StageDeal[];

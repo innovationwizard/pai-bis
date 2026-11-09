@@ -388,6 +388,7 @@ function emptyStage(
     gtq: null,
     priorCount: null,
     priorGtq: null,
+    priorByProject: null,
     conversion: null,
     deals: [],
     dropped: [],
@@ -746,6 +747,7 @@ export async function loadTotalesBridge(input: {
       gtq: distinctReservaValue,
       priorCount: input.prior ? reservasPrior.length : null,
       priorGtq: input.prior ? sumGtq([...priorReservaIds].map((id) => deals.get(id)?.valueGtq ?? null)) : null,
+      priorByProject: input.prior ? priorReservasByProject(reservasPrior, deals) : null,
       deals: reservasPacked.rows,
       listTotal: reservasPacked.total,
     },
@@ -840,6 +842,17 @@ function freshnessOf(input: { pipedrive: string | null; odoo: string | null; odo
     stale: stale || input.odooRows === 0,
     note: notes.length ? notes.join(" ") : null,
   };
+}
+
+function priorReservasByProject(activities: Activity[], deals: Map<string, DealInfo>): { id: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const activity of activities) {
+    if (!activity.dealId) continue;
+    const projectId = deals.get(activity.dealId)?.projectId ?? "";
+    if (!projectId) continue;
+    counts.set(projectId, (counts.get(projectId) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([id, count]) => ({ id, count }));
 }
 
 function inScope(deal: DealInfo, unit: UnitInfo | null, scope: Scope): boolean {
