@@ -13,9 +13,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CobrosResumenTable, type CobrosResumen } from "@/app/pabi/contable/contable-charts";
-import cobrosJson from "@/app/pabi/contable/data/cobros.json";
-import comisionesJson from "@/app/pabi/contable/data/comisiones.json";
 import type { CobrosSection, CobrosVista, Series } from "@/lib/cobros/types";
 
 const STORAGE_KEY = "pai-cobros-filtros";
@@ -77,9 +74,6 @@ const INITIAL: BarState = {
   moneda: "",
   detalle: "",
 };
-
-const bakedResumen = cobrosJson.rows["1"] as CobrosResumen;
-const bakedCierre = comisionesJson.rows["2"] as CobrosResumen;
 
 function readBar(raw: string): BarState {
   const parsed = JSON.parse(raw) as Partial<BarState>;
@@ -427,20 +421,6 @@ export default function CobrosView({ section }: { section: CobrosSection }) {
                   </tbody>
                 </table>
               </div>
-            </section>
-          ) : null}
-          {show.baked === "resumen" ? (
-            <section className="op-hero" aria-label="Excel de agosto 2026">
-              <h2>Excel de agosto 2026</h2>
-              <p className="op-note">No es el libro publicado. Es la foto que ya estaba en la vista directiva.</p>
-              <CobrosResumenTable data={bakedResumen} />
-            </section>
-          ) : null}
-          {show.baked === "cierre" ? (
-            <section className="op-hero" aria-label="Excel de cierre">
-              <h2>Excel de agosto 2026</h2>
-              <p className="op-note">No es el cierre del libro publicado. Es la foto de comisiones que ya estaba en la vista directiva.</p>
-              <CobrosResumenTable data={bakedCierre} />
             </section>
           ) : null}
         </>

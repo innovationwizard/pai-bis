@@ -841,7 +841,6 @@ function blank(
     listTotal: 0,
     drafts: null,
     compare: [],
-    baked: section === "reporte-recurrente" ? "resumen" : section === "cierre-mensual-de-cobros" ? "cierre" : null,
   };
 }
 

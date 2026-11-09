@@ -36,8 +36,6 @@ export type DraftBlock = {
   total: number;
 };
 
-export type BakedKind = "resumen" | "alertas" | "cierre" | null;
-
 export type CobrosVista = {
   section: CobrosSection;
   question: string;
@@ -65,7 +63,6 @@ export type CobrosVista = {
   listTotal: number;
   drafts: DraftBlock | null;
   compare: { label: string; detail: string }[];
-  baked: BakedKind;
 };
 
 export const PLAN_FREEZE =
