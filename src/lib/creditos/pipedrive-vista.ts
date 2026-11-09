@@ -28,6 +28,31 @@ const PROJECTS = [
   { slug: "torre-coban", name: "Torre Cobán" },
 ] as const;
 
+const DEFAULT_PROJECT_SLUGS = new Set<string>([
+  "boulevard-5",
+  "benestare",
+  "bosque-las-tapias",
+  "santa-elena",
+]);
+
+function leftOutOfDefault(slug: string, name: string): boolean {
+  return slug === "casa-elisa" || /^casa elisa$/i.test(name) || /cob[aá]n/i.test(name);
+}
+
+function inDefaultProject(slug: string, name: string): boolean {
+  return DEFAULT_PROJECT_SLUGS.has(slug) && !leftOutOfDefault(slug, name);
+}
+
+function scopeProjects(projectSlug: string | null): readonly (typeof PROJECTS)[number][] {
+  if (projectSlug) return PROJECTS.filter((item) => item.slug === projectSlug);
+  return PROJECTS.filter((item) => inDefaultProject(item.slug, item.name));
+}
+
+function rowInScope(slug: string, name: string, selectedSlug: string | null): boolean {
+  if (selectedSlug) return slug === selectedSlug;
+  return inDefaultProject(slug, name);
+}
+
 const BUCKET: Record<string, string> = {
   sin_dato: "Sin dato",
   fha: "FHA",
@@ -202,9 +227,13 @@ export async function buildCreditosVista(
   const range = resolveRange(preset, customFrom, customTo, today);
   const bundle = await loadBundle();
   const project = PROJECTS.find((item) => item.slug === projectSlug) ?? null;
-  const deals = project ? bundle.deals.filter((deal) => deal.projectSlug === project.slug) : bundle.deals;
-  const stages = project ? bundle.stages.filter((stage) => stage.projectSlug === project.slug) : bundle.stages;
-  const events = project ? bundle.events.filter((event) => event.projectSlug === project.slug) : bundle.events;
+  const selectedSlug = project?.slug ?? null;
+  const deals = bundle.deals.filter((deal) => rowInScope(deal.projectSlug, deal.project, selectedSlug));
+  const stages = bundle.stages.filter((stage) => rowInScope(stage.projectSlug, stage.project, selectedSlug));
+  const dealIds = new Set(deals.map((deal) => deal.id));
+  const events = bundle.events.filter((event) =>
+    selectedSlug ? event.projectSlug === selectedSlug : dealIds.has(event.dealId),
+  );
   const copy = COPY[section];
   const built = copy.build({
     deals,
@@ -941,7 +970,7 @@ function projectSignal(ctx: Ctx, title: string, signal: string): Chart {
 function projectFlag(ctx: Ctx, title: string, present: (deal: Deal) => boolean): Chart {
   const points: ChartPoint[] = [];
   const silent: string[] = [];
-  const projects = ctx.projectSlug ? PROJECTS.filter((project) => project.slug === ctx.projectSlug) : PROJECTS;
+  const projects = scopeProjects(ctx.projectSlug);
   for (const project of projects) {
     const rows = ctx.deals.filter((deal) => deal.projectSlug === project.slug);
     if (rows.length === 0) {
@@ -1001,7 +1030,7 @@ function queueRows(stages: Stage[], lanes: string[] | null, onlyOccupied: boolea
 }
 
 function coverage(ctx: Ctx, measures: [string, (deal: Deal) => boolean][]): CoverageRow[] {
-  const projects = ctx.projectSlug ? PROJECTS.filter((project) => project.slug === ctx.projectSlug) : PROJECTS;
+  const projects = scopeProjects(ctx.projectSlug);
   return measures.map(([measure, present]) => ({
     measure,
     cells: projects.map((project) => {
