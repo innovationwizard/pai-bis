@@ -104,6 +104,15 @@ def as_timestamptz(value: object) -> str | None:
     return text.replace(" ", "T") + "Z"
 
 
+def due_time_utc(value: object) -> str | None:
+    if value is None or value is False:
+        return None
+    text = str(value).strip()
+    if text == "" or text.lower() == "false":
+        return None
+    return text
+
+
 def as_date(value: object) -> str | None:
     if value is None or value is False:
         return None
@@ -700,6 +709,8 @@ def main() -> None:
                         "pipedrive_activity_id": row["id"],
                         "deal_id": deal_uuid,
                         "marked_as_done_time": stamp,
+                        "due_on": as_date(row.get("due_date")),
+                        "due_time": due_time_utc(row.get("due_time")),
                     }
                 )
                 if source_deal:
