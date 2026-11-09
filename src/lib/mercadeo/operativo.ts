@@ -8,6 +8,7 @@ import {
   type PeriodPreset,
 } from "@/lib/ventas/period";
 import {
+  FX,
   loadMercadeoStore,
   storeMetaLeads,
   storeMetaSpend,
@@ -474,6 +475,7 @@ export async function buildOperativo(filters: OperativoFilters): Promise<Operati
     periodLabel: range.label,
     rangeLabel: `${range.from} – ${range.to}`,
     adAsOf: latestAdDay(store),
+    usdToGtq: FX,
     partial,
     cplCaption: last
       ? `Costo por lead de Meta, de enero a ${monthLabel(last, true)}. El último mes llega hasta el fin del periodo. Un mes sin leads no se dibuja en cero.`

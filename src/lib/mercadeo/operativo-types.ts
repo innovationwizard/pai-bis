@@ -92,6 +92,7 @@ export type OperativoReport = {
   periodLabel: string;
   rangeLabel: string;
   adAsOf: string | null;
+  usdToGtq: number;
   partial: boolean;
   cplCaption: string;
   notice: string | null;

@@ -244,7 +244,14 @@ export default function OperativoView({ variant = "home" }: { variant?: "home" |
 
   return (
     <div className="op-screen">
-      {report ? <DataAsOf timestamp={report.adAsOf} dateOnly /> : null}
+      {report ? (
+        <>
+          <DataAsOf timestamp={report.adAsOf} dateOnly />
+          <p className="op-range">
+            <span className="op-fresh">Tipo de cambio: Q{report.usdToGtq.toFixed(2)}</span>
+          </p>
+        </>
+      ) : null}
       <div className="op-toolbar">
         <label>
           Periodo

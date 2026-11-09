@@ -21,6 +21,7 @@ type VistaBase = {
   periodLabel: string;
   rangeLabel: string;
   adAsOf: string | null;
+  usdToGtq: number;
   caption: string;
   notice: string | null;
   projects: ProjectChoice[];

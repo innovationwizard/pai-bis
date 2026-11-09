@@ -2,6 +2,7 @@ import type { DateWindow } from "@/lib/ventas/period";
 import { inclusiveDays, monthEnd, monthStart } from "@/lib/ventas/period";
 import type { CampaignRow } from "./report";
 import {
+  FX,
   loadMercadeoStore,
   storeCampaignsFor,
   storeChannels,
@@ -98,6 +99,7 @@ export async function buildVista(section: GlanceSection, filters: OperativoFilte
     periodLabel: report.periodLabel,
     rangeLabel: report.rangeLabel,
     adAsOf: report.adAsOf,
+    usdToGtq: FX,
     notice: report.notice,
     projects: report.projects,
   };

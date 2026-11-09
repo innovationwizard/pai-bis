@@ -196,7 +196,14 @@ export default function GlanceView({ section }: { section: GlanceSection }) {
 
   return (
     <div className="op-screen">
-      {show ? <DataAsOf timestamp={show.adAsOf} dateOnly /> : null}
+      {show ? (
+        <>
+          <DataAsOf timestamp={show.adAsOf} dateOnly />
+          <p className="op-range">
+            <span className="op-fresh">Tipo de cambio: Q{show.usdToGtq.toFixed(2)}</span>
+          </p>
+        </>
+      ) : null}
       <div className="op-toolbar">
         <label>
           Periodo

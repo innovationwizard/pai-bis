@@ -7,7 +7,8 @@ import {
   type PeriodPreset,
 } from "@/lib/ventas/period";
 
-const FX = 7.8;
+// Fixed rate decided on 2026-11-09.
+export const FX = 7.8;
 const EXCLUDED = "cons_guat__kpa_LeadsWebsiteBoulevard_fb_lds_cpa_11noval20nov";
 const LINES = ["meta", "google", "tiktok", "linkedin", "pauta_digital", "wati"] as const;
 const WORKBOOK_LINES = ["tiktok", "linkedin", "pauta_digital", "wati"] as const;
