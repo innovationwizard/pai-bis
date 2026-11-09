@@ -120,6 +120,10 @@ function dottedSpan(label: string): string {
   return label.replace(/\d{4}-\d{2}-\d{2}/g, (iso) => dotted(iso));
 }
 
+function stampDate(label: string): string {
+  return label.replace(/\s+\d{2}:\d{2}\s*$/u, "");
+}
+
 function tipNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value !== "" && Number.isFinite(Number(value))) return Number(value);
@@ -467,7 +471,7 @@ export default function CommandCenter() {
             {totales ? `${totales.periodLabel}: ${dottedSpan(totales.rangeLabel)}.` : ""}
             {totales ? (
               <span className="op-fresh" data-stale={totales.freshness.stale ? "true" : "false"}>
-                {totales.freshness.label}
+                {stampDate(totales.freshness.label)}
               </span>
             ) : errors["ventas-totales"] ? (
               <span className="op-fresh">No se pudo leer el último dato cargado.</span>

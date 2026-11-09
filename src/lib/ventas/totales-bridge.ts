@@ -30,6 +30,8 @@ type Scope = {
   projectIds: string[] | null;
   asesorId: string | null;
   torreId: string | null;
+  notRepIds: Set<string>;
+  creditPipelineIds: Set<string>;
 };
 
 type DealInfo = {
@@ -37,6 +39,7 @@ type DealInfo = {
   pipedriveId: string;
   projectId: string;
   asesorId: string;
+  pipelineId: string;
   unitId: string | null;
   valueGtq: number | null;
   lostOn: string | null;
@@ -163,20 +166,21 @@ function laterIso(a: string | null, b: string | null): string | null {
   return left >= right ? a : b;
 }
 
-function stampText(iso: string): string {
+function stampText(iso: string, dateOnly = false): string {
   const hasTime = iso.includes("T");
   const date = hasTime ? new Date(iso) : new Date(`${iso.slice(0, 10)}T12:00:00-06:00`);
   if (Number.isNaN(date.getTime())) return dotted(iso);
+  const withClock = hasTime && !dateOnly;
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "America/Guatemala",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    ...(hasTime ? { hour: "2-digit" as const, minute: "2-digit" as const, hourCycle: "h23" as const } : {}),
+    ...(withClock ? { hour: "2-digit" as const, minute: "2-digit" as const, hourCycle: "h23" as const } : {}),
   }).formatToParts(date);
   const pick = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
   const day = `${pick("day")}.${pick("month")}.${pick("year")}`;
-  return hasTime ? `${day} ${pick("hour")}:${pick("minute")}` : day;
+  return withClock ? `${day} ${pick("hour")}:${pick("minute")}` : day;
 }
 
 function sumGtq(values: Array<number | null>): number | null {
@@ -419,9 +423,17 @@ export async function loadTotalesBridge(input: {
   netGtq: number | null;
   lossCount: number;
   today: string;
+  notRepIds: string[];
+  creditPipelineIds: string[];
 }): Promise<TotalesBridge> {
   const client = db();
-  const scope: Scope = { projectIds: input.projectIds, asesorId: input.asesorId, torreId: input.torreId };
+  const scope: Scope = {
+    projectIds: input.projectIds,
+    asesorId: input.asesorId,
+    torreId: input.torreId,
+    notRepIds: new Set(input.notRepIds),
+    creditPipelineIds: new Set(input.creditPipelineIds),
+  };
   const names: Names = { project: input.projectName, asesor: input.asesorName };
   const [pipedriveReserva, pipedrivePromesa, odooWritten, odooPublished, reciboCount] = await Promise.all([
     latestStamp(client, "fact_comprobante", "marked_as_done_time"),
@@ -512,7 +524,7 @@ export async function loadTotalesBridge(input: {
     pagedIn(dealIds, (slice, from, to) =>
       client
         .from("dim_deal")
-        .select("id,pipedrive_deal_id,project_id,asesor_id,unit_id,value_gtq,lost_on")
+        .select("id,pipedrive_deal_id,project_id,asesor_id,pipeline_id,unit_id,value_gtq,lost_on")
         .in("id", slice)
         .order("id")
         .range(from, to),
@@ -549,6 +561,7 @@ export async function loadTotalesBridge(input: {
       pipedriveId: str(row, "pipedrive_deal_id") ?? "",
       projectId: str(row, "project_id") ?? "",
       asesorId: str(row, "asesor_id") ?? "",
+      pipelineId: str(row, "pipeline_id") ?? "",
       unitId: str(row, "unit_id"),
       valueGtq: num(row.value_gtq),
       lostOn: dayOf(str(row, "lost_on")),
@@ -838,7 +851,7 @@ function freshnessOf(input: { pipedrive: string | null; odoo: string | null; odo
   const stale = latestDay <= addDays(input.today, -4);
   if (stale) notes.push(`El último movimiento cargado es del ${stampText(latest)}. Hoy es ${dotted(input.today)}.`);
   return {
-    label: `Datos al ${stampText(latest)}`,
+    label: `Datos al ${stampText(latest, true)}`,
     stale: stale || input.odooRows === 0,
     note: notes.length ? notes.join(" ") : null,
   };
@@ -856,6 +869,8 @@ function priorReservasByProject(activities: Activity[], deals: Map<string, DealI
 }
 
 function inScope(deal: DealInfo, unit: UnitInfo | null, scope: Scope): boolean {
+  if (scope.notRepIds.has(deal.asesorId)) return false;
+  if (deal.pipelineId && scope.creditPipelineIds.has(deal.pipelineId)) return false;
   if (scope.projectIds && !scope.projectIds.includes(deal.projectId)) return false;
   if (scope.asesorId && deal.asesorId !== scope.asesorId) return false;
   if (scope.torreId && unit?.towerId !== scope.torreId) return false;
