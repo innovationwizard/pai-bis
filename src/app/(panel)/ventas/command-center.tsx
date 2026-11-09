@@ -16,7 +16,6 @@ import {
   YAxis,
 } from "recharts";
 import {
-  VENTA_DEFINITION,
   type BlockerRow,
   type Choice,
   type FunnelStage,
@@ -477,7 +476,6 @@ export default function CommandCenter() {
             )}
           </p>
         </div>
-        <p className="vc-definition">{VENTA_DEFINITION}</p>
         {totales?.freshness.note ? <p className="op-note op-warn">{totales.freshness.note}</p> : null}
       </header>
 
