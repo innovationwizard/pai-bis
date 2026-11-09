@@ -72,6 +72,15 @@ function projectsOf(objetivos: ObjetivosVista | null): ProjectBar[] {
     .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
 }
 
+function hueKey(label: string): string {
+  return label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function inBarChart(label: string): boolean {
   const folded = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (folded.includes("casa elisa")) return false;
@@ -141,7 +150,7 @@ function Columns({
     key: string;
     name: string;
     reservas: number;
-    projectId: string;
+    hue: string;
     pressed?: boolean;
     label: string;
     onClick?: () => void;
@@ -155,7 +164,7 @@ function Columns({
           <>
             <span className={styles.vval}>{whole(column.reservas)}</span>
             <span className={styles.vplot}>
-              <span className={styles.vbar} data-project={column.projectId} style={{ height: widthOf(column.reservas, peak) }} />
+              <span className={styles.vbar} data-project={column.hue} style={{ height: widthOf(column.reservas, peak) }} />
             </span>
             <span className={styles.vname}>{column.name}</span>
           </>
@@ -362,7 +371,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
                     key: project.id,
                     name: project.label,
                     reservas: project.units,
-                    projectId: project.id,
+                    hue: hueKey(project.label),
                     pressed: false,
                     label: `${project.label}: ${whole(project.units)} reservas, ${shareText(project.units, total)} del total.`,
                     onClick: () => zoomProject(project.id),
@@ -382,7 +391,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
                     key: `${selected.id}:${row.name}`,
                     name: row.name,
                     reservas: row.reservas,
-                    projectId: selected.id,
+                    hue: hueKey(selected.label),
                     pressed: advisorShown === row.name,
                     label: `${selected.label} · ${row.name}: ${whole(row.reservas)} reservas, ${shareText(row.reservas, total)} del total, ${shareText(row.reservas, selected.units)} de ${selected.label}.`,
                     onClick: () => setAdvisorName(row.name),
@@ -427,7 +436,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
                             key: `${project.id}:${row.name}`,
                             name: row.name,
                             reservas: row.reservas,
-                            projectId: project.id,
+                            hue: hueKey(project.label),
                             label: `${project.label} · ${row.name}: ${whole(row.reservas)} reservas, ${shareText(row.reservas, total)} del total, ${shareText(row.reservas, project.units)} de ${project.label}.`,
                           }))}
                         />
@@ -485,14 +494,14 @@ function AsesorRows({
   const seenProjects = new Set<string>();
   const painted = rows.map((row) => {
     const place = singleProject(row.label, row.units, stage, projects);
-    const projectId = place ? projects.find((item) => item.label === place.project)?.id ?? null : null;
-    const lead = projectId != null && !seenProjects.has(projectId);
-    if (projectId) seenProjects.add(projectId);
-    return { row, place, projectId, lead };
+    const hue = place ? hueKey(place.project) : "";
+    const lead = hue.length > 0 && !seenProjects.has(hue);
+    if (hue) seenProjects.add(hue);
+    return { row, place, hue, lead };
   });
   return (
     <div className={styles.rankList}>
-      {painted.map(({ row, place, projectId, lead }) => {
+      {painted.map(({ row, place, hue, lead }) => {
         const gap = row.gapUnits;
         return (
           <div key={row.id} className={styles.row}>
@@ -503,7 +512,7 @@ function AsesorRows({
             <span className={styles.track} aria-hidden="true">
               <span
                 className={styles.barFill}
-                data-project={projectId ?? undefined}
+                data-project={hue || undefined}
                 data-lead={lead ? "true" : undefined}
                 style={{ width: widthOf(row.units, scale) }}
               />
