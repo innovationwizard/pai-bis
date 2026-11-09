@@ -97,6 +97,7 @@ function advisorsInProject(
   label: string,
   units: number,
   stage: FunnelStage | null,
+  notReps: ReadonlySet<string>,
 ): { ok: true; rows: AdvisorSlice[] } | { ok: false } {
   if (!stage || stage.deals.length !== stage.listTotal) return { ok: false };
   const counts = new Map<string, number>();
@@ -109,6 +110,7 @@ function advisorsInProject(
   }
   if (sum !== units) return { ok: false };
   const rows = [...counts.entries()]
+    .filter(([name]) => !notReps.has(name))
     .map(([name, reservas]) => ({ name, reservas }))
     .sort((a, b) => b.reservas - a.reservas || a.name.localeCompare(b.name, "es"));
   return { ok: true, rows };
@@ -257,8 +259,9 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
   const total = objetivos ? objetivos.units : stage ? stage.count : null;
   const prior = stage?.priorCount ?? null;
   const priorAligned = prior != null && total != null && (objetivos == null ? stage != null : stage?.count === objetivos.units);
+  const notReps = new Set((objetivos?.nonSalesReps ?? []).map((name) => name.trim()));
   const selected = projects.find((project) => project.id === projectId) ?? null;
-  const drilled = selected ? advisorsInProject(selected.label, selected.units, stage) : null;
+  const drilled = selected ? advisorsInProject(selected.label, selected.units, stage, notReps) : null;
   const advisorRows = drilled?.ok ? drilled.rows : null;
   const advisorShown = advisorName && advisorRows?.some((row) => row.name === advisorName) ? advisorName : null;
   const selectedHue = HUES[Math.max(0, projects.findIndex((project) => project.id === selected?.id)) % HUES.length] ?? styles.hue0;
@@ -397,7 +400,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
         <div className={styles.projects}>
           {projects.map((project, index) => {
             const hue = HUES[index % HUES.length] ?? styles.hue0;
-            const drilled = advisorsInProject(project.label, project.units, stage);
+            const drilled = advisorsInProject(project.label, project.units, stage, notReps);
             const advisorColumns = project.units === 0 ? [] : drilled.ok ? drilled.rows : null;
             const earlier = projectPrior(stage, project.id, comparable);
             const peakProject = advisorColumns && advisorColumns.length > 0

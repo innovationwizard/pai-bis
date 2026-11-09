@@ -102,6 +102,7 @@ type Dims = {
   asesores: Map<string, Named>;
   fuentes: Map<string, Named>;
   torres: Map<string, string>;
+  notRepIds: Set<string>;
 };
 
 type Money = { units: number; gtq: number | null; sin: number };
@@ -155,13 +156,14 @@ function subtract(gross: Money, loss: Money): number | null {
 
 async function loadDims(client: Db): Promise<Dims> {
   if (dimCache && Date.now() - dimCache.at < DIM_MS) return dimCache.dims;
-  const [projects, asesores, fuentes, torres] = await Promise.all([
+  const [projects, asesores, fuentes, torres, roles] = await Promise.all([
     client.from("dim_project").select("id,name,is_sin_dato"),
     client.from("dim_asesor").select("id,name,is_sin_dato"),
     client.from("dim_fuente").select("id,name,is_sin_dato"),
     client.from("dim_tower").select("id,name"),
+    client.from("asesor_role").select("asesor_id").eq("carries_target", false),
   ]);
-  for (const result of [projects, asesores, fuentes, torres]) {
+  for (const result of [projects, asesores, fuentes, torres, roles]) {
     if (result.error) throw new Error(result.error.message);
   }
   const named = (rows: Record<string, unknown>[] | null, sinKey: string): Named[] =>
@@ -171,6 +173,7 @@ async function loadDims(client: Db): Promise<Dims> {
     asesores: new Map(named(asesores.data as Record<string, unknown>[] | null, "is_sin_dato").map((row) => [row.id, row])),
     fuentes: new Map(named(fuentes.data as Record<string, unknown>[] | null, "is_sin_dato").map((row) => [row.id, row])),
     torres: new Map((torres.data ?? []).map((row) => [String(row.id), String(row.name)])),
+    notRepIds: new Set((roles.data ?? []).map((row) => String(row.asesor_id))),
   };
   dimCache = { at: Date.now(), dims };
   return dims;
@@ -331,7 +334,7 @@ async function loadTargets(client: Db, dims: Dims, months: string[]): Promise<Ta
     .map((project) => ({ id: project.id, label: project.name }))
     .sort((a, b) => a.label.localeCompare(b.label, "es"));
   const asesores = [...dims.asesores.values()]
-    .filter((asesor) => !asesor.sin)
+    .filter((asesor) => !asesor.sin && !dims.notRepIds.has(asesor.id))
     .map((asesor) => ({ id: asesor.id, label: asesor.name }))
     .sort((a, b) => a.label.localeCompare(b.label, "es"));
   const editorMonths = months.map((month) => ({ month, label: monthName(month) }));
@@ -845,7 +848,7 @@ function buildObjetivos(
   const projectIds = scopedProjects(dims, filters, sales);
   for (const cell of cells) if (!projectIds.includes(cell.projectId)) projectIds.push(cell.projectId);
   for (const row of reservas) if (row.projectId && !projectIds.includes(row.projectId)) projectIds.push(row.projectId);
-  const asesorIds = [...new Set([...sales.map((sale) => sale.asesorId), ...cells.map((cell) => cell.asesorId), ...reservas.map((row) => row.asesorId)].filter(Boolean))];
+  const asesorIds = [...new Set([...sales.map((sale) => sale.asesorId), ...cells.map((cell) => cell.asesorId), ...reservas.map((row) => row.asesorId)].filter((id) => id && !dims.notRepIds.has(id)))];
   const list = linesOf(sales, [], dims);
   const baseNotice = reservaNotice(gross.units, gross.sin, capped, reservas.length);
   const metaNotice = targetUnits == null ? "Este periodo no tiene meta. Entra las unidades y los quetzales del mes." : null;
@@ -888,6 +891,10 @@ function buildObjetivos(
       (cell) => cell.asesorId,
     ),
     rosterAsesorIds: [...new Set(scopedCells(book.roster, filters, months).map((cell) => cell.asesorId))],
+    nonSalesReps: [...dims.notRepIds].flatMap((id) => {
+      const name = dims.asesores.get(id)?.name.trim();
+      return name ? [name] : [];
+    }),
     editor: book.editor,
   };
 }
@@ -1035,7 +1042,7 @@ function buildStatus(
   const projectIds = scopedProjects(dims, filters, sales);
   for (const cell of cells) if (!projectIds.includes(cell.projectId)) projectIds.push(cell.projectId);
   for (const row of reservas) if (row.projectId && !projectIds.includes(row.projectId)) projectIds.push(row.projectId);
-  const asesorIds = [...new Set([...sales.map((sale) => sale.asesorId), ...cells.map((cell) => cell.asesorId), ...reservas.map((row) => row.asesorId)].filter(Boolean))];
+  const asesorIds = [...new Set([...sales.map((sale) => sale.asesorId), ...cells.map((cell) => cell.asesorId), ...reservas.map((row) => row.asesorId)].filter((id) => id && !dims.notRepIds.has(id)))];
   const list = linesOf(sales, [], dims);
   const dates = dayLabel(range, today);
   const baseNotice = reservaNotice(gross.units, gross.sin, capped, reservas.length);
@@ -1231,7 +1238,7 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
 
   const choiceSales = sold.rows.filter((sale) => inWindow(sale.saleOn, range));
   const choices = {
-    asesor: countChoices(choiceSales.map((sale) => sale.asesorId), nameMap(dims.asesores.values())),
+    asesor: countChoices(choiceSales.map((sale) => sale.asesorId), nameMap(dims.asesores.values())).filter((choice) => !dims.notRepIds.has(choice.id)),
     torre: countChoices(choiceSales.map((sale) => sale.towerId), dims.torres),
     fuente: countChoices(choiceSales.map((sale) => sale.fuenteId), nameMap(dims.fuentes.values())),
     modelo: [],

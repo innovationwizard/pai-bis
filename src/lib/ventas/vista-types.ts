@@ -228,6 +228,7 @@ export type ObjetivosVista = VistaBase & {
   byProject: MeasureRow[];
   byAsesor: MeasureRow[];
   rosterAsesorIds: string[];
+  nonSalesReps: string[];
   editor: TargetEditor;
 };
 
