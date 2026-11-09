@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  guatemalaToday,
   inclusiveDays,
   monthName,
   monthStart,
@@ -288,6 +289,16 @@ function showDay(iso: string | null): string {
   return `${day}.${month}.${year}`;
 }
 
+function latestPostedOn(rows: Cobro[], today = guatemalaToday()): string | null {
+  let latest: string | null = null;
+  for (const row of rows) {
+    const day = row.moveDate?.slice(0, 10);
+    if (!day || day > today) continue;
+    if (latest === null || day > latest) latest = day;
+  }
+  return latest;
+}
+
 const gtqFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const usdFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const countFormat = new Intl.NumberFormat("es-GT");
@@ -333,7 +344,7 @@ async function loadBook(): Promise<Book> {
       "odoo_partner_id,name,write_on_utc,project_slug,project_name,prefix_family,tower,modelo,apt,buyer_name,is_desistimiento",
     ),
     fetchAll("v_caso_revision", "kind,project_slug,odoo_partner_id,partner_name,move_date,currency,amount,detail"),
-    fetchAll("v_meta", "archive_cutoff_label,last_posted_on,cobro_count"),
+    fetchAll("v_meta", "archive_cutoff_label,cobro_count"),
   ]);
 
   const metaRow = metaRows[0];
@@ -433,10 +444,11 @@ async function loadBook(): Promise<Book> {
     })),
     meta: {
       cutoffLabel: text(metaRow?.archive_cutoff_label) ?? "2026-11-02 12:00 America/Guatemala",
-      lastPostedOn: text(metaRow?.last_posted_on),
+      lastPostedOn: null,
       cobroCount: num(metaRow?.cobro_count) ?? 0,
     },
   };
+  book.meta.lastPostedOn = latestPostedOn(book.cobros);
   bookCache = { at: Date.now(), book };
   return book;
 }
