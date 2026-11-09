@@ -1,4 +1,7 @@
 .block {
+  --project-benestare: #0d2041;
+  --project-boulevard-5: #3d6f8f;
+  --project-bosque-las-tapias: #0573b0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -133,7 +136,7 @@ button.vcol {
 }
 
 .meterPrev { background: var(--color-muted); }
-.meterNow { background: var(--color-primary); }
+.meterNow { background: var(--project-benestare); }
 
 .meterBar[data-decline="true"] .meterPrev {
   position: absolute;
@@ -153,11 +156,6 @@ button.vcol {
   font-weight: 700;
   overflow-wrap: anywhere;
 }
-
-.hue0 { color: var(--color-primary); }
-.hue1 { color: var(--color-primary-hover); }
-.hue2 { color: var(--color-unit-reserved); }
-.hue3 { color: var(--color-unit-sold); }
 
 .up,
 .down,
@@ -288,7 +286,12 @@ button.vcol {
   display: block;
   width: 100%;
   background: currentColor;
+  color: var(--color-muted);
 }
+
+.vbar[data-project="benestare"] { color: var(--project-benestare); }
+.vbar[data-project="boulevard-5"] { color: var(--project-boulevard-5); }
+.vbar[data-project="bosque-las-tapias"] { color: var(--project-bosque-las-tapias); }
 
 .vname {
   font-size: 12px;
@@ -336,8 +339,15 @@ button.vcol {
   left: 0;
   height: 100%;
   border-radius: 2px;
-  background: var(--color-primary);
+  --advisor-hue: var(--color-muted);
+  --advisor-mix: 50%;
+  background: color-mix(in srgb, var(--advisor-hue), white var(--advisor-mix));
 }
+
+.barFill[data-lead="true"] { --advisor-mix: 18%; }
+.barFill[data-project="benestare"] { --advisor-hue: var(--project-benestare); }
+.barFill[data-project="boulevard-5"] { --advisor-hue: var(--project-boulevard-5); }
+.barFill[data-project="bosque-las-tapias"] { --advisor-hue: var(--project-bosque-las-tapias); }
 
 .tickMark {
   position: absolute;

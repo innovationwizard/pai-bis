@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import type { FunnelStage, MeasureRow, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
 
-const HUES = [styles.hue0, styles.hue1, styles.hue2, styles.hue3] as const;
 const TOTAL_PRIOR = "reservas del periodo anterior";
 const ADVISOR_SPLIT = "reservas por asesor dentro del proyecto";
 
@@ -142,7 +141,7 @@ function Columns({
     key: string;
     name: string;
     reservas: number;
-    hue: string;
+    projectId: string;
     pressed?: boolean;
     label: string;
     onClick?: () => void;
@@ -156,7 +155,7 @@ function Columns({
           <>
             <span className={styles.vval}>{whole(column.reservas)}</span>
             <span className={styles.vplot}>
-              <span className={`${styles.vbar} ${column.hue}`} style={{ height: widthOf(column.reservas, peak) }} />
+              <span className={styles.vbar} data-project={column.projectId} style={{ height: widthOf(column.reservas, peak) }} />
             </span>
             <span className={styles.vname}>{column.name}</span>
           </>
@@ -264,7 +263,6 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
   const drilled = selected ? advisorsInProject(selected.label, selected.units, stage, notReps) : null;
   const advisorRows = drilled?.ok ? drilled.rows : null;
   const advisorShown = advisorName && advisorRows?.some((row) => row.name === advisorName) ? advisorName : null;
-  const selectedHue = HUES[Math.max(0, projects.findIndex((project) => project.id === selected?.id)) % HUES.length] ?? styles.hue0;
 
   function zoomOut() {
     setProjectId(null);
@@ -360,11 +358,11 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
               <div className={styles.vbars} role="group" aria-labelledby="vt-bar-title" aria-label="Proyectos">
                 <Columns
                   peak={peak}
-                  columns={projects.map((project, index) => ({
+                  columns={projects.map((project) => ({
                     key: project.id,
                     name: project.label,
                     reservas: project.units,
-                    hue: HUES[index % HUES.length] ?? styles.hue0,
+                    projectId: project.id,
                     pressed: false,
                     label: `${project.label}: ${whole(project.units)} reservas, ${shareText(project.units, total)} del total.`,
                     onClick: () => zoomProject(project.id),
@@ -384,7 +382,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
                     key: `${selected.id}:${row.name}`,
                     name: row.name,
                     reservas: row.reservas,
-                    hue: selectedHue,
+                    projectId: selected.id,
                     pressed: advisorShown === row.name,
                     label: `${selected.label} · ${row.name}: ${whole(row.reservas)} reservas, ${shareText(row.reservas, total)} del total, ${shareText(row.reservas, selected.units)} de ${selected.label}.`,
                     onClick: () => setAdvisorName(row.name),
@@ -398,8 +396,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
 
       {objetivos && projects.length > 0 ? (
         <div className={styles.projects}>
-          {projects.map((project, index) => {
-            const hue = HUES[index % HUES.length] ?? styles.hue0;
+          {projects.map((project) => {
             const drilled = advisorsInProject(project.label, project.units, stage, notReps);
             const advisorColumns = project.units === 0 ? [] : drilled.ok ? drilled.rows : null;
             const earlier = projectPrior(stage, project.id, comparable);
@@ -430,7 +427,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
                             key: `${project.id}:${row.name}`,
                             name: row.name,
                             reservas: row.reservas,
-                            hue,
+                            projectId: project.id,
                             label: `${project.label} · ${row.name}: ${whole(row.reservas)} reservas, ${shareText(row.reservas, total)} del total, ${shareText(row.reservas, project.units)} de ${project.label}.`,
                           }))}
                         />
@@ -485,10 +482,17 @@ function AsesorRows({
 }) {
   const rows = rosterAsesores(objetivos).sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
   const scale = rows.reduce((max, row) => Math.max(max, row.units, row.targetUnits ?? 0), 1);
+  const seenProjects = new Set<string>();
+  const painted = rows.map((row) => {
+    const place = singleProject(row.label, row.units, stage, projects);
+    const projectId = place ? projects.find((item) => item.label === place.project)?.id ?? null : null;
+    const lead = projectId != null && !seenProjects.has(projectId);
+    if (projectId) seenProjects.add(projectId);
+    return { row, place, projectId, lead };
+  });
   return (
     <div className={styles.rankList}>
-      {rows.map((row) => {
-        const place = singleProject(row.label, row.units, stage, projects);
+      {painted.map(({ row, place, projectId, lead }) => {
         const gap = row.gapUnits;
         return (
           <div key={row.id} className={styles.row}>
@@ -497,7 +501,12 @@ function AsesorRows({
               {place ? <span className={styles.rowProject}>{place.project}</span> : null}
             </span>
             <span className={styles.track} aria-hidden="true">
-              <span className={styles.barFill} style={{ width: widthOf(row.units, scale) }} />
+              <span
+                className={styles.barFill}
+                data-project={projectId ?? undefined}
+                data-lead={lead ? "true" : undefined}
+                style={{ width: widthOf(row.units, scale) }}
+              />
               {row.targetUnits != null ? <span className={styles.tickMark} style={{ left: widthOf(row.targetUnits, scale) }} /> : null}
             </span>
             <span className={styles.rowMeta}>
