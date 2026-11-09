@@ -105,7 +105,7 @@ type Dims = {
 };
 
 type Money = { units: number; gtq: number | null; sin: number };
-type TargetBook = { cells: TargetCell[]; editor: TargetEditor };
+type TargetBook = { cells: TargetCell[]; roster: TargetCell[]; editor: TargetEditor };
 
 const payloadCache = new Map<string, { at: number; body: VentasVista }>();
 let dimCache: { at: number; dims: Dims } | null = null;
@@ -337,6 +337,7 @@ async function loadTargets(client: Db, dims: Dims, months: string[]): Promise<Ta
   const editorMonths = months.map((month) => ({ month, label: monthName(month) }));
   const empty: TargetBook = {
     cells: [],
+    roster: [],
     editor: { tableReady: false, months: editorMonths, projects, asesores, cells: [], history: [] },
   };
   if (months.length === 0) return empty;
@@ -363,9 +364,11 @@ async function loadTargets(client: Db, dims: Dims, months: string[]): Promise<Ta
   if (snapshot.error) throw new Error(snapshot.error.message);
   if (events.error) throw new Error(events.error.message);
 
+  const roster: TargetCell[] = [];
   const cells = new Map<string, TargetCell>();
   for (const row of snapshot.data ?? []) {
     const cell = cellFrom(row as unknown as Record<string, unknown>);
+    roster.push(cell);
     cells.set(grain(cell), cell);
   }
   const historyRows = [...(events.data ?? [])].reverse();
@@ -388,6 +391,7 @@ async function loadTargets(client: Db, dims: Dims, months: string[]): Promise<Ta
   });
   return {
     cells: list,
+    roster,
     editor: { tableReady: ready, months: editorMonths, projects, asesores, cells: list, history },
   };
 }
@@ -883,6 +887,7 @@ function buildObjetivos(
       (row) => row.asesorId,
       (cell) => cell.asesorId,
     ),
+    rosterAsesorIds: [...new Set(scopedCells(book.roster, filters, months).map((cell) => cell.asesorId))],
     editor: book.editor,
   };
 }

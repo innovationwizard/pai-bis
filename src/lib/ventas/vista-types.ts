@@ -226,6 +226,7 @@ export type ObjetivosVista = VistaBase & {
   gapUnits: number | null;
   byProject: MeasureRow[];
   byAsesor: MeasureRow[];
+  rosterAsesorIds: string[];
   editor: TargetEditor;
 };
 
