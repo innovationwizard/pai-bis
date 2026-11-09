@@ -31,6 +31,7 @@ const LIST_CAP = 300;
 const CACHE_MS = 30_000;
 const NOT_LOADED = "El libro de Odoo 15 todavía no está cargado. Falta correr la carga en el editor SQL.";
 const PLAN_NOT_LOADED = "El plan de enganche todavía no está cargado.";
+const EXCLUDED_PROJECT_SLUG = "casa-elisa";
 
 const QUESTIONS: Record<CobrosSection, string> = {
   "cobros-por-proyecto": "¿Cuánto se cobró en el periodo, por proyecto?",
@@ -490,8 +491,12 @@ function inWindow(day: string | null, range: DateWindow): boolean {
 }
 
 function selectedProjects(book: Book, filters: CobrosFilters): Project[] {
-  if (filters.projectSlugs === null) return book.projects.filter((project) => project.inFive);
-  return book.projects.filter((project) => filters.projectSlugs?.includes(project.slug));
+  if (filters.projectSlugs === null) {
+    return book.projects.filter((project) => project.inFive && project.slug !== EXCLUDED_PROJECT_SLUG);
+  }
+  return book.projects.filter(
+    (project) => project.slug !== EXCLUDED_PROJECT_SLUG && filters.projectSlugs?.includes(project.slug),
+  );
 }
 
 function projectOk(slug: string, filters: CobrosFilters, book: Book): boolean {
@@ -816,7 +821,7 @@ function blank(
     notices,
     empty: null,
     projects: book.projects
-      .filter((project) => project.inFive)
+      .filter((project) => project.inFive && project.slug !== EXCLUDED_PROJECT_SLUG)
       .map((project) => ({
         id: project.slug,
         label: project.hasUnitBook ? project.name : `${project.name} · sin datos en Odoo 15`,

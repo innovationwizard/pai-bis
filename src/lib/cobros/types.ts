@@ -72,4 +72,4 @@ export const PLAN_FREEZE =
   "El plan de enganche está congelado al 1 de octubre de 2026. La expectativa es la cuota del enganche, no el precio de venta. Lo publicado después de esa fecha está en el libro y no en el confirmado del plan.";
 
 export const SIN_DATOS =
-  "Sin datos en Odoo 15. Santa Elena y Casa Elisa no tienen socios de unidad ni recibos. No se muestra un cero.";
+  "Sin datos en Odoo 15. Santa Elena no tiene socios de unidad ni recibos. No se muestra un cero.";

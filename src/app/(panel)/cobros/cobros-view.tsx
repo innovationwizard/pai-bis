@@ -156,7 +156,7 @@ export default function CobrosView({ section }: { section: CobrosSection }) {
     }
     if (bar.anio) params.set("anio", "1");
     if (bar.proyectos === null) {
-      /* Los cinco proyectos */
+      /* Los cuatro proyectos */
     } else if (bar.proyectos.length === 0) {
       params.append("proyecto", "ninguno");
     } else {
@@ -193,7 +193,7 @@ export default function CobrosView({ section }: { section: CobrosSection }) {
   const choices = vista?.projects ?? [];
   const allIds = choices.map((choice) => choice.id);
   const projectLabel = useMemo(() => {
-    if (bar.proyectos === null) return "Los cinco proyectos";
+    if (bar.proyectos === null) return "Los cuatro proyectos";
     if (bar.proyectos.length === 0) return "Ningún proyecto";
     const names = bar.proyectos.map((id) => choices.find((choice) => choice.id === id)?.label ?? id);
     return names.length <= 2 ? names.join(", ") : `${names.length} proyectos`;
@@ -253,7 +253,7 @@ export default function CobrosView({ section }: { section: CobrosSection }) {
                   checked={bar.proyectos === null}
                   onChange={() => setBar((current) => ({ ...current, proyectos: current.proyectos === null ? [] : null, detalle: "" }))}
                 />
-                Los cinco proyectos
+                Los cuatro proyectos
               </label>
               {choices.map((choice) => (
                 <label key={choice.id}>
