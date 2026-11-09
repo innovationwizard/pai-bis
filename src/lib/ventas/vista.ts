@@ -103,13 +103,7 @@ type Dims = {
   fuentes: Map<string, Named>;
   torres: Map<string, string>;
   notRepIds: Set<string>;
-  creditPipelineIds: Set<string>;
 };
-
-function isCreditPipeline(name: string): boolean {
-  const folded = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  return folded.startsWith("creditos");
-}
 
 type Money = { units: number; gtq: number | null; sin: number };
 type TargetBook = { cells: TargetCell[]; roster: TargetCell[]; editor: TargetEditor };
@@ -162,15 +156,14 @@ function subtract(gross: Money, loss: Money): number | null {
 
 async function loadDims(client: Db): Promise<Dims> {
   if (dimCache && Date.now() - dimCache.at < DIM_MS) return dimCache.dims;
-  const [projects, asesores, fuentes, torres, roles, pipelines] = await Promise.all([
+  const [projects, asesores, fuentes, torres, roles] = await Promise.all([
     client.from("dim_project").select("id,name,is_sin_dato"),
     client.from("dim_asesor").select("id,name,is_sin_dato"),
     client.from("dim_fuente").select("id,name,is_sin_dato"),
     client.from("dim_tower").select("id,name"),
     client.from("asesor_role").select("asesor_id").eq("carries_target", false),
-    client.from("dim_source_pipeline").select("id,name"),
   ]);
-  for (const result of [projects, asesores, fuentes, torres, roles, pipelines]) {
+  for (const result of [projects, asesores, fuentes, torres, roles]) {
     if (result.error) throw new Error(result.error.message);
   }
   const named = (rows: Record<string, unknown>[] | null, sinKey: string): Named[] =>
@@ -181,9 +174,6 @@ async function loadDims(client: Db): Promise<Dims> {
     fuentes: new Map(named(fuentes.data as Record<string, unknown>[] | null, "is_sin_dato").map((row) => [row.id, row])),
     torres: new Map((torres.data ?? []).map((row) => [String(row.id), String(row.name)])),
     notRepIds: new Set((roles.data ?? []).map((row) => String(row.asesor_id))),
-    creditPipelineIds: new Set(
-      (pipelines.data ?? []).flatMap((row) => (isCreditPipeline(String(row.name ?? "")) ? [String(row.id)] : [])),
-    ),
   };
   dimCache = { at: Date.now(), dims };
   return dims;
@@ -277,10 +267,10 @@ async function loadReservas(
   }
 
   const dealIds = [...new Set(raw.flatMap((row) => (row.dealId ? [row.dealId] : [])))];
-  const deals = new Map<string, { projectId: string; asesorId: string; unitId: string | null; pipelineId: string }>();
+  const deals = new Map<string, { projectId: string; asesorId: string; unitId: string | null }>();
   for (let index = 0; index < dealIds.length; index += 80) {
     const slice = dealIds.slice(index, index + 80);
-    const { data, error } = await client.from("dim_deal").select("id,project_id,asesor_id,unit_id,pipeline_id").in("id", slice);
+    const { data, error } = await client.from("dim_deal").select("id,project_id,asesor_id,unit_id").in("id", slice);
     if (error) throw new Error(error.message);
     for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
       const id = row.id == null ? "" : String(row.id);
@@ -289,7 +279,6 @@ async function loadReservas(
         projectId: row.project_id == null ? "" : String(row.project_id),
         asesorId: row.asesor_id == null ? "" : String(row.asesor_id),
         unitId: row.unit_id == null || row.unit_id === "" ? null : String(row.unit_id),
-        pipelineId: row.pipeline_id == null ? "" : String(row.pipeline_id),
       });
     }
   }
@@ -318,7 +307,6 @@ async function loadReservas(
     const deal = deals.get(row.dealId);
     if (!deal) continue;
     if (dims.notRepIds.has(deal.asesorId)) continue;
-    if (deal.pipelineId && dims.creditPipelineIds.has(deal.pipelineId)) continue;
     if (!projectOk(deal.projectId, filters)) continue;
     if (filters.asesorId && deal.asesorId !== filters.asesorId) continue;
     if (filters.torreId && (deal.unitId ? towers.get(deal.unitId) ?? "" : "") !== filters.torreId) continue;
@@ -1304,7 +1292,6 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
         lossCount: lossNow.units,
         today,
         notRepIds: [...dims.notRepIds],
-        creditPipelineIds: [...dims.creditPipelineIds],
       }),
       loadTargets(client, dims, months),
     ]);

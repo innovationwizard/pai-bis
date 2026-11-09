@@ -31,7 +31,6 @@ type Scope = {
   asesorId: string | null;
   torreId: string | null;
   notRepIds: Set<string>;
-  creditPipelineIds: Set<string>;
 };
 
 type DealInfo = {
@@ -39,7 +38,6 @@ type DealInfo = {
   pipedriveId: string;
   projectId: string;
   asesorId: string;
-  pipelineId: string;
   unitId: string | null;
   valueGtq: number | null;
   lostOn: string | null;
@@ -424,7 +422,6 @@ export async function loadTotalesBridge(input: {
   lossCount: number;
   today: string;
   notRepIds: string[];
-  creditPipelineIds: string[];
 }): Promise<TotalesBridge> {
   const client = db();
   const scope: Scope = {
@@ -432,7 +429,6 @@ export async function loadTotalesBridge(input: {
     asesorId: input.asesorId,
     torreId: input.torreId,
     notRepIds: new Set(input.notRepIds),
-    creditPipelineIds: new Set(input.creditPipelineIds),
   };
   const names: Names = { project: input.projectName, asesor: input.asesorName };
   const [pipedriveReserva, pipedrivePromesa, odooWritten, odooPublished, reciboCount] = await Promise.all([
@@ -524,7 +520,7 @@ export async function loadTotalesBridge(input: {
     pagedIn(dealIds, (slice, from, to) =>
       client
         .from("dim_deal")
-        .select("id,pipedrive_deal_id,project_id,asesor_id,pipeline_id,unit_id,value_gtq,lost_on")
+        .select("id,pipedrive_deal_id,project_id,asesor_id,unit_id,value_gtq,lost_on")
         .in("id", slice)
         .order("id")
         .range(from, to),
@@ -561,7 +557,6 @@ export async function loadTotalesBridge(input: {
       pipedriveId: str(row, "pipedrive_deal_id") ?? "",
       projectId: str(row, "project_id") ?? "",
       asesorId: str(row, "asesor_id") ?? "",
-      pipelineId: str(row, "pipeline_id") ?? "",
       unitId: str(row, "unit_id"),
       valueGtq: num(row.value_gtq),
       lostOn: dayOf(str(row, "lost_on")),
@@ -870,7 +865,6 @@ function priorReservasByProject(activities: Activity[], deals: Map<string, DealI
 
 function inScope(deal: DealInfo, unit: UnitInfo | null, scope: Scope): boolean {
   if (scope.notRepIds.has(deal.asesorId)) return false;
-  if (deal.pipelineId && scope.creditPipelineIds.has(deal.pipelineId)) return false;
   if (scope.projectIds && !scope.projectIds.includes(deal.projectId)) return false;
   if (scope.asesorId && deal.asesorId !== scope.asesorId) return false;
   if (scope.torreId && unit?.towerId !== scope.torreId) return false;
