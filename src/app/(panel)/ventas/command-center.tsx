@@ -20,19 +20,18 @@ import {
   type BlockerRow,
   type Choice,
   type FunnelStage,
-  type MeasureRow,
   type SaleLine,
   type StageDeal,
   type StatusRow,
   type VentasVista,
   type VistaSection,
 } from "@/lib/ventas/vista-types";
+import { AsesoresBlock, VentasTotalesBlock } from "./landing-blocks";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
 const RED = "#b91c1c";
 const AMBER = "#b45309";
-const SLATE = "#94a3b8";
 const GRID = "#e2e8f0";
 const CHART_CAP = 12;
 
@@ -136,11 +135,6 @@ function gapFill(value: number): string {
   if (value < 0) return RED;
   if (value > 0) return BLUE;
   return NAVY;
-}
-
-function goalFill(real: number, meta: number | null): string {
-  if (meta == null) return NAVY;
-  return real < meta ? RED : BLUE;
 }
 
 function plainCaption(caption: string | null | undefined): string | null {
@@ -487,28 +481,20 @@ export default function CommandCenter() {
         {totales?.freshness.note ? <p className="op-note op-warn">{totales.freshness.note}</p> : null}
       </header>
 
-      <section className="vc-grid-2" aria-label="Ventas totales, ritmo y status">
-        <article className="vc-card">
-          <h2>Ventas totales y ritmo</h2>
-          {totales ? (
-            <>
-              <p className="vc-figure">
-                {count(totales.netUnits)} <span>unidades netas</span>
-                <span aria-hidden="true"> · </span>
-                {money(totales.netGtq)}
-              </p>
-              <p className="vc-sub">
-                {count(totales.grossUnits)} con fecha de venta en el periodo · {count(totales.lossUnits)} desistimientos en el periodo.
-                {" "}Línea continua: este periodo. Punteada gris: {totales.compareLabel ?? "periodo anterior"}.
-                {totales.daily.some((point) => point.meta != null) ? " Punteada azul: ritmo de la meta." : ""}
-              </p>
-              <PaceChart vista={totales} />
-              {totales.notice ? <p className="op-note">{totales.notice}</p> : null}
-            </>
-          ) : (
-            <StatusLine section="ventas-totales" errors={errors} busy={busy} />
-          )}
-        </article>
+      <VentasTotalesBlock
+        key={`${bar.periodo}|${bar.desde}|${bar.hasta}|${bar.proyecto}|${bar.asesor}|${bar.torre}`}
+        totales={totales}
+        objetivos={objetivos}
+        totalesError={errors["ventas-totales"] ?? null}
+        objetivosError={errors["objetivos-de-ventas"] ?? null}
+      />
+      <AsesoresBlock
+        totales={totales}
+        objetivos={objetivos}
+        objetivosError={errors["objetivos-de-ventas"] ?? null}
+      />
+
+      <section aria-label="Status contra la fecha de cierre">
         <article className="vc-card">
           <h2>Status contra la fecha de cierre</h2>
           <p className="vc-sub">Reservas</p>
@@ -528,7 +514,7 @@ export default function CommandCenter() {
         </article>
       </section>
 
-      <section aria-label="Conversión, objetivos e inventario">
+      <section aria-label="Conversión e inventario">
         <article className="vc-card">
           <h2>Tasa de conversión</h2>
           <p className="vc-sub">
@@ -536,41 +522,6 @@ export default function CommandCenter() {
           </p>
           {totales ? <FunnelChart funnel={totales.funnel} onStage={(id, label) => toggleFocus({ kind: "etapa", id, label })} /> : <StatusLine section="ventas-totales" errors={errors} busy={busy} />}
         </article>
-        <div className="vc-grid-2">
-          <article className="vc-card">
-            <h2>Ventas contra objetivos por proyecto</h2>
-            <p className="vc-sub">Reservas</p>
-            <p className="vc-sub">Rojo: debajo de la meta. Azul: en la meta o arriba. Sin barra gris: sin meta.</p>
-            {objetivos ? (
-              <>
-                {plainCaption(objetivos.caption) ? <p className="vc-sub">{objetivos.caption}</p> : null}
-                {objetivos.notice ? <p className="op-note">{objetivos.notice}</p> : null}
-                {totales?.targetNote ? <p className="op-note">{totales.targetNote}</p> : null}
-                <GoalBars
-                  rows={[...objetivos.byProject].sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"))}
-                  onPick={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
-                />
-              </>
-            ) : (
-              <StatusLine section="objetivos-de-ventas" errors={errors} busy={busy} />
-            )}
-          </article>
-          <article className="vc-card">
-            <h2>Ventas contra objetivos por asesor</h2>
-            <p className="vc-sub">Reservas</p>
-            <p className="vc-sub">Por unidades, de mayor a menor.</p>
-            {objetivos ? (
-              <GoalBars
-                rows={capRows([...objetivos.byAsesor].sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es")), CHART_CAP).rows}
-                hidden={capRows(objetivos.byAsesor, CHART_CAP).hidden}
-                hiddenText="asesores, por unidades"
-                onPick={(id, label) => toggleFocus({ kind: "asesor", id, label })}
-              />
-            ) : (
-              <StatusLine section="objetivos-de-ventas" errors={errors} busy={busy} />
-            )}
-          </article>
-        </div>
         <div className="vc-grid-2">
           <article className="vc-card">
             <h2>Inventario general por proyecto</h2>
@@ -711,30 +662,6 @@ function StatusLine({
   return <p className="op-note">Cargando…</p>;
 }
 
-function PaceChart({ vista }: { vista: Extract<VentasVista, { section: "ventas-totales" }> }) {
-  const hasPrior = vista.daily.some((point) => point.anterior != null);
-  const hasMeta = vista.daily.some((point) => point.meta != null);
-  if (vista.daily.length === 0) return <p className="op-note">Nada que graficar en este periodo.</p>;
-  return (
-    <ChartFrame height={280}>
-      <LineChart data={vista.daily} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={32} />
-        <Tooltip formatter={(value, name) => tipPair(value, name)} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Line type="monotone" dataKey="neto" name="Este periodo" stroke={NAVY} strokeWidth={2.5} dot={false} isAnimationActive={false} />
-        {hasPrior ? (
-          <Line type="monotone" dataKey="anterior" name={vista.compareLabel ?? "Periodo anterior"} stroke={SLATE} strokeDasharray="5 4" dot={false} connectNulls={false} isAnimationActive={false} />
-        ) : null}
-        {hasMeta ? (
-          <Line type="monotone" dataKey="meta" name="Ritmo de la meta" stroke={BLUE} strokeDasharray="4 3" dot={false} connectNulls={false} isAnimationActive={false} />
-        ) : null}
-      </LineChart>
-    </ChartFrame>
-  );
-}
-
 function RhythmChart({ vista }: { vista: Extract<VentasVista, { section: "status-de-ventas" }> }) {
   if (vista.rhythm.length === 0) return <p className="op-note">Nada que graficar en este periodo.</p>;
   return (
@@ -787,45 +714,6 @@ function FunnelChart({ funnel, onStage }: { funnel: FunnelStage[]; onStage: (id:
       <p className="vc-sub">
         {funnel.map((stage) => `${stage.label}: ${stage.source}, ${stage.grain}`).join(" · ")}
       </p>
-    </>
-  );
-}
-
-function GoalBars({
-  rows,
-  hidden = 0,
-  hiddenText = "filas",
-  onPick,
-}: {
-  rows: MeasureRow[];
-  hidden?: number;
-  hiddenText?: string;
-  onPick: (id: string, label: string) => void;
-}) {
-  const data = rows.map((row) => ({ id: row.id, label: row.label, real: row.units, meta: row.targetUnits }));
-  if (data.length === 0) return <p className="op-note">Nada que graficar en este periodo.</p>;
-  return (
-    <>
-      <ChartFrame height={Math.max(220, data.length * 36 + 36)}>
-        <BarChart layout="vertical" data={data} margin={{ left: 8, right: 12, top: 8, bottom: 0 }}>
-          <CartesianGrid stroke={GRID} horizontal={false} />
-          <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-          <YAxis type="category" dataKey="label" width={140} tickFormatter={(value) => clip(String(value))} tick={{ fontSize: 11, fill: NAVY }} axisLine={false} tickLine={false} />
-          <Tooltip formatter={(value, name) => tipPair(value, name)} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Bar dataKey="meta" name="Meta" fill={SLATE} barSize={8} isAnimationActive={false} cursor="pointer" onClick={(row) => {
-            const hit = readRow(row);
-            if (hit) onPick(hit.id, hit.label);
-          }} />
-          <Bar dataKey="real" name="Real" barSize={8} isAnimationActive={false} cursor="pointer" onClick={(row) => {
-            const hit = readRow(row);
-            if (hit) onPick(hit.id, hit.label);
-          }}>
-            {data.map((row) => <Cell key={row.id} fill={goalFill(row.real, row.meta)} />)}
-          </Bar>
-        </BarChart>
-      </ChartFrame>
-      {hidden > 0 ? <p className="op-note">{data.length} de {data.length + hidden} {hiddenText}.</p> : null}
     </>
   );
 }

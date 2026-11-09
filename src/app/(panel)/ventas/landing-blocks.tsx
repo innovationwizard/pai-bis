@@ -1,0 +1,475 @@
+"use client";
+
+import { useState } from "react";
+import type { FunnelStage, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
+import styles from "./landing-blocks.module.css";
+
+const HUES = [styles.hue0, styles.hue1, styles.hue2, styles.hue3] as const;
+const PROJECT_PRIOR = "reservas del periodo anterior por proyecto";
+const TOTAL_PRIOR = "reservas del periodo anterior";
+const ADVISOR_SPLIT = "reservas por asesor dentro del proyecto";
+
+type Props = {
+  totales: TotalesVista | null;
+  objetivos: ObjetivosVista | null;
+  totalesError: string | null;
+  objetivosError: string | null;
+};
+
+type ProjectBar = { id: string; label: string; units: number };
+
+type AdvisorSlice = { name: string; reservas: number };
+
+function whole(value: number): string {
+  if (Number.isInteger(value)) return String(value);
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function signedWhole(value: number): string {
+  const text = whole(value);
+  return value > 0 ? `+${text}` : text;
+}
+
+function percentText(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  let body = rounded.toFixed(2);
+  if (body.endsWith("0")) body = body.slice(0, -1);
+  if (body.endsWith("0")) body = body.slice(0, -1);
+  if (body.endsWith(".")) body = body.slice(0, -1);
+  return `${body}%`;
+}
+
+function changePill(current: number, previous: number): string {
+  const change = current - previous;
+  if (previous === 0) return current === 0 ? "0 (0%)" : `${signedWhole(change)} (n/d)`;
+  return `${signedWhole(change)} (${percentText((change / previous) * 100)})`;
+}
+
+function shareText(part: number, all: number): string {
+  if (all === 0) return "n/d";
+  return `${((part / all) * 100).toFixed(1)}%`;
+}
+
+function toneClass(value: number): string {
+  if (value > 0) return styles.up;
+  if (value < 0) return styles.down;
+  return styles.flat;
+}
+
+function widthOf(value: number, scale: number): string {
+  if (scale <= 0) return "0%";
+  const pct = Math.min(100, Math.max(0, (value / scale) * 100));
+  return `${pct}%`;
+}
+
+function reservaStage(totales: TotalesVista | null): FunnelStage | null {
+  return totales?.funnel.find((stage) => stage.id === "reservas") ?? null;
+}
+
+function projectsOf(objetivos: ObjetivosVista | null): ProjectBar[] {
+  if (!objetivos) return [];
+  return [...objetivos.byProject]
+    .map((row) => ({ id: row.id, label: row.label, units: row.units }))
+    .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
+}
+
+function Ticks() {
+  return (
+    <>
+      <span className={`${styles.tick} ${styles.tl}`} />
+      <span className={`${styles.tick} ${styles.tr}`} />
+      <span className={`${styles.tick} ${styles.bl}`} />
+      <span className={`${styles.tick} ${styles.br}`} />
+    </>
+  );
+}
+
+function Unplugged({ source }: { source: string }) {
+  return <span className={styles.unplugged}>No conectado: {source}</span>;
+}
+
+function ShareRing({ share, hue }: { share: number; hue: string }) {
+  const radius = 12;
+  const turn = 2 * Math.PI * radius;
+  const dash = Math.max(0, Math.min(1, share)) * turn;
+  return (
+    <svg className={`${styles.ring} ${hue}`} viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="3" />
+      <circle
+        cx="16"
+        cy="16"
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeDasharray={`${dash} ${turn - dash}`}
+        transform="rotate(-90 16 16)"
+      />
+    </svg>
+  );
+}
+
+function advisorsInProject(
+  label: string,
+  units: number,
+  stage: FunnelStage | null,
+): { ok: true; rows: AdvisorSlice[] } | { ok: false } {
+  if (!stage || stage.deals.length !== stage.listTotal) return { ok: false };
+  const counts = new Map<string, number>();
+  let sum = 0;
+  for (const deal of stage.deals) {
+    if (deal.project.trim() !== label.trim()) continue;
+    sum += 1;
+    const name = deal.asesor.trim() || "Sin asesor";
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  if (sum !== units) return { ok: false };
+  const rows = [...counts.entries()]
+    .map(([name, reservas]) => ({ name, reservas }))
+    .sort((a, b) => b.reservas - a.reservas || a.name.localeCompare(b.name, "es"));
+  return { ok: true, rows };
+}
+
+function singleProject(
+  name: string,
+  units: number,
+  stage: FunnelStage | null,
+  projects: readonly ProjectBar[],
+): { project: string; projectUnits: number } | null {
+  if (units <= 0 || !stage || stage.deals.length !== stage.listTotal) return null;
+  const matched = stage.deals.filter((deal) => deal.asesor.trim() === name.trim());
+  if (matched.length !== units) return null;
+  const names = new Set(matched.map((deal) => deal.project.trim()));
+  if (names.size !== 1) return null;
+  const project = [...names][0];
+  if (!project) return null;
+  const row = projects.find((item) => item.label.trim() === project);
+  if (!row || row.units <= 0) return null;
+  return { project: row.label, projectUnits: row.units };
+}
+
+function Columns({
+  columns,
+  peak,
+}: {
+  columns: {
+    key: string;
+    name: string;
+    reservas: number;
+    hue: string;
+    pressed: boolean;
+    label: string;
+    onClick: () => void;
+  }[];
+  peak: number;
+}) {
+  return (
+    <>
+      {columns.map((column) => (
+        <button
+          key={column.key}
+          type="button"
+          className={styles.vcol}
+          aria-pressed={column.pressed}
+          aria-label={column.label}
+          onClick={column.onClick}
+        >
+          <span className={styles.vval}>{whole(column.reservas)}</span>
+          <span className={styles.vplot}>
+            <span className={`${styles.vbar} ${column.hue}`} style={{ height: widthOf(column.reservas, peak) }} />
+          </span>
+          <span className={styles.vname}>{column.name}</span>
+        </button>
+      ))}
+    </>
+  );
+}
+
+export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivosError }: Props) {
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [advisorName, setAdvisorName] = useState<string | null>(null);
+  const stage = reservaStage(totales);
+  const projects = projectsOf(objetivos);
+  const total = objetivos ? objetivos.units : stage ? stage.count : null;
+  const prior = stage?.priorCount ?? null;
+  const priorAligned = prior != null && total != null && (objetivos == null ? stage != null : stage?.count === objetivos.units);
+  const selected = projects.find((project) => project.id === projectId) ?? null;
+  const drilled = selected ? advisorsInProject(selected.label, selected.units, stage) : null;
+  const advisorRows = drilled?.ok ? drilled.rows : null;
+  const advisorShown = advisorName && advisorRows?.some((row) => row.name === advisorName) ? advisorName : null;
+  const selectedHue = HUES[Math.max(0, projects.findIndex((project) => project.id === selected?.id)) % HUES.length] ?? styles.hue0;
+
+  function zoomOut() {
+    setProjectId(null);
+    setAdvisorName(null);
+  }
+
+  function zoomProject(id: string) {
+    setProjectId(id);
+    setAdvisorName(null);
+  }
+
+  if (total == null) {
+    const waiting = (!totales && !totalesError) || (!objetivos && !objetivosError);
+    return (
+      <section className={styles.block} aria-label="Ventas totales">
+        {totalesError ? <p className={styles.warn}>{totalesError}</p> : null}
+        {objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
+        {waiting ? <p className={styles.caption}>Cargando…</p> : null}
+      </section>
+    );
+  }
+
+  const pill = priorAligned && prior != null
+    ? <span className={toneClass(total - prior)}>{changePill(total, prior)}</span>
+    : !totales && !totalesError
+      ? <span className={styles.caption}>Cargando…</span>
+      : totalesError
+        ? <span className={styles.warn}>{totalesError}</span>
+        : <Unplugged source={TOTAL_PRIOR} />;
+  const cap = objetivos?.notice?.includes("5.000") ? objetivos.notice : null;
+  const peak = advisorRows
+    ? Math.max(1, ...advisorRows.map((row) => row.reservas))
+    : Math.max(1, ...projects.map((project) => project.units));
+  const versus = totales?.priorLabel === "vs mes anterior" ? "frente al mes anterior" : "frente al periodo anterior";
+  const totalLabel = priorAligned && prior != null
+    ? `Total: ${whole(total)} reservas, ${changePill(total, prior)} ${versus}.`
+    : totalesError
+      ? `Total: ${whole(total)} reservas. ${totalesError}`
+      : !totales && !totalesError
+        ? `Total: ${whole(total)} reservas. Cargando…`
+        : `Total: ${whole(total)} reservas. No conectado: ${TOTAL_PRIOR}.`;
+
+  return (
+    <section className={styles.block} aria-label="Ventas totales">
+      <div className={styles.top}>
+        <div className={styles.rail}>
+          <button
+            type="button"
+            className={styles.kpi}
+            aria-label={totalLabel}
+            onClick={zoomOut}
+          >
+            <Ticks />
+            <span className={styles.kpiValue}>
+              {whole(total)}
+              <span className={styles.kpiUnit}>reservas</span>
+            </span>
+            {pill}
+            {priorAligned && prior != null ? (
+              <span className={styles.meter}>
+                <span
+                  className={styles.meterBar}
+                  data-decline={total < prior ? "true" : undefined}
+                  title={totales?.priorLabel === "vs mes anterior" ? "Mes anterior" : "Periodo anterior"}
+                >
+                  <span className={styles.meterPrev} style={{ width: total >= prior ? widthOf(prior, total || 1) : "100%" }} />
+                  <span
+                    className={styles.meterNow}
+                    style={{ width: total >= prior ? widthOf(Math.max(0, total - prior), total || 1) : widthOf(total, prior || 1) }}
+                  />
+                </span>
+                <span className={styles.meterScale}>
+                  <span>{whole(prior)}</span>
+                  <span>{whole(total)}</span>
+                </span>
+              </span>
+            ) : null}
+            <span className={styles.caption}>Cantidad de actividades</span>
+          </button>
+
+          {objetivos ? (
+            projects.length === 0 ? (
+              <p className={styles.caption}>Sin proyectos en este periodo.</p>
+            ) : (
+              <div className={styles.tiles} role="group" aria-label="Proyectos">
+                {projects.map((project, index) => {
+                  const hue = HUES[index % HUES.length] ?? styles.hue0;
+                  const share = total > 0 ? project.units / total : 0;
+                  return (
+                    <button
+                      key={project.id}
+                      type="button"
+                      className={styles.tile}
+                      aria-pressed={selected?.id === project.id}
+                      data-zoom={selected?.id === project.id ? "true" : undefined}
+                      aria-label={`${project.label}: ${whole(project.units)} reservas, ${shareText(project.units, total)} del total. No conectado: ${PROJECT_PRIOR}.`}
+                      onClick={() => zoomProject(project.id)}
+                    >
+                      <Ticks />
+                      <span className={styles.tileName}>{project.label}</span>
+                      <ShareRing share={share} hue={hue} />
+                      <span className={styles.tileMain}>
+                        <span className={styles.tileValue}>{whole(project.units)}</span>
+                        <Unplugged source={PROJECT_PRIOR} />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          ) : objetivosError ? (
+            <p className={styles.warn}>{objetivosError}</p>
+          ) : (
+            <p className={styles.caption}>Cargando…</p>
+          )}
+        </div>
+
+        <div className={styles.hero}>
+          <h2 id="vt-bar-title" className={styles.srOnly}>
+            Barras por proyecto. Al elegir un proyecto, sus asesores.
+          </h2>
+          <nav className={styles.crumbs} aria-label="Total, proyecto y asesor">
+            <button type="button" className={styles.crumb} aria-current={selected ? undefined : "page"} onClick={zoomOut}>
+              Total
+            </button>
+            <span className={styles.crumbSep} aria-hidden="true">›</span>
+            {selected ? (
+              <button
+                type="button"
+                className={styles.crumb}
+                aria-current={advisorShown ? undefined : "page"}
+                onClick={() => setAdvisorName(null)}
+              >
+                {selected.label}
+              </button>
+            ) : (
+              <span className={styles.crumbMuted}>Proyecto</span>
+            )}
+            <span className={styles.crumbSep} aria-hidden="true">›</span>
+            {selected && advisorShown ? (
+              <button type="button" className={styles.crumb} aria-current="page" onClick={() => setAdvisorName(advisorShown)}>
+                {advisorShown}
+              </button>
+            ) : (
+              <span className={styles.crumbMuted}>Asesor</span>
+            )}
+          </nav>
+          <div className={styles.heroChart}>
+            {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
+            {!objetivos && objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
+            {objetivos && projects.length === 0 ? <p className={styles.caption}>Sin proyectos en este periodo.</p> : null}
+            {objetivos && projects.length > 0 && !selected ? (
+              <div className={styles.vbars} role="group" aria-labelledby="vt-bar-title" aria-label="Proyectos">
+                <Columns
+                  peak={peak}
+                  columns={projects.map((project, index) => ({
+                    key: project.id,
+                    name: project.label,
+                    reservas: project.units,
+                    hue: HUES[index % HUES.length] ?? styles.hue0,
+                    pressed: false,
+                    label: `${project.label}: ${whole(project.units)} reservas, ${shareText(project.units, total)} del total.`,
+                    onClick: () => zoomProject(project.id),
+                  }))}
+                />
+              </div>
+            ) : null}
+            {selected && !totales && !totalesError ? <p className={styles.caption}>Cargando…</p> : null}
+            {selected && !totales && totalesError ? <p className={styles.warn}>{totalesError}</p> : null}
+            {selected && totales && advisorRows == null ? <Unplugged source={ADVISOR_SPLIT} /> : null}
+            {selected && advisorRows && advisorRows.length === 0 ? <p className={styles.caption}>Sin asesores en este periodo.</p> : null}
+            {selected && advisorRows && advisorRows.length > 0 ? (
+              <div className={styles.vbars} role="group" aria-label={`Asesores de ${selected.label}`}>
+                <Columns
+                  peak={peak}
+                  columns={advisorRows.map((row) => ({
+                    key: `${selected.id}:${row.name}`,
+                    name: row.name,
+                    reservas: row.reservas,
+                    hue: selectedHue,
+                    pressed: advisorShown === row.name,
+                    label: `${selected.label} · ${row.name}: ${whole(row.reservas)} reservas, ${shareText(row.reservas, total)} del total, ${shareText(row.reservas, selected.units)} de ${selected.label}.`,
+                    onClick: () => setAdvisorName(row.name),
+                  }))}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {cap ? <p className={styles.caption}>{cap}</p> : null}
+
+      <section className={styles.panel} aria-labelledby="vt-cmp-title">
+        <h2 id="vt-cmp-title" className={styles.panelTitle}>Mes pasado y mes anterior</h2>
+        <p className={styles.legend}>
+          <span className={styles.legendItem}><span className={styles.swatch} aria-hidden="true" /> Mes pasado</span>
+          <span className={styles.legendItem}><span className={styles.swatchGhost} aria-hidden="true" /> Mes anterior</span>
+        </p>
+        <Unplugged source={PROJECT_PRIOR} />
+      </section>
+    </section>
+  );
+}
+
+export function AsesoresBlock({ totales, objetivos, objetivosError }: Omit<Props, "totalesError">) {
+  const stage = reservaStage(totales);
+  const projects = projectsOf(objetivos);
+  return (
+    <section className={`${styles.block} ${styles.panel}`} aria-labelledby="vt-asesores-title">
+      <h2 id="vt-asesores-title" className={styles.panelTitle}>Asesores</h2>
+      {!objetivos && objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
+      {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
+      {objetivos ? (
+        <>
+          {objetivos.caption && !objetivos.caption.includes("¿") ? <p className={styles.caption}>{objetivos.caption}</p> : null}
+          {objetivos.notice ? <p className={styles.caption}>{objetivos.notice}</p> : null}
+          {totales?.targetNote ? <p className={styles.caption}>{totales.targetNote}</p> : null}
+          {objetivos.byAsesor.length === 0 ? (
+            <p className={styles.caption}>Sin asesores en este periodo.</p>
+          ) : (
+            <AsesorRows objetivos={objetivos} stage={stage} projects={projects} />
+          )}
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function AsesorRows({
+  objetivos,
+  stage,
+  projects,
+}: {
+  objetivos: ObjetivosVista;
+  stage: FunnelStage | null;
+  projects: readonly ProjectBar[];
+}) {
+  const rows = [...objetivos.byAsesor].sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
+  const scale = rows.reduce((max, row) => Math.max(max, row.units, row.targetUnits ?? 0), 1);
+  return (
+    <div className={styles.rankList}>
+      {rows.map((row) => {
+        const place = singleProject(row.label, row.units, stage, projects);
+        const gap = row.gapUnits;
+        return (
+          <div key={row.id} className={styles.row}>
+            <span className={styles.rowName}>
+              {row.label}
+              {place ? <span className={styles.rowProject}>{place.project}</span> : null}
+            </span>
+            <span className={styles.track} aria-hidden="true">
+              <span className={styles.barFill} style={{ width: widthOf(row.units, scale) }} />
+              {row.targetUnits != null ? <span className={styles.tickMark} style={{ left: widthOf(row.targetUnits, scale) }} /> : null}
+            </span>
+            <span className={styles.rowMeta}>
+              {whole(row.units)}
+              <span> · {shareText(row.units, objetivos.units)} del total</span>
+              {place ? <span> · {shareText(row.units, place.projectUnits)} de {place.project}</span> : null}
+              {row.targetUnits == null ? (
+                <span> · Sin meta</span>
+              ) : (
+                <>
+                  <span> · meta {whole(row.targetUnits)}</span>
+                  <span className={toneClass(gap ?? 0)}>{gap == null ? "Sin meta" : signedWhole(gap)}</span>
+                </>
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
