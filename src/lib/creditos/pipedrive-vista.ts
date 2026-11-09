@@ -113,6 +113,7 @@ export type CreditosVista = {
   limitation: string;
   periodLabel: string;
   asOf: string;
+  loadedAt: string | null;
   loaded: boolean;
   emptyMessage: string | null;
   kpis: Kpi[];
@@ -199,7 +200,7 @@ type EventRow = {
   bucket: string;
 };
 
-type Bundle = { deals: Deal[]; stages: Stage[]; events: EventRow[] };
+type Bundle = { deals: Deal[]; stages: Stage[]; events: EventRow[]; loadedAt: string | null };
 type Window = { from: string; to: string };
 
 const CACHE_MS = 30_000;
@@ -249,6 +250,7 @@ export async function buildCreditosVista(
     limitation: copy.limitation,
     periodLabel: range.label,
     asOf: today,
+    loadedAt: bundle.loadedAt,
     loaded: bundle.deals.length > 0,
     emptyMessage:
       bundle.deals.length === 0
@@ -1092,17 +1094,18 @@ function toRow(deal: Deal, extra: (deal: Deal) => string): DealRow {
 async function loadBundle(): Promise<Bundle> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.bundle;
   const db = createAdminClient().schema("creditos");
-  const [dealRows, stageRows, eventRows] = await Promise.all([
+  const [dealRows, stageRows, eventRows, loadedAt] = await Promise.all([
     fetchAll<Record<string, unknown>>(db, "v_deal", DEAL_COLUMNS, "pipedrive_deal_id"),
     fetchAll<Record<string, unknown>>(db, "v_open_stage", STAGE_COLUMNS, "project_sort,stage_order"),
     fetchAll<Record<string, unknown>>(db, "v_event", EVENT_COLUMNS, "source,signal,ref_id"),
+    latestFactLoadedAt(db),
   ]);
   const deals = dealRows.map(mapDeal);
   const noteDeals = new Set(eventRows.filter((row) => row.signal === "nota_escaner").map((row) => Number(row.pipedrive_deal_id)));
   for (const deal of deals) {
     if (noteDeals.has(deal.id)) deal.keys.push("file:note");
   }
-  const bundle = { deals, stages: stageRows.map(mapStage), events: eventRows.map(mapEvent) };
+  const bundle = { deals, stages: stageRows.map(mapStage), events: eventRows.map(mapEvent), loadedAt };
   cache = { at: Date.now(), bundle };
   return bundle;
 }
@@ -1171,6 +1174,30 @@ const STAGE_COLUMNS = [
 ].join(",");
 
 const EVENT_COLUMNS = "source,signal,project_slug,event_on,pipedrive_deal_id,tipo_bucket,ref_id";
+
+async function latestFactLoadedAt(
+  db: ReturnType<ReturnType<typeof createAdminClient>["schema"]>,
+): Promise<string | null> {
+  const { data, error } = await db
+    .from("fact_deal")
+    .select("loaded_at")
+    .order("loaded_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw explain(error);
+  if (data == null || typeof data !== "object") return null;
+  const raw = "loaded_at" in data ? data.loaded_at : null;
+  return isoLoadedAt(raw);
+}
+
+function isoLoadedAt(value: unknown): string | null {
+  if (value == null) return null;
+  const raw = value instanceof Date ? value.toISOString() : text(value);
+  if (raw == null) return null;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
 
 async function fetchAll<T>(
   db: ReturnType<ReturnType<typeof createAdminClient>["schema"]>,

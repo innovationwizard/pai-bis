@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import type { Chart, CreditosVista, DealRow } from "@/lib/creditos/pipedrive-vista";
+import DataAsOf from "@/app/pabi/data-as-of";
 
 const PROJECTS = [
   { slug: "benestare", name: "Benestare" },
@@ -71,6 +72,11 @@ export default function CreditosBoard({ section, title }: { section: string; tit
         {vista ? <p className="ventas-caption">{vista.question}</p> : null}
         {vista ? <p className="op-note">{vista.limitation}</p> : null}
       </div>
+      {vista?.loadedAt ? (
+        <div className="text-right">
+          <DataAsOf timestamp={vista.loadedAt} />
+        </div>
+      ) : null}
       <form className="ventas-bar" onSubmit={(event) => event.preventDefault()}>
         <label>
           Periodo
