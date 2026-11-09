@@ -132,6 +132,20 @@ type PlanUnit = {
   balanceScope: string;
 };
 
+type Alerta = {
+  projectSlug: string;
+  projectName: string;
+  partnerId: number;
+  rawName: string;
+  apt: string | null;
+  modelo: string | null;
+  tower: string | null;
+  confidence: string | null;
+  balance: number | null;
+  monthsBehind: number | null;
+  lastReceiptOn: string | null;
+};
+
 type PlanMonth = {
   projectSlug: string;
   partnerId: number;
@@ -174,6 +188,7 @@ type Book = {
   cobros: Cobro[];
   fuera: Fuera[];
   units: PlanUnit[];
+  alertas: Alerta[];
   months: PlanMonth[];
   partners: Partner[];
   casos: Caso[];
@@ -324,7 +339,7 @@ function familyOf(prefix: string): string {
 
 async function loadBook(): Promise<Book> {
   if (bookCache && Date.now() - bookCache.at < CACHE_MS) return bookCache.book;
-  const [projectRows, cobroRows, fueraRows, unitRows, monthRows, partnerRows, casoRows, metaRows] = await Promise.all([
+  const [projectRows, cobroRows, fueraRows, unitRows, alertaRows, monthRows, partnerRows, casoRows, metaRows] = await Promise.all([
     fetchAll("project", "slug,name,in_five,has_unit_book,sort_order"),
     fetchAll(
       "v_cobro",
@@ -337,6 +352,10 @@ async function loadBook(): Promise<Book> {
     fetchAll(
       "v_plan_unidad",
       "project_slug,project_name,odoo_partner_id,raw_name,apt,modelo,tower,buyer_name,commercial_state,has_plan,plan_confidence,balance,months_behind,last_receipt_on,is_duplicate,balance_scope",
+    ),
+    fetchAll(
+      "v_alerta",
+      "project_slug,project_name,odoo_partner_id,raw_name,apt,modelo,tower,plan_confidence,balance,months_behind,last_receipt_on",
     ),
     fetchAll("v_plan_mes", "project_slug,odoo_partner_id,month_on,expected,confirmed,cum_expected,cum_confirmed"),
     fetchAll(
@@ -409,6 +428,19 @@ async function loadBook(): Promise<Book> {
       lastReceiptOn: text(row.last_receipt_on),
       isDuplicate: flag(row.is_duplicate),
       balanceScope: text(row.balance_scope) ?? "",
+    })),
+    alertas: alertaRows.map((row) => ({
+      projectSlug: String(row.project_slug),
+      projectName: String(row.project_name),
+      partnerId: Number(row.odoo_partner_id),
+      rawName: text(row.raw_name) ?? "sin nombre",
+      apt: text(row.apt),
+      modelo: text(row.modelo),
+      tower: text(row.tower),
+      confidence: text(row.plan_confidence),
+      balance: num(row.balance),
+      monthsBehind: num(row.months_behind),
+      lastReceiptOn: text(row.last_receipt_on),
     })),
     months: monthRows.map((row) => ({
       projectSlug: String(row.project_slug),
@@ -488,6 +520,15 @@ function unitOk(unit: PlanUnit, filters: CobrosFilters, book: Book): boolean {
   if (filters.modelo && (unit.modelo ?? "") !== filters.modelo) return false;
   if (filters.marca === "ds" && !isDs(unit.rawName)) return false;
   if (filters.marca === "vigente" && isDs(unit.rawName)) return false;
+  return true;
+}
+
+function alertaOk(row: Alerta, filters: CobrosFilters, book: Book): boolean {
+  if (!projectOk(row.projectSlug, filters, book)) return false;
+  if (filters.tower && (row.tower ?? "") !== filters.tower) return false;
+  if (filters.modelo && (row.modelo ?? "") !== filters.modelo) return false;
+  if (filters.marca === "ds" && !isDs(row.rawName)) return false;
+  if (filters.marca === "vigente" && isDs(row.rawName)) return false;
   return true;
 }
 
@@ -795,7 +836,7 @@ function blank(
     listTotal: 0,
     drafts: null,
     compare: [],
-    baked: section === "reporte-recurrente" ? "resumen" : section === "alertas-desistimiento" ? "alertas" : section === "cierre-mensual-de-cobros" ? "cierre" : null,
+    baked: section === "reporte-recurrente" ? "resumen" : section === "cierre-mensual-de-cobros" ? "cierre" : null,
   };
 }
 
@@ -1168,6 +1209,119 @@ function fueraLines(rows: Fuera[], drill: string | null): { lines: Line[]; listT
   return { lines, listTotal: lines.length };
 }
 
+function alertaVista(
+  section: "alertas" | "alertas-desistimiento",
+  filters: CobrosFilters,
+  book: Book,
+  range: DateWindow,
+  selected: Project[],
+  choices: CobrosVista["choices"],
+): CobrosVista {
+  const notices = [
+    "Odoo no guarda alertas. Esta lista es el saldo corto del archivo. El saldo y los meses de atraso son los del archivo. El publicado es el libro de recibos; el último recibo del plan es la foto del 1 de octubre de 2026.",
+    PLAN_FREEZE,
+  ];
+  if (selected.some((project) => !project.hasUnitBook)) notices.push(SIN_DATOS);
+  const matched = book.alertas.filter((row) => alertaOk(row, filters, book));
+  const desistimiento = section === "alertas-desistimiento";
+  const listed = desistimiento ? matched.filter((row) => !isDs(row.rawName)) : matched;
+  const vista = blank(
+    section,
+    range,
+    book,
+    selected,
+    choices,
+    notices,
+    "El saldo es esperado menos confirmado del plan. Positivo va corto. Negativo va adelante. No es el saldo de la factura.",
+  );
+  const total = round2(matched.reduce((sum, row) => sum + Math.max(row.balance ?? 0, 0), 0));
+  vista.kpis = [
+    {
+      label: "Corto del enganche",
+      value: money("GTQ", total),
+      hint: `${count(matched.length)} socios`,
+    },
+  ];
+  if (desistimiento) {
+    const marked = matched.filter((row) => isDs(row.rawName)).length;
+    vista.kpis.push({ label: "Ya marcados DS-", value: count(marked), hint: "Esos están en decisiones, no aquí" });
+  }
+  const byProject = new Map<string, number>();
+  for (const row of listed) {
+    byProject.set(row.projectSlug, (byProject.get(row.projectSlug) ?? 0) + Math.max(row.balance ?? 0, 0));
+  }
+  vista.gtqBars = selected
+    .filter((project) => project.hasUnitBook)
+    .map((project) => ({ id: project.slug, label: project.name, value: round2(byProject.get(project.slug) ?? 0) }));
+  const monthDrill = filters.drill && isMonthId(filters.drill) ? filters.drill : null;
+  const projectDrill = filters.drill && !monthDrill ? filters.drill : null;
+  const rows = listed
+    .filter((row) => (projectDrill ? row.projectSlug === projectDrill : true))
+    .sort((a, b) => (b.monthsBehind ?? 0) - (a.monthsBehind ?? 0) || (b.balance ?? 0) - (a.balance ?? 0));
+  const liveByPartner = new Map<string, Cobro[]>();
+  for (const cobro of book.cobros) {
+    if (cobro.partnerId == null) continue;
+    const key = `${cobro.projectSlug}:${cobro.partnerId}`;
+    const list = liveByPartner.get(key);
+    if (list) list.push(cobro);
+    else liveByPartner.set(key, [cobro]);
+  }
+  let liveGtq = 0;
+  let liveUsd = 0;
+  let liveUsdDebit = 0;
+  let liveCount = 0;
+  for (const row of rows) {
+    const cash = liveByPartner.get(`${row.projectSlug}:${row.partnerId}`) ?? [];
+    const gtq = sumOf(cash, "GTQ");
+    const usd = sumOf(cash, "USD");
+    liveGtq += gtq.amount;
+    liveUsd += usd.amount;
+    liveUsdDebit += usd.debit;
+    liveCount += cash.length;
+  }
+  vista.kpis.push({ label: "Quetzales publicados", value: money("GTQ", round2(liveGtq)), hint: `${count(liveCount)} recibos del libro en estos socios` });
+  if (liveUsd !== 0) {
+    vista.kpis.push({
+      label: "Dólares publicados",
+      value: money("USD", round2(liveUsd)),
+      hint: `Asiento ${money("GTQ", round2(liveUsdDebit))}. No entra en los quetzales publicados.`,
+    });
+  }
+  vista.lineTitle = "Socios del plan. Cada nombre es su propio socio, aunque el apartamento se repita.";
+  vista.lineHeaders = ["Proyecto", "Torre", "Modelo", "Apto", "Socio", "Lectura", "Saldo", "Meses del archivo", "Último recibo del plan", "Último publicado", "Q publicado", "USD publicado", "Confianza", "DS-"];
+  const lines = rows.map((row) => {
+    const cash = liveByPartner.get(`${row.projectSlug}:${row.partnerId}`) ?? [];
+    const gtq = sumOf(cash, "GTQ");
+    const usd = sumOf(cash, "USD");
+    const lastLive = cash.reduce<string | null>((max, item) => (max === null || (item.moveDate && item.moveDate > max) ? item.moveDate : max), null);
+    return {
+      id: `${row.projectSlug}:${row.partnerId}`,
+      drillId: row.projectSlug,
+      values: [
+        row.projectName,
+        row.tower ?? "Sin torre",
+        row.modelo ?? "—",
+        row.apt ?? "—",
+        row.rawName,
+        lectura(row.balance, true, false),
+        money("GTQ", row.balance),
+        row.monthsBehind === null ? "—" : count(row.monthsBehind),
+        showDay(row.lastReceiptOn),
+        showDay(lastLive),
+        gtq.n ? money("GTQ", gtq.amount) : "—",
+        usd.n ? money("USD", usd.amount) : "—",
+        row.confidence ?? "—",
+        isDs(row.rawName) ? "DS-" : "No",
+      ],
+    };
+  });
+  const packed = cap(lines, lines.length);
+  vista.lines = packed.lines;
+  vista.listTotal = packed.listTotal;
+  vista.compare = comparePlan(book, filters, range, false);
+  return vista;
+}
+
 function planVista(
   section: CobrosSection,
   filters: CobrosFilters,
@@ -1180,6 +1334,9 @@ function planVista(
     const vista = blank(section, range, book, selected, choices, [PLAN_NOT_LOADED, PLAN_FREEZE], PLAN_NOT_LOADED);
     vista.empty = PLAN_NOT_LOADED;
     return vista;
+  }
+  if (section === "alertas" || section === "alertas-desistimiento") {
+    return alertaVista(section, filters, book, range, selected, choices);
   }
   const { units, months } = planPopulation(book, filters);
   const usable = units.filter((unit) => unit.hasPlan && !unit.isDuplicate);
@@ -1222,15 +1379,7 @@ function planVista(
       { label: "En el plan", value: count(scored.length - short.length - ahead.length), hint: "Saldo entre −1 y 1" },
     ];
   }
-  const showLive = section === "alertas" || section === "alertas-desistimiento";
-  if (showLive) {
-    notices.unshift("Odoo no guarda alertas. Esta lista es el saldo corto del plan. Los meses de atraso son los del archivo, no del periodo. El publicado es el libro de recibos; el último recibo del plan es la foto del 1 de octubre de 2026.");
-  }
-  const listed = section === "alertas-desistimiento" ? focus.filter((row) => !isDs(row.unit.rawName)) : focus;
-  if (section === "alertas-desistimiento") {
-    const marked = focus.filter((row) => isDs(row.unit.rawName)).length;
-    vista.kpis.push({ label: "Ya marcados DS-", value: count(marked), hint: "Esos están en decisiones, no aquí" });
-  }
+  const listed = focus;
   const byProject = new Map<string, number>();
   for (const row of listed) {
     const amount = aheadSide ? -row.cut.balance : Math.max(row.cut.balance, 0);
@@ -1272,47 +1421,12 @@ function planVista(
       });
     })
     .sort((a, b) => (b.unit.monthsBehind ?? 0) - (a.unit.monthsBehind ?? 0) || b.cut.balance - a.cut.balance);
-  const liveByPartner = new Map<string, Cobro[]>();
-  if (showLive) {
-    for (const cobro of book.cobros) {
-      if (cobro.partnerId == null) continue;
-      const key = `${cobro.projectSlug}:${cobro.partnerId}`;
-      const list = liveByPartner.get(key);
-      if (list) list.push(cobro);
-      else liveByPartner.set(key, [cobro]);
-    }
-    let liveGtq = 0;
-    let liveUsd = 0;
-    let liveUsdDebit = 0;
-    let liveCount = 0;
-    for (const row of rows) {
-      const cash = liveByPartner.get(`${row.unit.projectSlug}:${row.unit.partnerId}`) ?? [];
-      const gtq = sumOf(cash, "GTQ");
-      const usd = sumOf(cash, "USD");
-      liveGtq += gtq.amount;
-      liveUsd += usd.amount;
-      liveUsdDebit += usd.debit;
-      liveCount += cash.length;
-    }
-    vista.kpis.push({ label: "Quetzales publicados", value: money("GTQ", round2(liveGtq)), hint: `${count(liveCount)} recibos del libro en estos socios` });
-    if (liveUsd !== 0) {
-      vista.kpis.push({
-        label: "Dólares publicados",
-        value: money("USD", round2(liveUsd)),
-        hint: `Asiento ${money("GTQ", round2(liveUsdDebit))}. No entra en los quetzales publicados.`,
-      });
-    }
-  }
   vista.lineTitle = "Socios del plan. Cada nombre es su propio socio, aunque el apartamento se repita.";
-  vista.lineHeaders = showLive
-    ? ["Proyecto", "Torre", "Modelo", "Apto", "Socio", "Lectura", "Saldo", "Meses del archivo", "Último recibo del plan", "Último publicado", "Q publicado", "USD publicado", "Confianza", "DS-"]
-    : ["Proyecto", "Torre", "Modelo", "Apto", "Socio", "Lectura", "Saldo", "Meses del archivo", "Último recibo del plan", "Confianza", "DS-"];
-  const lines = rows.map((row) => {
-    const cash = liveByPartner.get(`${row.unit.projectSlug}:${row.unit.partnerId}`) ?? [];
-    const gtq = sumOf(cash, "GTQ");
-    const usd = sumOf(cash, "USD");
-    const lastLive = cash.reduce<string | null>((max, item) => (max === null || (item.moveDate && item.moveDate > max) ? item.moveDate : max), null);
-    const base = [
+  vista.lineHeaders = ["Proyecto", "Torre", "Modelo", "Apto", "Socio", "Lectura", "Saldo", "Meses del archivo", "Último recibo del plan", "Confianza", "DS-"];
+  const lines = rows.map((row) => ({
+    id: `${row.unit.projectSlug}:${row.unit.partnerId}`,
+    drillId: row.unit.projectSlug,
+    values: [
       row.unit.projectName,
       row.unit.tower ?? "Sin torre",
       row.unit.modelo ?? "—",
@@ -1322,17 +1436,10 @@ function planVista(
       money("GTQ", row.cut.balance),
       row.unit.monthsBehind === null ? "—" : count(row.unit.monthsBehind),
       showDay(row.unit.lastReceiptOn),
-    ];
-    if (showLive) {
-      base.push(showDay(lastLive), gtq.n ? money("GTQ", gtq.amount) : "—", usd.n ? money("USD", usd.amount) : "—");
-    }
-    base.push(row.unit.confidence ?? "—", isDs(row.unit.rawName) ? "DS-" : "No");
-    return {
-      id: `${row.unit.projectSlug}:${row.unit.partnerId}`,
-      drillId: row.unit.projectSlug,
-      values: base,
-    };
-  });
+      row.unit.confidence ?? "—",
+      isDs(row.unit.rawName) ? "DS-" : "No",
+    ],
+  }));
   const packed = cap(lines, lines.length);
   vista.lines = packed.lines;
   vista.listTotal = packed.listTotal;

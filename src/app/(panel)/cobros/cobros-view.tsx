@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CobrosAlertasCard, CobrosResumenTable, type CobrosAlertasDesistimiento, type CobrosResumen } from "@/app/pabi/contable/contable-charts";
+import { CobrosResumenTable, type CobrosResumen } from "@/app/pabi/contable/contable-charts";
 import cobrosJson from "@/app/pabi/contable/data/cobros.json";
 import comisionesJson from "@/app/pabi/contable/data/comisiones.json";
 import type { CobrosSection, CobrosVista, Series } from "@/lib/cobros/types";
@@ -79,7 +79,6 @@ const INITIAL: BarState = {
 };
 
 const bakedResumen = cobrosJson.rows["1"] as CobrosResumen;
-const bakedAlertas = cobrosJson.rows["2"] as CobrosAlertasDesistimiento;
 const bakedCierre = comisionesJson.rows["2"] as CobrosResumen;
 
 function readBar(raw: string): BarState {
@@ -442,13 +441,6 @@ export default function CobrosView({ section }: { section: CobrosSection }) {
               <h2>Excel de agosto 2026</h2>
               <p className="op-note">No es el cierre del libro publicado. Es la foto de comisiones que ya estaba en la vista directiva.</p>
               <CobrosResumenTable data={bakedCierre} />
-            </section>
-          ) : null}
-          {show.baked === "alertas" ? (
-            <section className="op-hero" aria-label="Motivos de Pipedrive">
-              <h2>Motivos de Pipedrive, al 5 de agosto de 2026</h2>
-              <p className="op-note">Otra población. No es el saldo del plan ni la marca DS- del libro.</p>
-              <CobrosAlertasCard data={bakedAlertas} />
             </section>
           ) : null}
         </>
