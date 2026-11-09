@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { FunnelStage, MeasureRow, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
 
@@ -141,32 +141,112 @@ function Columns({
     name: string;
     reservas: number;
     hue: string;
-    pressed: boolean;
+    pressed?: boolean;
     label: string;
-    onClick: () => void;
+    onClick?: () => void;
   }[];
   peak: number;
 }) {
   return (
     <>
-      {columns.map((column) => (
-        <button
-          key={column.key}
-          type="button"
-          className={styles.vcol}
-          aria-pressed={column.pressed}
-          aria-label={column.label}
-          onClick={column.onClick}
-        >
-          <span className={styles.vval}>{whole(column.reservas)}</span>
-          <span className={styles.vplot}>
-            <span className={`${styles.vbar} ${column.hue}`} style={{ height: widthOf(column.reservas, peak) }} />
-          </span>
-          <span className={styles.vname}>{column.name}</span>
-        </button>
-      ))}
+      {columns.map((column) => {
+        const body = (
+          <>
+            <span className={styles.vval}>{whole(column.reservas)}</span>
+            <span className={styles.vplot}>
+              <span className={`${styles.vbar} ${column.hue}`} style={{ height: widthOf(column.reservas, peak) }} />
+            </span>
+            <span className={styles.vname}>{column.name}</span>
+          </>
+        );
+        if (!column.onClick) {
+          return (
+            <div key={column.key} className={styles.vcol} aria-label={column.label}>
+              {body}
+            </div>
+          );
+        }
+        return (
+          <button
+            key={column.key}
+            type="button"
+            className={styles.vcol}
+            aria-pressed={column.pressed ?? false}
+            aria-label={column.label}
+            onClick={column.onClick}
+          >
+            {body}
+          </button>
+        );
+      })}
     </>
   );
+}
+
+function ReservaCard({
+  name,
+  units,
+  prior,
+  priorTitle,
+  status,
+  label,
+  onClick,
+}: {
+  name?: string;
+  units: number;
+  prior: number | null;
+  priorTitle?: string;
+  status?: ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  const body = (
+    <>
+      {name ? <span className={styles.kpiName}>{name}</span> : null}
+      <span className={styles.kpiValue}>
+        {whole(units)}
+        <span className={styles.kpiUnit}>reservas</span>
+      </span>
+      {prior != null ? <span className={toneClass(units - prior)}>{changePill(units, prior)}</span> : status}
+      {prior != null ? (
+        <span className={styles.meter}>
+          <span
+            className={styles.meterBar}
+            data-decline={units < prior ? "true" : undefined}
+            title={priorTitle}
+          >
+            <span className={styles.meterPrev} style={{ width: units >= prior ? widthOf(prior, units || 1) : "100%" }} />
+            <span
+              className={styles.meterNow}
+              style={{ width: units >= prior ? widthOf(Math.max(0, units - prior), units || 1) : widthOf(units, prior || 1) }}
+            />
+          </span>
+          <span className={styles.meterScale}>
+            <span>{whole(prior)}</span>
+            <span>{whole(units)}</span>
+          </span>
+        </span>
+      ) : null}
+      <span className={styles.caption}>Cantidad de actividades</span>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" className={styles.kpi} aria-label={label} onClick={onClick}>
+        {body}
+      </button>
+    );
+  }
+  return (
+    <div className={styles.kpi} aria-label={label}>
+      {body}
+    </div>
+  );
+}
+
+function projectPrior(stage: FunnelStage | null, projectId: string, comparable: boolean): number | null {
+  if (!comparable || !stage || stage.priorByProject == null) return null;
+  return stage.priorByProject.find((row) => row.id === projectId)?.count ?? 0;
 }
 
 export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivosError }: Props) {
@@ -204,8 +284,9 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
     );
   }
 
-  const pill = priorAligned && prior != null
-    ? <span className={toneClass(total - prior)}>{changePill(total, prior)}</span>
+  const comparable = priorAligned && prior != null;
+  const status = comparable
+    ? null
     : !totales && !totalesError
       ? <span className={styles.caption}>Cargando…</span>
       : totalesError
@@ -228,38 +309,14 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
     <section className={styles.block} aria-label="Ventas totales">
       <div className={styles.top}>
         <div className={styles.rail}>
-          <button
-            type="button"
-            className={styles.kpi}
-            aria-label={totalLabel}
+          <ReservaCard
+            units={total}
+            prior={comparable && prior != null ? prior : null}
+            priorTitle={totales?.priorLabel === "vs mes anterior" ? "Mes anterior" : "Periodo anterior"}
+            status={status}
+            label={totalLabel}
             onClick={zoomOut}
-          >
-            <span className={styles.kpiValue}>
-              {whole(total)}
-              <span className={styles.kpiUnit}>reservas</span>
-            </span>
-            {pill}
-            {priorAligned && prior != null ? (
-              <span className={styles.meter}>
-                <span
-                  className={styles.meterBar}
-                  data-decline={total < prior ? "true" : undefined}
-                  title={totales?.priorLabel === "vs mes anterior" ? "Mes anterior" : "Periodo anterior"}
-                >
-                  <span className={styles.meterPrev} style={{ width: total >= prior ? widthOf(prior, total || 1) : "100%" }} />
-                  <span
-                    className={styles.meterNow}
-                    style={{ width: total >= prior ? widthOf(Math.max(0, total - prior), total || 1) : widthOf(total, prior || 1) }}
-                  />
-                </span>
-                <span className={styles.meterScale}>
-                  <span>{whole(prior)}</span>
-                  <span>{whole(total)}</span>
-                </span>
-              </span>
-            ) : null}
-            <span className={styles.caption}>Cantidad de actividades</span>
-          </button>
+          />
         </div>
 
         <div className={styles.hero}>
@@ -335,6 +392,55 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
           </div>
         </div>
       </div>
+
+      {objetivos && projects.length > 0 ? (
+        <div className={styles.projects}>
+          {projects.map((project, index) => {
+            const hue = HUES[index % HUES.length] ?? styles.hue0;
+            const drilled = advisorsInProject(project.label, project.units, stage);
+            const advisorColumns = project.units === 0 ? [] : drilled.ok ? drilled.rows : null;
+            const earlier = projectPrior(stage, project.id, comparable);
+            const peakProject = advisorColumns && advisorColumns.length > 0
+              ? Math.max(1, ...advisorColumns.map((row) => row.reservas))
+              : 1;
+            const projectLabel = earlier != null
+              ? `${project.label}: ${whole(project.units)} reservas, ${changePill(project.units, earlier)} ${versus}.`
+              : `${project.label}: ${whole(project.units)} reservas.`;
+            return (
+              <div key={project.id} className={styles.top}>
+                <div className={styles.rail}>
+                  <ReservaCard
+                    name={project.label}
+                    units={project.units}
+                    prior={earlier}
+                    priorTitle={totales?.priorLabel === "vs mes anterior" ? "Mes anterior" : "Periodo anterior"}
+                    label={projectLabel}
+                  />
+                </div>
+                <div className={styles.hero}>
+                  <div className={styles.heroChart}>
+                    {advisorColumns && advisorColumns.length > 0 ? (
+                      <div className={styles.vbars} role="group" aria-label={`Asesores de ${project.label}`}>
+                        <Columns
+                          peak={peakProject}
+                          columns={advisorColumns.map((row) => ({
+                            key: `${project.id}:${row.name}`,
+                            name: row.name,
+                            reservas: row.reservas,
+                            hue,
+                            label: `${project.label} · ${row.name}: ${whole(row.reservas)} reservas, ${shareText(row.reservas, total)} del total, ${shareText(row.reservas, project.units)} de ${project.label}.`,
+                          }))}
+                        />
+                      </div>
+                    ) : null}
+                    {advisorColumns == null ? <Unplugged source={ADVISOR_SPLIT} /> : null}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       {cap ? <p className={styles.caption}>{cap}</p> : null}
     </section>

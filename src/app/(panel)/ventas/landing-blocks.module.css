@@ -27,7 +27,13 @@
   display: grid;
   grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
   gap: 8px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.projects {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .rail {
@@ -35,7 +41,7 @@
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  overflow: visible;
+  min-height: 100%;
 }
 
 .kpi,
@@ -43,10 +49,20 @@
 .vcol {
   font: inherit;
   color: var(--color-text-primary);
+}
+
+button.kpi,
+.crumb,
+button.vcol {
   cursor: pointer;
 }
 
 .kpi {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   width: 100%;
   padding: 8px;
   border: 1px solid var(--color-border);
@@ -55,11 +71,10 @@
   text-align: left;
 }
 
-.kpi {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
+.kpiName {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .kpiValue {
@@ -183,6 +198,7 @@
   gap: 8px;
   min-width: 0;
   min-height: 240px;
+  height: 100%;
   padding: 8px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
