@@ -311,6 +311,28 @@ class Api:
         total = content.rsplit("/", 1)[1]
         return 0 if total == "*" else int(total)
 
+    def delete_not_in(self, table: str, column: str, ids: set[str]) -> int:
+        if not ids:
+            raise RuntimeError(f"{table}: refuse delete with an empty {column} set")
+        quoted_ids: list[str] = []
+        for value in sorted(ids):
+            escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+            quoted_ids.append(f'"{escaped}"')
+        filt = "not.in.(" + ",".join(quoted_ids) + ")"
+        path = f"/{table}?{column}={urllib.parse.quote(filt, safe='')}"
+        _, headers, _ = self.request(
+            "DELETE",
+            path,
+            prefer="return=minimal,count=exact",
+        )
+        content = headers.get("Content-Range") or headers.get("content-range") or ""
+        if "/" not in content:
+            raise RuntimeError(f"{table}: delete did not report a row count")
+        total = content.rsplit("/", 1)[1].strip()
+        if total == "*":
+            raise RuntimeError(f"{table}: delete count was unknown")
+        return int(total)
+
 
 def pipeline_project(name: str) -> str | None:
     if name in BUILDING_PIPELINES:
@@ -754,6 +776,21 @@ def main() -> None:
         flush=True,
     )
     api.upsert("fact_comprobante", comprobantes, "pipedrive_activity_id")
+    loaded_comprobante_ids = {
+        str(row["pipedrive_activity_id"]) for row in comprobantes
+    }
+    if not loaded_comprobante_ids:
+        print(
+            "  fact_comprobante: warning: loaded ids empty, delete skipped",
+            flush=True,
+        )
+    else:
+        deleted = api.delete_not_in(
+            "fact_comprobante",
+            "pipedrive_activity_id",
+            loaded_comprobante_ids,
+        )
+        print(f"  fact_comprobante: deleted {deleted}", flush=True)
     api.upsert("fact_reception", receptions, "pipedrive_activity_id")
     api.upsert("fact_visit", visits, "pipedrive_activity_id")
     api.upsert("fact_pcv_issuance", pcv_rows, "deal_id")
