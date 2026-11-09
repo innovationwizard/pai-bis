@@ -10,7 +10,7 @@ import { Comparison, Ranking, Waterfall } from "./panels";
 import { Drawer, Origen, Shortcuts } from "./overlays";
 import { FlowView, TreemapView } from "./hero-views";
 import VerticalBars from "./bars";
-import { Panel, Ticks, cx } from "./frame";
+import { Panel, cx } from "./frame";
 import { initialState, reducer, spotlightOf, type Target } from "./state";
 import styles from "./centro.module.css";
 
@@ -197,7 +197,6 @@ export default function CentroDeMando() {
         onMouseLeave={() => onHover(null)}
       >
         <header className={cx(styles.panel, styles.status)} onMouseEnter={() => onHover(null)}>
-          <Ticks />
           <div className={styles.titleBlock}>
             <h1 className={styles.h1}>Centro de mando · Reservas</h1>
             <span className={styles.chip}>{FIXTURE.periodChip}</span>
@@ -245,7 +244,6 @@ export default function CentroDeMando() {
               onBlur={() => onKbd(null)}
               onClick={onTotal}
             >
-              <Ticks />
               <span className={styles.kpiValue}>
                 <Count value={FIXTURE.total.reservas} />
                 <span className={styles.kpiUnit}>reservas</span>
@@ -305,7 +303,6 @@ export default function CentroDeMando() {
                       tileRove.onKeyDown(event, index);
                     }}
                   >
-                    <Ticks />
                     <span className={styles.tileName}>{project.label}</span>
                     <ShareRing share={project.reservas / FIXTURE.total.reservas} color={hue} />
                     <span className={styles.tileMain}>

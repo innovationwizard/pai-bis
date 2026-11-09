@@ -1,17 +1,6 @@
 import type { KeyboardEvent, ReactNode } from "react";
 import styles from "./centro.module.css";
 
-export function Ticks() {
-  return (
-    <>
-      <span className={`${styles.tick} ${styles.tl}`} aria-hidden="true" />
-      <span className={`${styles.tick} ${styles.tr}`} aria-hidden="true" />
-      <span className={`${styles.tick} ${styles.bl}`} aria-hidden="true" />
-      <span className={`${styles.tick} ${styles.br}`} aria-hidden="true" />
-    </>
-  );
-}
-
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
@@ -46,7 +35,6 @@ export function Panel({
 }) {
   return (
     <section className={cx(styles.panel, className)} aria-labelledby={labelledBy}>
-      <Ticks />
       {children}
     </section>
   );

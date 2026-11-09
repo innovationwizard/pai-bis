@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { FunnelStage, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
+import type { FunnelStage, MeasureRow, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
 
 const HUES = [styles.hue0, styles.hue1, styles.hue2, styles.hue3] as const;
-const PROJECT_PRIOR = "reservas del periodo anterior por proyecto";
 const TOTAL_PRIOR = "reservas del periodo anterior";
 const ADVISOR_SPLIT = "reservas por asesor dentro del proyecto";
 
@@ -74,40 +73,24 @@ function projectsOf(objetivos: ObjetivosVista | null): ProjectBar[] {
     .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
 }
 
-function Ticks() {
-  return (
-    <>
-      <span className={`${styles.tick} ${styles.tl}`} />
-      <span className={`${styles.tick} ${styles.tr}`} />
-      <span className={`${styles.tick} ${styles.bl}`} />
-      <span className={`${styles.tick} ${styles.br}`} />
-    </>
-  );
+function inBarChart(label: string): boolean {
+  const folded = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (folded.includes("casa elisa")) return false;
+  if (folded.includes("coban")) return false;
+  return true;
+}
+
+function chartProjects(objetivos: ObjetivosVista | null): ProjectBar[] {
+  return projectsOf(objetivos).filter((project) => inBarChart(project.label));
+}
+
+function rosterAsesores(objetivos: ObjetivosVista): MeasureRow[] {
+  const allowed = new Set(objetivos.rosterAsesorIds);
+  return objetivos.byAsesor.filter((row) => allowed.has(row.id));
 }
 
 function Unplugged({ source }: { source: string }) {
   return <span className={styles.unplugged}>No conectado: {source}</span>;
-}
-
-function ShareRing({ share, hue }: { share: number; hue: string }) {
-  const radius = 12;
-  const turn = 2 * Math.PI * radius;
-  const dash = Math.max(0, Math.min(1, share)) * turn;
-  return (
-    <svg className={`${styles.ring} ${hue}`} viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="16" cy="16" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="3" />
-      <circle
-        cx="16"
-        cy="16"
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeDasharray={`${dash} ${turn - dash}`}
-        transform="rotate(-90 16 16)"
-      />
-    </svg>
-  );
 }
 
 function advisorsInProject(
@@ -190,7 +173,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
   const [projectId, setProjectId] = useState<string | null>(null);
   const [advisorName, setAdvisorName] = useState<string | null>(null);
   const stage = reservaStage(totales);
-  const projects = projectsOf(objetivos);
+  const projects = chartProjects(objetivos);
   const total = objetivos ? objetivos.units : stage ? stage.count : null;
   const prior = stage?.priorCount ?? null;
   const priorAligned = prior != null && total != null && (objetivos == null ? stage != null : stage?.count === objetivos.units);
@@ -251,7 +234,6 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
             aria-label={totalLabel}
             onClick={zoomOut}
           >
-            <Ticks />
             <span className={styles.kpiValue}>
               {whole(total)}
               <span className={styles.kpiUnit}>reservas</span>
@@ -278,42 +260,6 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
             ) : null}
             <span className={styles.caption}>Cantidad de actividades</span>
           </button>
-
-          {objetivos ? (
-            projects.length === 0 ? (
-              <p className={styles.caption}>Sin proyectos en este periodo.</p>
-            ) : (
-              <div className={styles.tiles} role="group" aria-label="Proyectos">
-                {projects.map((project, index) => {
-                  const hue = HUES[index % HUES.length] ?? styles.hue0;
-                  const share = total > 0 ? project.units / total : 0;
-                  return (
-                    <button
-                      key={project.id}
-                      type="button"
-                      className={styles.tile}
-                      aria-pressed={selected?.id === project.id}
-                      data-zoom={selected?.id === project.id ? "true" : undefined}
-                      aria-label={`${project.label}: ${whole(project.units)} reservas, ${shareText(project.units, total)} del total. No conectado: ${PROJECT_PRIOR}.`}
-                      onClick={() => zoomProject(project.id)}
-                    >
-                      <Ticks />
-                      <span className={styles.tileName}>{project.label}</span>
-                      <ShareRing share={share} hue={hue} />
-                      <span className={styles.tileMain}>
-                        <span className={styles.tileValue}>{whole(project.units)}</span>
-                        <Unplugged source={PROJECT_PRIOR} />
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )
-          ) : objetivosError ? (
-            <p className={styles.warn}>{objetivosError}</p>
-          ) : (
-            <p className={styles.caption}>Cargando…</p>
-          )}
         </div>
 
         <div className={styles.hero}>
@@ -391,15 +337,6 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
       </div>
 
       {cap ? <p className={styles.caption}>{cap}</p> : null}
-
-      <section className={styles.panel} aria-labelledby="vt-cmp-title">
-        <h2 id="vt-cmp-title" className={styles.panelTitle}>Mes pasado y mes anterior</h2>
-        <p className={styles.legend}>
-          <span className={styles.legendItem}><span className={styles.swatch} aria-hidden="true" /> Mes pasado</span>
-          <span className={styles.legendItem}><span className={styles.swatchGhost} aria-hidden="true" /> Mes anterior</span>
-        </p>
-        <Unplugged source={PROJECT_PRIOR} />
-      </section>
     </section>
   );
 }
@@ -417,7 +354,7 @@ export function AsesoresBlock({ totales, objetivos, objetivosError }: Omit<Props
           {objetivos.caption && !objetivos.caption.includes("¿") ? <p className={styles.caption}>{objetivos.caption}</p> : null}
           {objetivos.notice ? <p className={styles.caption}>{objetivos.notice}</p> : null}
           {totales?.targetNote ? <p className={styles.caption}>{totales.targetNote}</p> : null}
-          {objetivos.byAsesor.length === 0 ? (
+          {rosterAsesores(objetivos).length === 0 ? (
             <p className={styles.caption}>Sin asesores en este periodo.</p>
           ) : (
             <AsesorRows objetivos={objetivos} stage={stage} projects={projects} />
@@ -437,7 +374,7 @@ function AsesorRows({
   stage: FunnelStage | null;
   projects: readonly ProjectBar[];
 }) {
-  const rows = [...objetivos.byAsesor].sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
+  const rows = rosterAsesores(objetivos).sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
   const scale = rows.reduce((max, row) => Math.max(max, row.units, row.targetUnits ?? 0), 1);
   return (
     <div className={styles.rankList}>
@@ -458,14 +395,12 @@ function AsesorRows({
               {whole(row.units)}
               <span> · {shareText(row.units, objetivos.units)} del total</span>
               {place ? <span> · {shareText(row.units, place.projectUnits)} de {place.project}</span> : null}
-              {row.targetUnits == null ? (
-                <span> · Sin meta</span>
-              ) : (
+              {row.targetUnits != null ? (
                 <>
                   <span> · meta {whole(row.targetUnits)}</span>
-                  <span className={toneClass(gap ?? 0)}>{gap == null ? "Sin meta" : signedWhole(gap)}</span>
+                  {gap != null ? <span className={toneClass(gap)}>{signedWhole(gap)}</span> : null}
                 </>
-              )}
+              ) : null}
             </span>
           </div>
         );

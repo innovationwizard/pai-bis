@@ -38,18 +38,6 @@
   overflow: auto;
 }
 
-.tick {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  pointer-events: none;
-}
-
-.tl { top: 0; left: 0; border-top: 1px solid #0d2041; border-left: 1px solid #0d2041; }
-.tr { top: 0; right: 0; border-top: 1px solid #0d2041; border-right: 1px solid #0d2041; }
-.bl { bottom: 0; left: 0; border-bottom: 1px solid #0d2041; border-left: 1px solid #0d2041; }
-.br { bottom: 0; right: 0; border-bottom: 1px solid #0d2041; border-right: 1px solid #0d2041; }
-
 .status {
   display: flex;
   flex-wrap: wrap;

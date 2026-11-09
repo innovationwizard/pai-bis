@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { FIXTURE } from "./fixture";
 import { findAdvisor, fixtureCsv, formatPct, previousOf } from "./format";
-import { Ticks, trapTab } from "./frame";
+import { trapTab } from "./frame";
 import styles from "./centro.module.css";
 
 export function Drawer({
@@ -26,7 +26,6 @@ export function Drawer({
         aria-labelledby="cdm-drawer-title"
         onKeyDown={trapTab}
       >
-        <Ticks />
         {found ? (
           <>
             <p className={styles.caption}>{found.project.label}</p>
@@ -91,7 +90,6 @@ export function Shortcuts({ onClose }: { onClose: () => void }) {
         aria-labelledby="cdm-help-title"
         onKeyDown={trapTab}
       >
-        <Ticks />
         <div className={styles.drawerHead}>
           <h2 id="cdm-help-title">Atajos</h2>
           <button type="button" className={styles.btn} data-autofocus="ayuda" onClick={onClose}>
@@ -133,7 +131,6 @@ export function Origen({ onClose }: { onClose: () => void }) {
         aria-labelledby="cdm-origen-title"
         onKeyDown={trapTab}
       >
-        <Ticks />
         <div className={styles.drawerHead}>
           <h2 id="cdm-origen-title">Origen de los datos</h2>
           <button type="button" className={styles.btn} data-autofocus="origen" onClick={onClose}>
