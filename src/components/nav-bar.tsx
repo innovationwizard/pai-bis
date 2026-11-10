@@ -7,24 +7,20 @@ import { ADMIN_ROLES, DATA_VIEWER_ROLES } from "@/lib/permissions";
 type NavLink = { href: string; label: string; roles?: string[] };
 
 const NON_VENTAS_LINKS: (NavLink | "divider")[] = [
-  // Dashboard salió de aquí: se alcanza desde /old/ventas (VENTAS_SECTIONS).
   { href: "/projects", label: "Projects" },
   "divider",
-  // Disponibilidad, Valorizacion, Promociones y Descuentos viven dentro de
-  // /old/ventas (ver VENTAS_SECTIONS en src/app/pabi/nav-links.ts). Sus rutas
-  // standalone siguen existiendo, pero ya no se enlazan desde la navegación.
+  // Disponibilidad, Valorización, Promociones y Descuentos siguen en su ruta propia.
   { href: "/admin/reservas", label: "Reservas", roles: ADMIN_ROLES },
   { href: "/admin/operaciones", label: "Operaciones", roles: ADMIN_ROLES },
   { href: "/cotizador", label: "Cotizador" },
   { href: "/integracion", label: "Integracion", roles: ADMIN_ROLES },
-  { href: "/old/ventas", label: "Ventas" },
+  { href: "/ventas", label: "Ventas" },
   { href: "/referidos", label: "Referidos", roles: ADMIN_ROLES },
   { href: "/buyer-persona", label: "Buyer Persona", roles: ADMIN_ROLES },
-  { href: "/old/creditos", label: "Créditos", roles: DATA_VIEWER_ROLES },
-  { href: "/old/creditos/pipeline", label: "Expedientes", roles: DATA_VIEWER_ROLES },
+  { href: "/creditos", label: "Créditos", roles: DATA_VIEWER_ROLES },
   { href: "/cumplimiento", label: "Cumplimiento", roles: DATA_VIEWER_ROLES },
-  { href: "/old/mercadeo", label: "Mercadeo", roles: DATA_VIEWER_ROLES },
-  { href: "/old/entregas", label: "Entregas", roles: [...DATA_VIEWER_ROLES, "entregas_viewer", "entregas_editor"] },
+  { href: "/mercadeo", label: "Mercadeo", roles: DATA_VIEWER_ROLES },
+  { href: "/entregas", label: "Entregas", roles: [...DATA_VIEWER_ROLES, "entregas_viewer", "entregas_editor"] },
   "divider",
   { href: "/cesion", label: "Cesion", roles: ADMIN_ROLES },
   { href: "/admin/asesores", label: "Asesores", roles: ADMIN_ROLES },
@@ -36,10 +32,8 @@ const NON_VENTAS_LINKS: (NavLink | "divider")[] = [
 ];
 
 const VENTAS_LINKS: (NavLink | "divider")[] = [
-  { href: "/old/ventas/portal/reservas", label: "Mis Reservas" },
-  { href: "/old/ventas/portal/inventario", label: "Inventario" },
-  { href: "/old/ventas/portal/clientes", label: "Clientes" },
-  { href: "/old/ventas/portal/rendimiento", label: "Rendimiento" },
+  { href: "/ventas", label: "Ventas" },
+  { href: "/reservar", label: "Reservar" },
   "divider",
   { href: "/disponibilidad", label: "Disponibilidad" },
   { href: "/cotizador", label: "Cotizador" },
@@ -51,7 +45,7 @@ const VENTAS_LINKS: (NavLink | "divider")[] = [
  * advertise links they cannot open.
  */
 const ENTREGAS_ONLY_LINKS: (NavLink | "divider")[] = [
-  { href: "/old/entregas", label: "Entregas" },
+  { href: "/entregas", label: "Entregas" },
 ];
 
 const linkClass =

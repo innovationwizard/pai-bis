@@ -646,6 +646,5 @@ The companion RESERVAS ETL is covered in `docs/SOP-monthly-commission-etl.md`.
 | File | Purpose |
 |------|---------|
 | `docs/manifest-CIERRE_RESERVAS_ABRIL.md` | April 2026 new sales manifest (already imported, migration 061) |
-| `docs/reconciliation-phase2-plan.md` | Phase 2 reconciliation design doc (March baseline) |
 | `scripts/migrations/061_april_2026_sales_import.sql` | Migration that inserted April new sales + Phase 1 payments |
 | `public/metadata/commission-rules.json` | Commission rules and phase allocation |

@@ -14,8 +14,8 @@ export const NON_VENTAS_CATEGORIES: PanelCategory[] = [
       { href: "/admin/operaciones", label: "Operaciones", roles: ADMIN_ROLES },
       { href: "/cotizador", label: "Cotizador" },
       { href: "/integracion", label: "Integracion", roles: ADMIN_ROLES },
-      { href: "/old/ventas", label: "Ventas" },
-      { href: "/old/entregas", label: "Entregas", roles: [...DATA_VIEWER_ROLES, "entregas_viewer", "entregas_editor"] },
+      { href: "/ventas", label: "Ventas" },
+      { href: "/entregas", label: "Entregas", roles: [...DATA_VIEWER_ROLES, "entregas_viewer", "entregas_editor"] },
     ],
   },
   {
@@ -23,15 +23,14 @@ export const NON_VENTAS_CATEGORIES: PanelCategory[] = [
     links: [
       { href: "/referidos", label: "Referidos", roles: ADMIN_ROLES },
       { href: "/buyer-persona", label: "Buyer Persona", roles: ADMIN_ROLES },
-      { href: "/old/mercadeo", label: "Mercadeo", roles: DATA_VIEWER_ROLES },
+      { href: "/mercadeo", label: "Mercadeo", roles: DATA_VIEWER_ROLES },
     ],
   },
   {
     name: "Finanzas",
     links: [
       { href: "/", label: "Dashboard de Cobros", roles: DATA_VIEWER_ROLES },
-      { href: "/old/creditos", label: "Créditos", roles: DATA_VIEWER_ROLES },
-      { href: "/old/creditos/pipeline", label: "Expedientes", roles: DATA_VIEWER_ROLES },
+      { href: "/creditos", label: "Créditos", roles: DATA_VIEWER_ROLES },
       { href: "/cumplimiento", label: "Cumplimiento", roles: DATA_VIEWER_ROLES },
       { href: "/contable", label: "Contable", roles: DATA_VIEWER_ROLES },
     ],
@@ -54,10 +53,8 @@ export const VENTAS_CATEGORIES: PanelCategory[] = [
   {
     name: "Mi Portal",
     links: [
-      { href: "/old/ventas/portal/reservas", label: "Mis Reservas" },
-      { href: "/old/ventas/portal/inventario", label: "Inventario" },
-      { href: "/old/ventas/portal/clientes", label: "Clientes" },
-      { href: "/old/ventas/portal/rendimiento", label: "Rendimiento" },
+      { href: "/ventas", label: "Ventas" },
+      { href: "/reservar", label: "Reservar" },
     ],
   },
   {
@@ -70,10 +67,9 @@ export const VENTAS_CATEGORIES: PanelCategory[] = [
 ];
 
 /**
- * Sections of the consolidated `/old/ventas` page, in the order of the "Ventas por
- * Proyecto" block of the commercial reporting sheet. Disponibilidad,
- * Valorización, Descuentos and Promociones used to be their own Panel entries;
- * they now live inside `/old/ventas` and are reached through its in-page SectionNav.
+ * Section ids from the retired consolidated Ventas page, in the order of the
+ * "Ventas por Proyecto" block of the commercial reporting sheet. Disponibilidad,
+ * Valorización, Descuentos and Promociones used to be their own Panel entries.
  *
  * `roles` here only decides what the UI offers — each underlying API route
  * still enforces its own `requireRole(...)`.
@@ -103,7 +99,7 @@ export const VENTAS_SECTIONS: VentasSection[] = [
 ];
 
 /**
- * Sections of `/old/mercadeo`. The sheet's Mercadeo block is a single row 1
+ * Section ids from the retired Mercadeo report. The sheet's Mercadeo block is a single row 1
  * ("Reporte maestro") with sub-rows 1.1–1.6 plus rows 2–5; all of them are
  * views of the same master report, so the page presents them as one report
  * rather than eleven separate cards. The three sections below mirror the pages
@@ -123,7 +119,7 @@ export const MERCADEO_SECTIONS: VentasSection[] = [
 export const ENTREGAS_ONLY_CATEGORIES: PanelCategory[] = [
   {
     name: "Entregas",
-    links: [{ href: "/old/entregas", label: "Entregas" }],
+    links: [{ href: "/entregas", label: "Entregas" }],
   },
 ];
 

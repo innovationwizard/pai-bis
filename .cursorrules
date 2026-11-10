@@ -53,11 +53,19 @@ Never write "corte" on a screen. Here it means a dress or a haircut, not a repor
 "período" is also fine. A database field named corte is not permission to print the word.
 
 ## Stack
-- Next.js 16 (App Router), React 19.3.1 (`react` and `react-dom` ^19.3.1; `@types/react` and `@types/react-dom` ^19.3.0), TypeScript strict, Supabase (Postgres + Auth + RLS + Realtime + Storage), Vercel, D3.js, Zod
+- Next.js 16 (App Router), React 19.3.1 (`react` and `react-dom` ^19.3.1; `@types/react` and `@types/react-dom` ^19.3.0), TypeScript strict, Supabase (Postgres + Auth + RLS + Realtime + Storage), Vercel, Recharts 3, D3.js 7, Tailwind 4, Zod
 - Claude Vision OCR (@anthropic-ai/sdk) for bank receipt extraction
 - `@/*` → `./src/*`
 - RLS mandatory. No service-role keys in client components. UUID v7 for all PKs.
 - Currency: GTQ. Commission cap: 5.00%. DB is master (not Excel).
+
+## Department command centers
+Mercadeo, Ventas, Cobros, Créditos, and Entregas are each one vertically scrollable page. Operativo checklist items are charts on that page. A left rail may scroll to a band. It does not open another URL. Do not add section routes or a secondary menu for those five departments.
+
+Living documents, which win over older design notes:
+- docs/SDD-Department-Command-Centers.md
+- docs/General-Rules-and-Principles.md
+- docs/Checklists-Authoritative.md
 
 ## Reservation System
 - Tables: rv_units, rv_clients (prefixed to avoid analytics conflicts). All others: towers, floors, salespeople, reservations, etc.

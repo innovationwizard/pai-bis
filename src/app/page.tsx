@@ -8,8 +8,8 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const role = user.app_metadata?.role as string | undefined;
-  if (role === "ventas") redirect("/old/ventas/dashboard");
-  if (role === "entregas_viewer" || role === "entregas_editor") redirect("/old/entregas");
+  if (role === "ventas") redirect("/ventas");
+  if (role === "entregas_viewer" || role === "entregas_editor") redirect("/entregas");
   if (!role || !(DATA_VIEWER_ROLES as string[]).includes(role)) redirect("/login");
 
   return <SiteNav />;

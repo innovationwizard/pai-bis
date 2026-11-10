@@ -89,7 +89,7 @@ tool call and produces a misleading error.
 26. **Prove whether breakage is pre-existing.** Before reporting a failing
     build or test, stash your changes, re-run, and state which it is. As of
     2026-09-28 `src/app/api/creditos/expedientes/[id]/checklist/route.ts`
-    fails `next build` (it exports `documentKeyFrom`, which Next 15 forbids in
+    fails `next build` (it exports `documentKeyFrom`, which Next.js forbids in
     a route file). This blocks deploys and is not caused by new work.
 
 ---
@@ -116,12 +116,23 @@ This system — the Reserve Deposit Observer — is the foundational step toward
 - **Language:** TypeScript (strict mode)
 - **Backend:** Supabase (Postgres + Auth + RLS)
 - **Hosting:** Vercel (Frontend/Edge)
-- **Visualization:** D3.js (treemaps, charts)
+- **Visualization:** Recharts 3 and D3.js 7
 - **Validation:** Zod
-- **CSS:** globals.css (no Tailwind utility classes in components currently)
+- **CSS:** `src/app/globals.css` with Tailwind 4 (`@import "tailwindcss"`)
+
+### Department command centers
+
+Mercadeo, Ventas, Cobros, Créditos, and Entregas are each one vertically scrollable page. Every Operativo checklist item is a chart on that page. A left rail may scroll to a band. It does not open another URL. Do not add section routes, secondary menus, or sub-pages for those five departments.
+
+Living documents, which win over older design notes:
+
+- `docs/SDD-Department-Command-Centers.md`
+- `docs/General-Rules-and-Principles.md`
+- `docs/Checklists-Authoritative.md`
 
 ### Architecture
 - `src/app/` — Next.js App Router pages and API routes
+- `src/app/(panel)/{mercadeo,ventas,cobros,creditos,entregas}/page.tsx` — One command center per department
 - `src/app/api/` — Server-side API routes (Supabase integration)
 - `src/app/api/analytics/` — Analytics endpoints (commissions, payments, compliance, cash-flow)
 - `src/app/api/reservas/` — Reservation system API routes (namespaced to avoid conflicts)
@@ -133,14 +144,14 @@ This system — the Reserve Deposit Observer — is the foundational step toward
 - `middleware.ts` — Auth middleware + OG crawler bypass
 - `scripts/` — Migrations, debug scripts, image optimization
 - `origin/` — Historical docs, ETL scripts, schemas, business rules (reference only)
-- `origin/SSOT/` — Single Source of Truth: discovery transcripts, SDD, seed data
+- `origin/SSOT/` — Historical discovery transcripts and the early reserve-observer notes. The department checklist SSOT is `docs/Checklists-Authoritative.md`
 - `changelog/` — Per-commit changelog entries
-- `docs/` — Project documentation
+- `docs/` — Living design documents and operational procedures
 - `public/metadata/` — Business rule configs (commission-rules.json)
 - `reservas-app/` — Reference scaffolding (read-only, not deployed)
 
 ### Key Files
-- `src/app/dashboard-client.tsx` — Main analytics dashboard (monolith, ~28KB)
+- `src/app/dashboard-client.tsx` — Older analytics dashboard client
 - `src/lib/types.ts` — Analytics TypeScript types
 - `src/lib/reservas/types.ts` — Reservation system TypeScript types
 - `src/lib/reservas/constants.ts` — Reservation domain constants, labels, colors

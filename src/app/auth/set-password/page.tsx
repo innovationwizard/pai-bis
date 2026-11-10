@@ -75,7 +75,7 @@ export default function SetPasswordPage() {
     // Role comes from the update response. getUser() would rotate the refresh token.
     const role = data.user?.app_metadata?.role;
     if (role === "ventas") {
-      window.location.href = "/old/ventas/dashboard";
+      window.location.href = "/ventas";
     } else {
       window.location.href = "/";
     }

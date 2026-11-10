@@ -390,6 +390,6 @@ Include:
 | `scripts/migrations/061_april_2026_sales_import.sql` | Reference ETL SQL (April — includes preamble, trigger protocol, duplicate client handling) |
 | `scripts/migrations/062_fix_salesperson_periods_active_reps.sql` | Reference fix: stale salesperson_periods causing active rep commissions to route to ahorro_por_retiro |
 | `public/metadata/commission-rules.json` | Commission rules, rates, recipient definitions |
-| `docs/reconciliation-phase2-plan.md` | Phase 2 (down payment) reconciliation procedure |
+| `docs/SOP-monthly-cobros-reconciliation.md` | Phase 2 (down payment) reconciliation procedure |
 | `scripts/reconcile_phase2_payments.py` | Phase 2 reconciliation script |
 | `scripts/commission-debug/README.md` | Commission validation and debug workflow |

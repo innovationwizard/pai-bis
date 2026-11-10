@@ -390,7 +390,6 @@ Include:
 |------|---------|
 | `docs/manifest-CIERRE_COBROS_ABRIL.md` | April 2026 COBROS manifest (first reference month) |
 | `docs/manifest-CIERRE_RESERVAS_ABRIL.md` | April 2026 RESERVAS manifest (companion file) |
-| `docs/reconciliation-phase2-plan.md` | Phase 2 reconciliation design doc (March baseline, 27-sheet format) |
 | `docs/SOP-monthly-commission-etl.md` | Companion SOP for CIERRE_RESERVAS (new sales import) |
 | `scripts/migrations/061_april_2026_sales_import.sql` | Reference ETL (April RESERVAS — includes trigger protocol, duplicate client handling) |
 | `public/metadata/commission-rules.json` | Commission rules, phase allocation, recipient definitions |

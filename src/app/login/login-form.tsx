@@ -48,7 +48,7 @@ export default function LoginForm() {
     // The user comes from the sign-in response. getUser() would rotate the refresh token.
     const role = data.user?.app_metadata?.role;
     if (role === "ventas") {
-      window.location.href = "/old/ventas/dashboard";
+      window.location.href = "/ventas";
     } else {
       window.location.href = "/";
     }
