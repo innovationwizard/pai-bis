@@ -1503,6 +1503,15 @@ main:has(.section-page) > .section-page > .section-sidebar {
   font-weight: 700;
 }
 .vc-card > h2:not(:first-child) { margin-top: 18px; }
+.vc-referidos {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #0d2041;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.vc-referidos li + li { margin-top: 2px; }
 .vc-command h3 {
   margin: 14px 0 4px;
   color: #0d2041;

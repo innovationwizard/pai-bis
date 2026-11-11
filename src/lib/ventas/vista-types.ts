@@ -12,6 +12,7 @@ export const VISTA_SECTIONS = [
   "subidas-de-precios",
   "ff-y-casos-especiales",
   "promociones",
+  "control-referidos",
 ] as const;
 
 export type VistaSection = (typeof VISTA_SECTIONS)[number];
@@ -417,6 +418,16 @@ export type PromoVista = VistaBase & {
   byAsesor: { asesor: string; promocion: string; units: number; gtq: number | null }[];
 };
 
+export type ReferidosVista = VistaBase & {
+  section: "control-referidos";
+  scopedDeals: number;
+  si: number | null;
+  sinTipo: number | null;
+  byTipo: NamedBar[];
+  nombres: string[];
+  nombresTotal: number | null;
+};
+
 export type VentasVista =
   | TotalesVista
   | ObjetivosVista
@@ -430,4 +441,5 @@ export type VentasVista =
   | DescuentoVista
   | PrecioVista
   | CasoVista
-  | PromoVista;
+  | PromoVista
+  | ReferidosVista;

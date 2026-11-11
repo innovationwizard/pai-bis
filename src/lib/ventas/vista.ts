@@ -55,6 +55,7 @@ const QUESTIONS: Record<VistaSection, string> = {
   "subidas-de-precios": "¿Cuánto subió el precio de lista, y en qué proyectos?",
   "ff-y-casos-especiales": "¿Cuántas ventas del periodo son Friends & Family o caso especial, y qué peso tienen?",
   promociones: "¿Qué promociones están cerrando ventas, y qué peso tienen?",
+  "control-referidos": "¿Cuántos tratos de créditos son referidos, y quién los refirió?",
 };
 
 const SALE_COLUMNS = "deal_id,unit_id,project_id,tower_id,asesor_id,fuente_id,sale_on,value_gtq,lost_on";

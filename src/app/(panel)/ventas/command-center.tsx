@@ -22,6 +22,7 @@ import {
   type DescuentoVista,
   type FunnelStage,
   type PrecioVista,
+  type ReferidosVista,
   type SaleLine,
   type StageDeal,
   type StatusRow,
@@ -51,6 +52,7 @@ const SECTIONS: VistaSection[] = [
   "subidas-de-precios",
   "ff-y-casos-especiales",
   "promociones",
+  "control-referidos",
 ];
 
 type BarState = {
@@ -596,7 +598,7 @@ export default function CommandCenter() {
       <ValorBand vistas={vistas} errors={errors} busy={busy} />
       <DesistenciasPanel vistas={vistas} errors={errors} busy={busy} onProject={(id, label) => toggleFocus({ kind: "proyecto", id, label })} />
       <ControlesPanel vistas={vistas} errors={errors} busy={busy} />
-      <ReferidosBand />
+      <ReferidosBand vistas={vistas} errors={errors} busy={busy} />
 
       <section id="vc-detalle" className="vc-card" aria-label="Detalle operativo">
         <h2>Tratos que todavía no son venta</h2>
@@ -1180,14 +1182,54 @@ function ControlesPanel({ vistas, errors, busy }: BandProps) {
   );
 }
 
-function ReferidosBand() {
+function ReferidosBand({ vistas, errors, busy }: BandProps) {
+  const vista = vistaOf(vistas, "control-referidos");
   return (
     <section aria-label="Control Referidos">
       <article className="vc-card">
         <h2>Control Referidos</h2>
-        <p className="op-note">Referido, tipo de referido y nombre de referidor no vienen en esta vista.</p>
+        {!vista ? <StatusLine section="control-referidos" errors={errors} busy={busy} /> : <ReferidosBody vista={vista} />}
       </article>
     </section>
+  );
+}
+
+function ReferidosBody({ vista }: { vista: ReferidosVista }) {
+  const marked = vista.si != null && vista.si > 0;
+  const names = vista.nombres.length > 0;
+  return (
+    <>
+      {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
+      {vista.scopedDeals === 0 ? null : vista.si == null && !names ? (
+        <p className="op-note">Estos tratos no traen referido, tipo de referido ni nombre de referidor.</p>
+      ) : (
+        <>
+          {vista.si === 0 ? <p className="op-note">Ningún trato está marcado como referido.</p> : null}
+          {marked ? (
+            <>
+              <p className="vc-sub">{count(vista.si)} {vista.si === 1 ? "referido" : "referidos"}.</p>
+              {vista.byTipo.length > 0 ? (
+                <NamedBars rows={vista.byTipo} dataKey="units" name="Referidos" fill={NAVY} />
+              ) : null}
+              {vista.sinTipo != null && vista.sinTipo > 0 ? (
+                <p className="op-note">{count(vista.sinTipo)} sin tipo de referido.</p>
+              ) : null}
+            </>
+          ) : null}
+          {names ? (
+            <>
+              <h3>Referidores</h3>
+              <ul className="vc-referidos">
+                {vista.nombres.map((name) => <li key={name}>{name}</li>)}
+              </ul>
+              {vista.nombresTotal != null && vista.nombresTotal > vista.nombres.length ? (
+                <p className="op-note">La lista trae {vista.nombres.length} de {vista.nombresTotal}.</p>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      )}
+    </>
   );
 }
 

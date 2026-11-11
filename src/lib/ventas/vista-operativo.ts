@@ -13,6 +13,7 @@ import type {
   PrecioVista,
   PromoVista,
   RateRow,
+  ReferidosVista,
   ValorVista,
   VentasVista,
 } from "./vista-types";
@@ -818,7 +819,7 @@ export async function buildUnitDetalle(section: StockSection, filters: VistaFilt
   };
 }
 
-const CONTROL_SECTIONS = ["desistimientos", "descuentos", "subidas-de-precios", "ff-y-casos-especiales", "promociones"] as const;
+const CONTROL_SECTIONS = ["desistimientos", "descuentos", "subidas-de-precios", "ff-y-casos-especiales", "promociones", "control-referidos"] as const;
 type ControlSection = (typeof CONTROL_SECTIONS)[number];
 
 export function isControlSection(section: string): section is ControlSection {
@@ -855,7 +856,8 @@ export async function buildControlVista(section: ControlSection, filters: VistaF
   if (section === "descuentos") return buildDescuentos(client, filters, range, dims);
   if (section === "subidas-de-precios") return buildPrecios(client, filters, range, dims);
   if (section === "ff-y-casos-especiales") return buildCasos(client, filters, range, dims);
-  return buildPromos(client, filters, range, dims);
+  if (section === "promociones") return buildPromos(client, filters, range, dims);
+  return buildReferidos(filters, range, dims);
 }
 
 async function buildDesistencias(client: Db, filters: VistaFilters, range: DateWindow, dims: Dims): Promise<DesistenciaVista> {
@@ -1229,5 +1231,127 @@ async function buildPromos(client: Db, filters: VistaFilters, range: DateWindow,
         gtq: sumGtq(list),
       };
     }).sort((a, b) => b.units - a.units).slice(0, 20),
+  };
+}
+
+const NAME_CAP = 12;
+
+function referralText(value: unknown): string | null {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text === "" ? null : text;
+}
+
+function referralScopeNote(filters: VistaFilters): string {
+  const parts = ["el periodo"];
+  if (filters.asesorId) parts.push("el asesor");
+  if (filters.torreId) parts.push("la torre");
+  const limit = parts.length === 1 ? "El periodo no los parte." : `Ni ${parts.join(" ni ")} los parten.`;
+  return `Estos tratos son los de créditos. ${limit}`;
+}
+
+async function creditosProjectIds(names: string[]): Promise<Set<string>> {
+  const db = createAdminClient().schema("creditos");
+  const { data, error } = await db.from("dim_project").select("id,name").in("name", names);
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((row) => String((row as { id: unknown }).id)));
+}
+
+async function loadReferralDeals(): Promise<{ rows: Record<string, unknown>[]; capped: boolean }> {
+  const db = createAdminClient().schema("creditos");
+  const rows: Record<string, unknown>[] = [];
+  for (let start = 0; start < CAP; start += PAGE) {
+    const { data, error } = await db
+      .from("fact_deal")
+      .select("pipedrive_deal_id,project_id,referido,tipo_de_referido,nombre_de_referidor")
+      .order("pipedrive_deal_id")
+      .range(start, start + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as unknown as Record<string, unknown>[];
+    rows.push(...batch);
+    if (batch.length < PAGE) return { rows, capped: false };
+  }
+  return { rows, capped: true };
+}
+
+async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Dims): Promise<ReferidosVista> {
+  const choices = emptyChoices();
+  const names = filters.projectIds === null
+    ? null
+    : filters.projectIds
+      .map((id) => dims.projects.find((project) => project.id === id)?.name)
+      .filter((name): name is string => Boolean(name) && name !== "Sin dato");
+  const projectIds = names === null ? null : names.length === 0 ? new Set<string>() : await creditosProjectIds(names);
+  if (projectIds && projectIds.size === 0) {
+    return {
+      ...base(
+        "¿Cuántos tratos de créditos son referidos, y quién los refirió?",
+        range,
+        "Referido, tipo de referido y nombre de referidor salen del trato de créditos. Un campo vacío no entra como cero.",
+        `Ningún trato de créditos cae en este proyecto. ${referralScopeNote(filters)}`,
+        dims,
+        choices,
+      ),
+      section: "control-referidos",
+      scopedDeals: 0,
+      si: null,
+      sinTipo: null,
+      byTipo: [],
+      nombres: [],
+      nombresTotal: null,
+    };
+  }
+  const loaded = await loadReferralDeals();
+  const rows = projectIds ? loaded.rows.filter((row) => projectIds.has(String(row.project_id ?? ""))) : loaded.rows;
+  const seen = new Set<string>();
+  let sawReferido = false;
+  let si = 0;
+  let sinTipo = 0;
+  const tipos = new Map<string, number>();
+  const nombres = new Set<string>();
+  for (const row of rows) {
+    const id = String(row.pipedrive_deal_id ?? "");
+    if (id === "" || seen.has(id)) continue;
+    seen.add(id);
+    const referido = referralText(row.referido);
+    const tipo = referralText(row.tipo_de_referido);
+    const nombre = referralText(row.nombre_de_referidor);
+    if (referido != null) {
+      sawReferido = true;
+      if (referido === "Si") {
+        si += 1;
+        if (tipo == null) sinTipo += 1;
+        else tipos.set(tipo, (tipos.get(tipo) ?? 0) + 1);
+      }
+    }
+    if (nombre != null) nombres.add(nombre);
+  }
+  const listed = [...nombres].sort((a, b) => a.localeCompare(b, "es"));
+  const notes = [
+    loaded.rows.length === 0
+      ? "Todavía no hay tratos de créditos."
+      : seen.size === 0
+        ? `Ningún trato de créditos cae en este proyecto. ${referralScopeNote(filters)}`
+        : referralScopeNote(filters),
+  ];
+  if (loaded.capped) notes.push("La consulta llegó a 5.000 tratos. El recuento puede quedar corto.");
+  return {
+    ...base(
+      "¿Cuántos tratos de créditos son referidos, y quién los refirió?",
+      range,
+      "Referido, tipo de referido y nombre de referidor salen del trato de créditos. Un campo vacío no entra como cero.",
+      notes.filter((note) => note).join(" "),
+      dims,
+      choices,
+    ),
+    section: "control-referidos",
+    scopedDeals: seen.size,
+    si: sawReferido ? si : null,
+    sinTipo: sawReferido ? sinTipo : null,
+    byTipo: [...tipos.entries()]
+      .map(([label, units]) => ({ id: label, label, units, gtq: null }))
+      .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es")),
+    nombres: listed.slice(0, NAME_CAP),
+    nombresTotal: listed.length === 0 ? null : listed.length,
   };
 }

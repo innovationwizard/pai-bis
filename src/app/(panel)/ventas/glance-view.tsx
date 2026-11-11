@@ -81,6 +81,7 @@ const SPECIFIC: Record<VistaSection, FilterKey[]> = {
   "subidas-de-precios": ["torre"],
   "ff-y-casos-especiales": ["caso", "asesor"],
   promociones: ["promocion", "asesor"],
+  "control-referidos": ["asesor", "torre"],
 };
 
 const FIELD_LABEL: Record<FilterKey, string> = {
