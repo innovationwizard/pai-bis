@@ -35,8 +35,11 @@
 
 .projects {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .rail {
@@ -370,8 +373,127 @@ button.vcol {
 .rowMeta .down,
 .rowMeta .flat { margin-left: 8px; }
 
+/* First band is a fixed share of the viewport. Together with the project rows it fills the
+   first screen under the filters (header, page padding, pills, and toolbar ≈ 308px).
+   Rows share the remainder and scroll inside the band if the project list grows. */
+.fold {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 308px);
+  min-height: 420px;
+}
+
+.overview {
+  flex: 0 0 auto;
+  height: 22dvh;
+  min-height: 168px;
+  overflow: hidden;
+}
+
+.rule {
+  width: 100%;
+  height: 0;
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  flex: 0 0 auto;
+}
+
+.overview .hero,
+.projects .hero,
+.overview .heroChart,
+.projects .heroChart,
+.overview .vcol,
+.projects .vcol,
+.overview .vplot,
+.projects .vplot {
+  min-height: 0;
+}
+
+.overview .hero,
+.projects .hero {
+  height: 100%;
+}
+
+.overview .kpi,
+.projects .kpi {
+  justify-content: center;
+}
+
+.overview .heroChart,
+.projects .heroChart,
+.overview .vbars,
+.projects .vbars {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.overview .vcol,
+.projects .vcol {
+  height: 100%;
+}
+
+.overview .vplot {
+  min-height: 72px;
+}
+
+.projects > .top {
+  flex: 1 1 0;
+  min-height: 72px;
+  overflow: hidden;
+}
+
+.projects .kpi {
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+.projects .kpiValue {
+  font-size: 26px;
+}
+
+.projects .vplot {
+  min-height: 16px;
+}
+
+.projects .vname {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projects .vbars {
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+}
+
 @media (max-width: 800px) {
   .top { grid-template-columns: minmax(0, 1fr); }
+  .fold {
+    height: auto;
+    min-height: 0;
+  }
+  .overview {
+    height: auto;
+    min-height: 220px;
+    overflow: visible;
+  }
+  .projects {
+    overflow: visible;
+  }
+  .projects > .top {
+    flex: none;
+    min-height: 180px;
+    overflow: visible;
+  }
+  .overview .hero,
+  .projects .hero {
+    height: auto;
+    min-height: 180px;
+  }
+  .projects .vname {
+    white-space: normal;
+  }
 }
 
 @media (max-width: 640px) {

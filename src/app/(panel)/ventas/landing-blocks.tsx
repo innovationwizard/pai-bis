@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { compareProjectLabels } from "@/lib/projects";
 import type { FunnelStage, MeasureRow, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
 
@@ -69,7 +70,7 @@ function projectsOf(objetivos: ObjetivosVista | null): ProjectBar[] {
   if (!objetivos) return [];
   return [...objetivos.byProject]
     .map((row) => ({ id: row.id, label: row.label, units: row.units }))
-    .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
+    .sort((a, b) => compareProjectLabels(a.label, b.label));
 }
 
 function hueKey(label: string): string {
@@ -217,6 +218,7 @@ function ReservaCard({
         {whole(units)}
         <span className={styles.kpiUnit}>reservas</span>
       </span>
+      {/* Restore if requested: delta, thin bar, activity numbers, and “Cantidad de actividades”.
       {prior != null ? <span className={toneClass(units - prior)}>{changePill(units, prior)}</span> : status}
       {prior != null ? (
         <span className={styles.meter}>
@@ -238,6 +240,7 @@ function ReservaCard({
         </span>
       ) : null}
       <span className={styles.caption}>Cantidad de actividades</span>
+      */}
     </>
   );
   if (onClick) {
@@ -315,11 +318,15 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
         ? `Total: ${whole(total)} reservas. Cargando…`
         : `Total: ${whole(total)} reservas. No conectado: ${TOTAL_PRIOR}.`;
 
+  const listed = objetivos != null && projects.length > 0;
+
   return (
     <section className={styles.block} aria-label="Ventas totales">
-      <div className={styles.top}>
+      <div className={listed ? styles.fold : undefined}>
+      <div className={`${styles.top} ${styles.overview}`}>
         <div className={styles.rail}>
           <ReservaCard
+            name="Todos los Proyectos"
             units={total}
             prior={comparable && prior != null ? prior : null}
             priorTitle={totales?.priorLabel === "vs mes anterior" ? "Mes anterior" : "Periodo anterior"}
@@ -403,7 +410,9 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
         </div>
       </div>
 
-      {objetivos && projects.length > 0 ? (
+      {listed ? <hr className={styles.rule} /> : null}
+
+      {listed ? (
         <div className={styles.projects}>
           {projects.map((project) => {
             const drilled = advisorsInProject(project.label, project.units, stage, notReps);
@@ -450,6 +459,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
           })}
         </div>
       ) : null}
+      </div>
 
       {cap ? <p className={styles.caption}>{cap}</p> : null}
     </section>

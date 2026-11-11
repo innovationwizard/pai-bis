@@ -30,6 +30,8 @@ import {
   type VentasVista,
   type VistaSection,
 } from "@/lib/ventas/vista-types";
+import { ProjectPillRow } from "@/components/project-pill-row";
+import { compareProjectLabels, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
 import { AsesoresBlock, VentasTotalesBlock } from "./landing-blocks";
 
 const NAVY = "#0d2041";
@@ -59,7 +61,7 @@ type BarState = {
   periodo: string;
   desde: string;
   hasta: string;
-  proyecto: string;
+  proyectos: string[] | null;
   asesor: string;
   torre: string;
 };
@@ -68,7 +70,7 @@ const INITIAL: BarState = {
   periodo: "este-mes",
   desde: "",
   hasta: "",
-  proyecto: "",
+  proyectos: null,
   asesor: "",
   torre: "",
 };
@@ -281,7 +283,13 @@ function buildParams(bar: BarState): URLSearchParams {
     params.set("desde", bar.desde);
     params.set("hasta", bar.hasta);
   }
-  if (bar.proyecto) params.append("proyecto", bar.proyecto);
+  if (bar.proyectos === null) {
+    /* Todos los proyectos. */
+  } else if (bar.proyectos.length === 0) {
+    params.append("proyecto", "ninguno");
+  } else {
+    for (const id of bar.proyectos) params.append("proyecto", id);
+  }
   if (bar.asesor) params.set("asesor", bar.asesor);
   if (bar.torre) params.set("torre", bar.torre);
   return params;
@@ -377,6 +385,25 @@ export default function CommandCenter() {
     setBar((current) => ({ ...current, ...patch }));
   }
 
+  function selectAllProjects() {
+    setFocus(null);
+    setBar((current) => ({ ...current, proyectos: null }));
+  }
+
+  function toggleProject(id: string) {
+    if (!id) return;
+    setFocus(null);
+    setBar((current) => {
+      const known = new Set(projectIds);
+      const selected = current.proyectos === null ? projectIds : current.proyectos;
+      const next = selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id];
+      const coversAll = projectIds.length > 0 && projectIds.every((item) => next.includes(item));
+      const onlyKnown = next.every((item) => known.has(item));
+      if (coversAll && onlyKnown) return { ...current, proyectos: null };
+      return { ...current, proyectos: next };
+    });
+  }
+
   function toggleFocus(next: Focus) {
     setFocus((current) => (sameFocus(current, next) ? null : next));
   }
@@ -386,9 +413,18 @@ export default function CommandCenter() {
   const status = vistaOf(vistas, "status-de-ventas");
   const inventario = vistaOf(vistas, "inventario-general");
 
-  const projects = useMemo(
-    () => mergeChoices([totales?.projects ?? [], objetivos?.projects ?? [], inventario?.projects ?? []]),
+  const loadedProjects = useMemo(
+    () => sortByProjectLabel(mergeChoices([totales?.projects ?? [], objetivos?.projects ?? [], inventario?.projects ?? []])),
     [totales, objetivos, inventario],
+  );
+  const [projects, setProjects] = useState<Choice[]>([]);
+  useEffect(() => {
+    if (loadedProjects.length > 0) setProjects(loadedProjects);
+  }, [loadedProjects]);
+  const projectOptions = useMemo(() => projectPillOptions(projects), [projects]);
+  const projectIds = useMemo(
+    () => projectOptions.map((option) => option.id).filter((id) => id !== ""),
+    [projectOptions],
   );
   const asesores = useMemo(
     () => mergeChoices([totales?.choices.asesor ?? [], objetivos?.choices.asesor ?? [], status?.choices.asesor ?? []]),
@@ -407,6 +443,12 @@ export default function CommandCenter() {
   return (
     <div className="vc-command">
       <header className="vc-head">
+        <ProjectPillRow
+          options={projectOptions}
+          selectedIds={bar.proyectos}
+          onSelectAll={selectAllProjects}
+          onToggle={toggleProject}
+        />
         <div className="op-toolbar">
           <label>
             Periodo
@@ -430,15 +472,6 @@ export default function CommandCenter() {
               </label>
             </>
           ) : null}
-          <label>
-            Proyecto
-            <select value={bar.proyecto} onChange={(event) => update({ proyecto: event.target.value })}>
-              <option value="">Todos los proyectos</option>
-              {withCurrent(projects, bar.proyecto).map((choice) => (
-                <option key={choice.id} value={choice.id}>{choice.label}</option>
-              ))}
-            </select>
-          </label>
           <label>
             Asesor
             <select value={bar.asesor} onChange={(event) => update({ asesor: event.target.value })}>
@@ -478,7 +511,7 @@ export default function CommandCenter() {
       </header>
 
       <VentasTotalesBlock
-        key={`${bar.periodo}|${bar.desde}|${bar.hasta}|${bar.proyecto}|${bar.asesor}|${bar.torre}`}
+        key={`${bar.periodo}|${bar.desde}|${bar.hasta}|${bar.proyectos === null ? "todos" : bar.proyectos.join(",")}|${bar.asesor}|${bar.torre}`}
         totales={totales}
         objetivos={objetivos}
         totalesError={errors["ventas-totales"] ?? null}
@@ -527,7 +560,7 @@ export default function CommandCenter() {
                 {inventario.notice ? <p className="op-note">{inventario.notice}</p> : null}
                 {bar.asesor ? <p className="op-note">El inventario no se parte por asesor.</p> : null}
                 <StackChart
-                  rows={inventario.byProject}
+                  rows={sortByProjectLabel(inventario.byProject)}
                   onPick={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
                 />
               </>
@@ -539,14 +572,23 @@ export default function CommandCenter() {
             <h2>Inventario general por torre</h2>
             {inventario ? (
               <StackChart
-                rows={inventario.byTower.map((row) => ({
-                  id: row.projectId,
-                  label: `${projectName.get(row.projectId) ?? "Proyecto"} · ${row.tower}`,
-                  tower: row.tower,
-                  vendido: row.vendido,
-                  congelado: row.congelado,
-                  disponible: row.disponible,
-                }))}
+                rows={[...inventario.byTower]
+                  .sort((a, b) => {
+                    const byProject = compareProjectLabels(
+                      projectName.get(a.projectId) ?? "",
+                      projectName.get(b.projectId) ?? "",
+                    );
+                    if (byProject !== 0) return byProject;
+                    return a.tower.localeCompare(b.tower, "es");
+                  })
+                  .map((row) => ({
+                    id: row.projectId,
+                    label: `${projectName.get(row.projectId) ?? "Proyecto"} · ${row.tower}`,
+                    tower: row.tower,
+                    vendido: row.vendido,
+                    congelado: row.congelado,
+                    disponible: row.disponible,
+                  }))}
                 onTower={(projectId, tower, label) => toggleFocus({ kind: "torre", projectId, tower, label })}
               />
             ) : (
@@ -562,7 +604,7 @@ export default function CommandCenter() {
           {/* <p className="vc-sub">Real menos ritmo a la fecha de cierre. Rojo: déficit. Azul: excedente.</p> */}
           {status ? (
             <GapBars
-              rows={status.byProject}
+              rows={sortByProjectLabel(status.byProject)}
               onPick={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
             />
           ) : (
@@ -923,7 +965,7 @@ function DesistenciasPanel({
       <article className="vc-card">
         <h2>Desistimientos por proyecto</h2>
         {vista ? (
-          <NamedBars rows={vista.byProject} dataKey={moneyMode ? "gtq" : "units"} name={moneyMode ? "Valor" : "Unidades"} fill={RED} moneyValues={moneyMode} onPick={onProject} />
+          <NamedBars rows={sortByProjectLabel(vista.byProject)} dataKey={moneyMode ? "gtq" : "units"} name={moneyMode ? "Valor" : "Unidades"} fill={RED} moneyValues={moneyMode} onPick={onProject} />
         ) : (
           <StatusLine section="desistimientos" errors={errors} busy={busy} />
         )}
@@ -944,7 +986,7 @@ function ValorBand({ vistas, errors, busy }: BandProps) {
           <>
             {valor.notice ? <p className="op-note">{valor.notice}</p> : null}
             <ValueTrajectory months={valor.months} />
-            <ProjectValue rows={valor.byProject} />
+            <ProjectValue rows={sortByProjectLabel(valor.byProject)} />
           </>
         )}
       </article>
@@ -1106,8 +1148,8 @@ function ControlesPanel({ vistas, errors, busy }: BandProps) {
   const casos = vistaOf(vistas, "ff-y-casos-especiales");
   const promos = vistaOf(vistas, "promociones");
   const promoMoney = promos?.tipos.some((row) => row.gtq != null) ?? false;
-  const gtqProjects = precios?.byProject.filter((row) => row.gtq != null) ?? [];
-  const usdProjects = precios?.byProject.filter((row) => row.usd != null) ?? [];
+  const gtqProjects = sortByProjectLabel((precios?.byProject ?? []).filter((row) => row.gtq != null));
+  const usdProjects = sortByProjectLabel((precios?.byProject ?? []).filter((row) => row.usd != null));
   return (
     <section className="vc-grid-2" aria-label="Controles">
       <article className="vc-card">

@@ -967,6 +967,37 @@ main:has(.section-page) > .section-page > .section-sidebar {
   flex: 0 0 auto;
 }
 
+.op-project-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.op-project-pills button {
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #0d2041;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.op-project-pills button[aria-pressed="true"] {
+  background: #0d2041;
+  color: #fff;
+  border-color: #0d2041;
+}
+
+.op-project-pills button:disabled {
+  color: #94a3b8;
+  cursor: default;
+}
+
 .op-subnav { align-items: center; }
 .op-subnav a { display: inline-flex; align-items: center; text-decoration: none; }
 .op-subnav a[aria-current="page"] { background: #0d2041; color: #fff; border-color: #0d2041; }
