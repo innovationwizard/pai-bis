@@ -78,20 +78,20 @@ button.vcol {
 }
 
 .kpiName {
-  font-size: 13px;
+  font-size: 26px;
   font-weight: 700;
   line-height: 1.25;
 }
 
 .kpiValue {
-  font-size: 32px;
+  font-size: 64px;
   font-weight: 700;
   line-height: 1;
 }
 
 .kpiUnit {
   margin-left: 4px;
-  font-size: 13px;
+  font-size: 26px;
   font-weight: 600;
 }
 
@@ -449,7 +449,7 @@ button.vcol {
 }
 
 .projects .kpiValue {
-  font-size: 26px;
+  font-size: 52px;
 }
 
 .projects .vplot {
