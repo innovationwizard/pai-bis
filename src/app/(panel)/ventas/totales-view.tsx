@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { BlockerRow, Freshness, FunnelStage, StageDeal, TotalesVista } from "@/lib/ventas/vista-types";
+import { isDisplayProject } from "@/lib/projects";
 
 const moneyFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 1 });
@@ -105,6 +106,8 @@ export default function TotalesScreen({
   const metaText = vista.targetUnits
     ? `vs meta ${pct(vista.netUnits / vista.targetUnits)}`
     : (vista.targetNote ?? "Sin meta");
+  const blockers = vista.blockers.filter((row) => isDisplayProject(row.project));
+  const blockerTotal = Math.max(blockers.length, vista.blockerTotal - (vista.blockers.length - blockers.length));
 
   return (
     <div className="op-totales-body">
@@ -222,7 +225,7 @@ export default function TotalesScreen({
         <Projects vista={vista} onProject={onProject} />
       </section>
 
-      <Blockers rows={vista.blockers} total={vista.blockerTotal} />
+      <Blockers rows={blockers} total={blockerTotal} />
       {stage ? <StageDialog stage={stage} onClose={() => setStageId(null)} /> : null}
     </div>
   );
@@ -302,7 +305,7 @@ function Bullet({ actual, expected, target, note }: { actual: number; expected: 
 }
 
 function Projects({ vista, onProject }: { vista: TotalesVista; onProject: (id: string, label: string) => void }) {
-  const rows = vista.byProject.filter((row) => row.units !== 0 || (row.gtq != null && row.gtq !== 0));
+  const rows = vista.byProject.filter((row) => isDisplayProject(row.label) && (row.units !== 0 || (row.gtq != null && row.gtq !== 0)));
   const max = Math.max(...rows.map((row) => Math.max(row.units, 0)), 1);
   const total = rows.reduce((sum, row) => sum + row.units, 0);
   if (rows.length === 0) return <p className="op-note">Ningún proyecto tiene venta neta en este periodo.</p>;
@@ -451,12 +454,17 @@ function StageDialog({ stage, onClose }: { stage: FunnelStage; onClose: () => vo
           <button type="button" onClick={onClose}>Cerrar</button>
         </header>
         {stage.footnote ? <p className="op-note">{stage.footnote}</p> : null}
-        <DealList title="En esta etapa" rows={stage.deals} total={stage.listTotal} />
-        {stage.droppedTotal > 0 ? <DealList title={stage.droppedTitle} rows={stage.dropped} total={stage.droppedTotal} /> : null}
-        {stage.enteredTotal > 0 ? <DealList title={stage.enteredTitle} rows={stage.entered} total={stage.enteredTotal} /> : null}
+        <DealList {...listedDeals("En esta etapa", stage.deals, stage.listTotal)} />
+        {stage.droppedTotal > 0 ? <DealList {...listedDeals(stage.droppedTitle, stage.dropped, stage.droppedTotal)} /> : null}
+        {stage.enteredTotal > 0 ? <DealList {...listedDeals(stage.enteredTitle, stage.entered, stage.enteredTotal)} /> : null}
       </div>
     </div>
   );
+}
+
+function listedDeals(title: string, rows: StageDeal[], total: number): { title: string; rows: StageDeal[]; total: number } {
+  const kept = rows.filter((row) => isDisplayProject(row.project));
+  return { title, rows: kept, total: Math.max(kept.length, total - (rows.length - kept.length)) };
 }
 
 function DealList({ title, rows, total }: { title: string; rows: StageDeal[]; total: number }) {

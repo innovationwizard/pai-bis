@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Choice, VentasReport } from "@/lib/ventas/report";
+import { isDisplayProject } from "@/lib/projects";
 
 const STORAGE_KEY = "pai-ventas-filtros";
 
@@ -209,7 +210,8 @@ export default function VentasBoard({ section }: { section: string }) {
     setBar((current) => ({ ...current, ...patch }));
   }
 
-  const projectChoices = report?.choices.proyecto ?? [];
+  const projectChoices = (report?.choices.proyecto ?? []).filter((choice) => isDisplayProject(choice.label));
+  const projectRows = (report?.byProject ?? []).filter((row) => isDisplayProject(row.label));
   const allProjectIds = projectChoices.map((choice) => choice.id);
 
   function toggleAllProjects() {
@@ -390,7 +392,7 @@ export default function VentasBoard({ section }: { section: string }) {
               ))}
             </div>
           ) : null}
-          {report.byProject.length > 1 ? (
+          {projectRows.length > 1 ? (
             <>
               <h3>Por proyecto</h3>
               <table className="ventas-table">
@@ -402,7 +404,7 @@ export default function VentasBoard({ section }: { section: string }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.byProject.map((row) => (
+                  {projectRows.map((row) => (
                     <tr key={row.label}>
                       <td>{row.label}</td>
                       <td>{units(row.units)}</td>

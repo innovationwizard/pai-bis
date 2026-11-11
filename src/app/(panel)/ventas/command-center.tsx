@@ -31,7 +31,7 @@ import {
   type VistaSection,
 } from "@/lib/ventas/vista-types";
 import { ProjectPillRow } from "@/components/project-pill-row";
-import { compareProjectLabels, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
+import { compareProjectLabels, isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
 import { AsesoresBlock, VentasTotalesBlock } from "./landing-blocks";
 
 const NAVY = "#0d2041";
@@ -40,6 +40,10 @@ const RED = "#b91c1c";
 const AMBER = "#b45309";
 const GRID = "#e2e8f0";
 const CHART_CAP = 12;
+
+function displayProjects<T extends { label: string }>(rows: readonly T[]): T[] {
+  return sortByProjectLabel(rows.filter((row) => isDisplayProject(row.label)));
+}
 
 const SECTIONS: VistaSection[] = [
   "ventas-totales",
@@ -560,7 +564,7 @@ export default function CommandCenter() {
                 {inventario.notice ? <p className="op-note">{inventario.notice}</p> : null}
                 {bar.asesor ? <p className="op-note">El inventario no se parte por asesor.</p> : null}
                 <StackChart
-                  rows={sortByProjectLabel(inventario.byProject)}
+                  rows={displayProjects(inventario.byProject)}
                   onPick={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
                 />
               </>
@@ -573,6 +577,12 @@ export default function CommandCenter() {
             {inventario ? (
               <StackChart
                 rows={[...inventario.byTower]
+                  .filter((row) => {
+                    const label = inventario.byProject.find((project) => project.id === row.projectId)?.label
+                      ?? projectName.get(row.projectId)
+                      ?? "";
+                    return isDisplayProject(label);
+                  })
                   .sort((a, b) => {
                     const byProject = compareProjectLabels(
                       projectName.get(a.projectId) ?? "",
@@ -604,7 +614,7 @@ export default function CommandCenter() {
           {/* <p className="vc-sub">Real menos ritmo a la fecha de cierre. Rojo: déficit. Azul: excedente.</p> */}
           {status ? (
             <GapBars
-              rows={sortByProjectLabel(status.byProject)}
+              rows={displayProjects(status.byProject)}
               onPick={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
             />
           ) : (
@@ -663,7 +673,7 @@ export default function CommandCenter() {
               </p>
             ) : null}
             <Blockers
-              rows={totales.blockers.filter((row) => blockerMatches(row, focus, focus?.kind === "torre" ? projectName.get(focus.projectId) ?? null : null))}
+              rows={totales.blockers.filter((row) => isDisplayProject(row.project) && blockerMatches(row, focus, focus?.kind === "torre" ? projectName.get(focus.projectId) ?? null : null))}
             />
             <h2>Detalle de ventas</h2>
             <p className="vc-sub">Cliente no está en la vista de ventas. Unidad aparece cuando el trato está en la etapa de venta neta.</p>
@@ -671,7 +681,7 @@ export default function CommandCenter() {
               <StageDetail stage={totales.funnel.find((item) => item.id === focus.id) ?? null} />
             ) : (
               <SalesTable
-                lines={totales.lines.filter((line) => lineMatches(line, focus))}
+                lines={totales.lines.filter((line) => isDisplayProject(line.project) && lineMatches(line, focus))}
                 shown={totales.listShown}
                 total={totales.listTotal}
                 filtered={focus != null}
@@ -950,7 +960,8 @@ function DesistenciasPanel({
   onProject,
 }: BandProps & { onProject: (id: string, label: string) => void }) {
   const vista = vistaOf(vistas, "desistimientos");
-  const moneyMode = vista != null && (vista.motivos.some((row) => row.gtq != null) || vista.byProject.some((row) => row.gtq != null));
+  const projectRows = vista ? displayProjects(vista.byProject) : [];
+  const moneyMode = vista != null && (vista.motivos.some((row) => row.gtq != null) || projectRows.some((row) => row.gtq != null));
   return (
     <section className="vc-grid-2" aria-label="Desistimientos">
       <article className="vc-card">
@@ -965,7 +976,7 @@ function DesistenciasPanel({
       <article className="vc-card">
         <h2>Desistimientos por proyecto</h2>
         {vista ? (
-          <NamedBars rows={sortByProjectLabel(vista.byProject)} dataKey={moneyMode ? "gtq" : "units"} name={moneyMode ? "Valor" : "Unidades"} fill={RED} moneyValues={moneyMode} onPick={onProject} />
+          <NamedBars rows={projectRows} dataKey={moneyMode ? "gtq" : "units"} name={moneyMode ? "Valor" : "Unidades"} fill={RED} moneyValues={moneyMode} onPick={onProject} />
         ) : (
           <StatusLine section="desistimientos" errors={errors} busy={busy} />
         )}
@@ -986,7 +997,7 @@ function ValorBand({ vistas, errors, busy }: BandProps) {
           <>
             {valor.notice ? <p className="op-note">{valor.notice}</p> : null}
             <ValueTrajectory months={valor.months} />
-            <ProjectValue rows={sortByProjectLabel(valor.byProject)} />
+            <ProjectValue rows={displayProjects(valor.byProject)} />
           </>
         )}
       </article>
@@ -1148,8 +1159,8 @@ function ControlesPanel({ vistas, errors, busy }: BandProps) {
   const casos = vistaOf(vistas, "ff-y-casos-especiales");
   const promos = vistaOf(vistas, "promociones");
   const promoMoney = promos?.tipos.some((row) => row.gtq != null) ?? false;
-  const gtqProjects = sortByProjectLabel((precios?.byProject ?? []).filter((row) => row.gtq != null));
-  const usdProjects = sortByProjectLabel((precios?.byProject ?? []).filter((row) => row.usd != null));
+  const gtqProjects = displayProjects((precios?.byProject ?? []).filter((row) => row.gtq != null));
+  const usdProjects = displayProjects((precios?.byProject ?? []).filter((row) => row.usd != null));
   return (
     <section className="vc-grid-2" aria-label="Controles">
       <article className="vc-card">
@@ -1402,15 +1413,20 @@ function SalesTable({
   );
 }
 
+function listedDeals(rows: StageDeal[], total: number): { rows: StageDeal[]; total: number } {
+  const kept = rows.filter((row) => isDisplayProject(row.project));
+  return { rows: kept, total: Math.max(kept.length, total - (rows.length - kept.length)) };
+}
+
 function StageDetail({ stage }: { stage: FunnelStage | null }) {
   if (!stage) return <p className="op-note">Esa etapa no está en el periodo.</p>;
   return (
     <>
       <p className="vc-sub">Esta lista es la de la etapa. No trae cliente ni canal.</p>
       {stage.footnote ? <p className="op-note">{stage.footnote}</p> : null}
-      <DealTable title={stage.label} rows={stage.deals} total={stage.listTotal} />
-      {stage.droppedTotal > 0 ? <DealTable title={stage.droppedTitle} rows={stage.dropped} total={stage.droppedTotal} /> : null}
-      {stage.enteredTotal > 0 ? <DealTable title={stage.enteredTitle} rows={stage.entered} total={stage.enteredTotal} /> : null}
+      <DealTable title={stage.label} {...listedDeals(stage.deals, stage.listTotal)} />
+      {stage.droppedTotal > 0 ? <DealTable title={stage.droppedTitle} {...listedDeals(stage.dropped, stage.droppedTotal)} /> : null}
+      {stage.enteredTotal > 0 ? <DealTable title={stage.enteredTitle} {...listedDeals(stage.entered, stage.enteredTotal)} /> : null}
     </>
   );
 }

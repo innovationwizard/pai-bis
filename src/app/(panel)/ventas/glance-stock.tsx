@@ -16,6 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import type { AnalisisVista, ConversionVista, InventarioVista, ValorVista, VentasVista } from "@/lib/ventas/vista-types";
+import { isDisplayProject } from "@/lib/projects";
 
 type StockBar = {
   periodo: string;
@@ -126,6 +127,7 @@ function Analisis({ vista, onModel }: { vista: AnalisisVista; onModel: (id: stri
 }
 
 function General({ vista, onProject }: { vista: InventarioVista; onProject: (id: string, label: string) => void }) {
+  const byProject = vista.byProject.filter((row) => isDisplayProject(row.label));
   return (
     <>
       <div className="op-kpis op-kpis-3">
@@ -136,9 +138,9 @@ function General({ vista, onProject }: { vista: InventarioVista; onProject: (id:
       <section className="op-hero op-hero-budget" aria-label="Inventario por proyecto">
         <header className="op-head"><div><h2>Por proyecto</h2><p className="op-note">{vista.caption}</p></div></header>
         <div className="op-chart">
-          {vista.byProject.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
+          {byProject.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={vista.byProject} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+              <BarChart data={byProject} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid stroke="#e2e8f0" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} interval={0} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={32} />
@@ -155,7 +157,7 @@ function General({ vista, onProject }: { vista: InventarioVista; onProject: (id:
       <section className="op-hero" aria-label="Precio de lista disponible" style={{ flex: 1 }}>
         <header className="op-head"><div><h2>Precio de lista disponible</h2></div></header>
         <Grouped
-          rows={vista.byProject}
+          rows={byProject}
           bars={[{ key: "disponibleGtq", name: "Quetzales", fill: "#0d2041" }, { key: "disponibleUsd", name: "Dólares", fill: "#0573b0" }]}
           format={(value) => count(value)}
           onPick={(row) => onProject(row.id, row.label)}
@@ -166,6 +168,7 @@ function General({ vista, onProject }: { vista: InventarioVista; onProject: (id:
 }
 
 function Valor({ vista, onProject }: { vista: ValorVista; onProject: (id: string, label: string) => void }) {
+  const byProject = vista.byProject.filter((row) => isDisplayProject(row.label));
   return (
     <>
       <div className="op-kpis">
@@ -193,7 +196,7 @@ function Valor({ vista, onProject }: { vista: ValorVista; onProject: (id: string
       <section className="op-hero" aria-label="Disponible contra desistido" style={{ flex: 1 }}>
         <header className="op-head"><div><h2>Disponible contra desistido</h2></div></header>
         <Grouped
-          rows={vista.byProject}
+          rows={byProject}
           bars={[
             { key: "disponibleGtq", name: "Disponible Q", fill: "#0573b0" },
             { key: "disponibleUsd", name: "Disponible $", fill: "#3d6f8f" },

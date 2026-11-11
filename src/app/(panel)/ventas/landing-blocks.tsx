@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { compareProjectLabels } from "@/lib/projects";
+import { compareProjectLabels, isDisplayProject } from "@/lib/projects";
 import type { FunnelStage, MeasureRow, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
 
@@ -86,15 +86,8 @@ function hueKey(label: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function inBarChart(label: string): boolean {
-  const folded = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (folded.includes("casa elisa")) return false;
-  if (folded.includes("coban")) return false;
-  return true;
-}
-
 function chartProjects(objetivos: ObjetivosVista | null): ProjectBar[] {
-  return projectsOf(objetivos).filter((project) => inBarChart(project.label));
+  return projectsOf(objetivos).filter((project) => isDisplayProject(project.label));
 }
 
 function rosterAsesores(objetivos: ObjetivosVista): MeasureRow[] {
@@ -474,7 +467,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
 
 export function AsesoresBlock({ totales, objetivos, objetivosError }: Omit<Props, "totalesError">) {
   const stage = reservaStage(totales);
-  const projects = projectsOf(objetivos);
+  const projects = chartProjects(objetivos);
   return (
     <section className={`${styles.block} ${styles.panel}`} aria-labelledby="vt-asesores-title">
       <h2 id="vt-asesores-title" className={styles.panelTitle}>Asesores</h2>

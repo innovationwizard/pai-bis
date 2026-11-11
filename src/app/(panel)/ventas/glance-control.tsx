@@ -16,6 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import type { CasoVista, DescuentoVista, DesistenciaVista, PrecioVista, PromoVista, VentasVista } from "@/lib/ventas/vista-types";
+import { isDisplayProject } from "@/lib/projects";
 
 const moneyGtq = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
 const moneyUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -65,7 +66,9 @@ function Kpi({ label, value, detail }: { label: string; value: string; detail: s
 
 function Desistencias({ vista }: { vista: DesistenciaVista }) {
   const [title, setTitle] = useState<string | null>(null);
-  const rows = title ? vista.traces.filter((row) => row.motivo === title || row.project === title) : vista.traces;
+  const byProject = vista.byProject.filter((row) => isDisplayProject(row.label));
+  const rows = (title ? vista.traces.filter((row) => row.motivo === title || row.project === title) : vista.traces)
+    .filter((row) => isDisplayProject(row.project));
   return (
     <>
       <div className="op-kpis op-kpis-3">
@@ -79,7 +82,7 @@ function Desistencias({ vista }: { vista: DesistenciaVista }) {
       </section>
       <section className="op-hero" aria-label="Desistimientos por proyecto" style={{ flex: 1 }}>
         <header className="op-head"><div><h2>Valor por proyecto</h2></div></header>
-        <Bars rows={vista.byProject} valueKey="gtq" format={money} onPick={(row) => setTitle(row.label)} />
+        <Bars rows={byProject} valueKey="gtq" format={money} onPick={(row) => setTitle(row.label)} />
       </section>
       {title ? (
         <Overlay title={title} onClose={() => setTitle(null)}>
@@ -119,6 +122,7 @@ function Descuentos({ vista }: { vista: DescuentoVista }) {
 }
 
 function Precios({ vista }: { vista: PrecioVista }) {
+  const byProject = vista.byProject.filter((row) => isDisplayProject(row.label));
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -148,9 +152,9 @@ function Precios({ vista }: { vista: PrecioVista }) {
       <section className="op-hero" aria-label="Subida por proyecto" style={{ flex: 1 }}>
         <header className="op-head"><div><h2>Por proyecto</h2><button type="button" className="op-text" onClick={() => setOpen(true)}>Ver unidades</button></div></header>
         <div className="op-chart">
-          {vista.byProject.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
+          {byProject.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={vista.byProject} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+              <BarChart data={byProject} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid stroke="#e2e8f0" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} interval={0} />
                 <YAxis tick={{ fontSize: 11, fill: "#64748b" }} width={48} axisLine={false} tickLine={false} />
@@ -175,6 +179,7 @@ function Precios({ vista }: { vista: PrecioVista }) {
 function Casos({ vista }: { vista: CasoVista }) {
   const [open, setOpen] = useState(false);
   const known = vista.marked != null;
+  const byProject = vista.byProject.filter((row) => isDisplayProject(row.label));
   return (
     <>
       <div className="op-kpis">
@@ -190,9 +195,9 @@ function Casos({ vista }: { vista: CasoVista }) {
       <section className="op-hero" aria-label="Casos por proyecto" style={{ flex: 1 }}>
         <header className="op-head"><div><h2>Por proyecto</h2>{vista.traces.length ? <button type="button" className="op-text" onClick={() => setOpen(true)}>Ver ventas</button> : null}</div></header>
         <div className="op-chart">
-          {vista.byProject.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
+          {byProject.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={vista.byProject} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+              <BarChart data={byProject} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid stroke="#e2e8f0" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} interval={0} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} width={32} axisLine={false} tickLine={false} />
@@ -207,7 +212,11 @@ function Casos({ vista }: { vista: CasoVista }) {
       </section>
       {open ? (
         <Overlay title="Ventas marcadas" onClose={() => setOpen(false)}>
-          <TraceTable rows={vista.traces} columns={["Unidad", "Proyecto", "Asesor", "Tipo", "Quetzales"]} cells={(row) => [row.unit, row.project, row.asesor, row.tipo, money(row.gtq)]} />
+          <TraceTable
+            rows={vista.traces.filter((row) => isDisplayProject(row.project))}
+            columns={["Unidad", "Proyecto", "Asesor", "Tipo", "Quetzales"]}
+            cells={(row) => [row.unit, row.project, row.asesor, row.tipo, money(row.gtq)]}
+          />
         </Overlay>
       ) : null}
     </>

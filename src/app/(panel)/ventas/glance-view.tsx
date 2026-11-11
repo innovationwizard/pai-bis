@@ -16,6 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import type { Choice, StatusVista, TargetEditor, VentasVista, VistaSection } from "@/lib/ventas/vista-types";
+import { isDisplayProject } from "@/lib/projects";
 import { isControlVista, ControlScreens } from "./glance-control";
 import { isStockVista, StockScreens } from "./glance-stock";
 import TotalesScreen from "./totales-view";
@@ -308,7 +309,7 @@ export default function GlanceView({ section }: { section: VistaSection }) {
     setBar((current) => ({ ...current, ...patch }));
   }
 
-  const choices = vista?.projects ?? [];
+  const choices = (vista?.projects ?? []).filter((choice) => isDisplayProject(choice.label));
   const allIds = choices.map((choice) => choice.id);
   const projectLabel = useMemo(() => {
     if (bar.proyectos === null) return "Todos los proyectos";
@@ -503,7 +504,7 @@ function Objetivos({
           </div>
         </header>
         <Grouped
-          rows={vista.byProject}
+          rows={vista.byProject.filter((row) => isDisplayProject(row.label))}
           bars={[
             { key: "units", name: "Real", fill: "#0d2041" },
             { key: "targetUnits", name: "Meta", fill: "#0573b0" },
@@ -577,7 +578,7 @@ function Status({
         <section className="op-hero" aria-label="Ritmo por proyecto">
           <header className="op-head"><div><h2>Por proyecto</h2><p className="op-note">Reservas</p></div></header>
           <Grouped
-            rows={vista.byProject}
+            rows={vista.byProject.filter((row) => isDisplayProject(row.label))}
             bars={[
               { key: "units", name: "Real", fill: "#0d2041" },
               { key: "paceUnits", name: "Ritmo", fill: "#0573b0" },
@@ -768,6 +769,7 @@ function DrillDrawer({ vista, drill, onClose }: { vista: VentasVista; drill: Dri
     ? new Set(vista.channels.filter((row) => row.id !== "otras").map((row) => row.id))
     : null;
   const rows = vista.lines.filter((line) => {
+    if (!isDisplayProject(line.project)) return false;
     if (drill.kind === "project") return line.projectId === drill.id;
     if (drill.kind === "asesor") return line.asesorId === drill.id;
     if (drill.id === "otras") return topCanales ? !topCanales.has(line.fuenteId) : false;
@@ -812,8 +814,9 @@ function DrillDrawer({ vista, drill, onClose }: { vista: VentasVista; drill: Dri
 }
 
 function TargetDrawer({ editor, onClose, onSaved }: { editor: TargetEditor; onClose: () => void; onSaved: () => void }) {
+  const projects = editor.projects.filter((item) => isDisplayProject(item.label));
   const [month, setMonth] = useState(editor.months.at(-1)?.month ?? "");
-  const [projectId, setProjectId] = useState(editor.projects[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState<Record<string, { units: string; gtq: string }>>({});
   const [saving, setSaving] = useState(false);
@@ -905,7 +908,7 @@ function TargetDrawer({ editor, onClose, onSaved }: { editor: TargetEditor; onCl
       <label>
         Proyecto
         <select value={projectId} onChange={(event) => setProjectId(event.target.value)}>
-          {editor.projects.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          {projects.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
       <label>
