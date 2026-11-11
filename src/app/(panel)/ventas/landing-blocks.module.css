@@ -2,6 +2,7 @@
   --project-benestare: #0d2041;
   --project-boulevard-5: #3d6f8f;
   --project-bosque-las-tapias: #0573b0;
+  --project-santa-elena: #1a4a68;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -510,9 +511,87 @@ button.vcol {
   }
 }
 
+.metaBand {
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.metaBand .panelTitle { margin: 0; }
+
+.metaList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.metaRow {
+  display: grid;
+  grid-template-columns: minmax(132px, 200px) minmax(72px, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.metaName {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.metaTrack {
+  position: relative;
+  height: 8px;
+  overflow: visible;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+
+.metaFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--color-muted);
+}
+
+.metaFill[data-project="benestare"] { background: var(--project-benestare); }
+.metaFill[data-project="boulevard-5"] { background: var(--project-boulevard-5); }
+.metaFill[data-project="bosque-las-tapias"] { background: var(--project-bosque-las-tapias); }
+.metaFill[data-project="santa-elena"] { background: var(--project-santa-elena); }
+
+.metaTick {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--color-text-primary);
+  transform: translateX(-50%);
+}
+
+.metaFigures {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.metaTarget {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
 @media (max-width: 640px) {
   .row { grid-template-columns: minmax(0, 1fr); }
   .rowName,
   .track,
   .rowMeta { grid-column: 1; }
+  .metaRow { grid-template-columns: minmax(0, 1fr); }
+  .metaFigures { white-space: normal; }
 }

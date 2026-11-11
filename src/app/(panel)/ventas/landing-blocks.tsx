@@ -90,6 +90,21 @@ function chartProjects(objetivos: ObjetivosVista | null): ProjectBar[] {
   return projectsOf(objetivos).filter((project) => isDisplayProject(project.label));
 }
 
+type MetaRow = { id: string; label: string; units: number; targetUnits: number | null };
+
+function metaProjects(objetivos: ObjetivosVista | null): MetaRow[] {
+  if (!objetivos) return [];
+  return objetivos.byProject
+    .filter((row) => isDisplayProject(row.label))
+    .map((row) => ({
+      id: row.id,
+      label: row.label,
+      units: row.units,
+      targetUnits: row.targetUnits,
+    }))
+    .sort((a, b) => compareProjectLabels(a.label, b.label));
+}
+
 function rosterAsesores(objetivos: ObjetivosVista): MeasureRow[] {
   const allowed = new Set(objetivos.rosterAsesorIds);
   return objetivos.byAsesor.filter((row) => allowed.has(row.id));
@@ -461,6 +476,50 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
       </div>
 
       {cap ? <p className={styles.caption}>{cap}</p> : null}
+    </section>
+  );
+}
+
+export function ReservasMetaBlock({
+  objetivos,
+  objetivosError,
+}: {
+  objetivos: ObjetivosVista | null;
+  objetivosError: string | null;
+}) {
+  const rows = metaProjects(objetivos);
+  const scale = rows.reduce((max, row) => Math.max(max, row.units, row.targetUnits ?? 0), 1);
+  return (
+    <section className={`${styles.block} ${styles.metaBand}`} aria-labelledby="vt-meta-title">
+      <h2 id="vt-meta-title" className={styles.panelTitle}>Reservas y meta</h2>
+      {!objetivos && objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
+      {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
+      {objetivos && rows.length === 0 ? <p className={styles.caption}>Sin proyectos en este periodo.</p> : null}
+      {rows.length > 0 ? (
+        <div className={styles.metaList}>
+          {rows.map((row) => (
+            <div key={row.id} className={styles.metaRow}>
+              <span className={styles.metaName}>{row.label}</span>
+              <span className={styles.metaTrack} aria-hidden="true">
+                <span
+                  className={styles.metaFill}
+                  data-project={hueKey(row.label)}
+                  style={{ width: widthOf(row.units, scale) }}
+                />
+                {row.targetUnits != null ? (
+                  <span className={styles.metaTick} style={{ left: widthOf(row.targetUnits, scale) }} />
+                ) : null}
+              </span>
+              <span className={styles.metaFigures}>
+                {whole(row.units)}
+                <span className={styles.metaTarget}>
+                  {row.targetUnits == null ? "Sin meta" : `meta ${whole(row.targetUnits)}`}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

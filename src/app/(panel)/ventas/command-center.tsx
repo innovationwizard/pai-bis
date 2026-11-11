@@ -32,7 +32,7 @@ import {
 } from "@/lib/ventas/vista-types";
 import { ProjectPillRow } from "@/components/project-pill-row";
 import { compareProjectLabels, isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
-import { AsesoresBlock, VentasTotalesBlock } from "./landing-blocks";
+import { AsesoresBlock, ReservasMetaBlock, VentasTotalesBlock } from "./landing-blocks";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
@@ -519,6 +519,11 @@ export default function CommandCenter() {
         totales={totales}
         objetivos={objetivos}
         totalesError={errors["ventas-totales"] ?? null}
+        objetivosError={errors["objetivos-de-ventas"] ?? null}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
+      <ReservasMetaBlock
+        objetivos={objetivos}
         objetivosError={errors["objetivos-de-ventas"] ?? null}
       />
       <AsesoresBlock
