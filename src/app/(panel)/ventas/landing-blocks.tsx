@@ -25,6 +25,10 @@ function whole(value: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+function reservaWord(units: number): string {
+  return whole(units) === "1" ? "reserva" : "reservas";
+}
+
 function signedWhole(value: number): string {
   const text = whole(value);
   return value > 0 ? `+${text}` : text;
@@ -216,7 +220,7 @@ function ReservaCard({
       {name ? <span className={styles.kpiName}>{name}</span> : null}
       <span className={styles.kpiValue}>
         {whole(units)}
-        <span className={styles.kpiUnit}>reservas</span>
+        <span className={styles.kpiUnit}>{reservaWord(units)}</span>
       </span>
       {/* Restore if requested: delta, thin bar, activity numbers, and “Cantidad de actividades”.
       {prior != null ? <span className={toneClass(units - prior)}>{changePill(units, prior)}</span> : status}
@@ -310,13 +314,14 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
     ? Math.max(1, ...advisorRows.map((row) => row.reservas))
     : Math.max(1, ...projects.map((project) => project.units));
   const versus = totales?.priorLabel === "vs mes anterior" ? "frente al mes anterior" : "frente al periodo anterior";
+  const totalWord = reservaWord(total);
   const totalLabel = priorAligned && prior != null
-    ? `Total: ${whole(total)} reservas, ${changePill(total, prior)} ${versus}.`
+    ? `Total: ${whole(total)} ${totalWord}, ${changePill(total, prior)} ${versus}.`
     : totalesError
-      ? `Total: ${whole(total)} reservas. ${totalesError}`
+      ? `Total: ${whole(total)} ${totalWord}. ${totalesError}`
       : !totales && !totalesError
-        ? `Total: ${whole(total)} reservas. Cargando…`
-        : `Total: ${whole(total)} reservas. No conectado: ${TOTAL_PRIOR}.`;
+        ? `Total: ${whole(total)} ${totalWord}. Cargando…`
+        : `Total: ${whole(total)} ${totalWord}. No conectado: ${TOTAL_PRIOR}.`;
 
   const listed = objetivos != null && projects.length > 0;
 
@@ -421,9 +426,10 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
             const peakProject = advisorColumns && advisorColumns.length > 0
               ? Math.max(1, ...advisorColumns.map((row) => row.reservas))
               : 1;
+            const projectWord = reservaWord(project.units);
             const projectLabel = earlier != null
-              ? `${project.label}: ${whole(project.units)} reservas, ${changePill(project.units, earlier)} ${versus}.`
-              : `${project.label}: ${whole(project.units)} reservas.`;
+              ? `${project.label}: ${whole(project.units)} ${projectWord}, ${changePill(project.units, earlier)} ${versus}.`
+              : `${project.label}: ${whole(project.units)} ${projectWord}.`;
             return (
               <div key={project.id} className={styles.top}>
                 <div className={styles.rail}>
