@@ -1508,7 +1508,29 @@ main:has(.section-page) > .section-page > .section-sidebar {
   padding: 8px clamp(16px, 2vw, 28px) 40px;
 }
 
+/* Same 1px stroke as .op-filter-rule. The negative margin sits the rule in the
+   column gap and leaves a little more air than that gap alone. */
+.vc-command > .vc-band-rule {
+  margin: -6px 0;
+}
+
 .vc-head { display: flex; flex-direction: column; gap: 8px; }
+
+/* Full filter battery, stuck under the top nav. No compact height. */
+.cc-filter-battery {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--color-bg);
+}
+
+.op-screen:has(> .cc-filter-battery) {
+  overflow: auto;
+}
 .vc-definition {
   margin: 0;
   padding-top: 8px;

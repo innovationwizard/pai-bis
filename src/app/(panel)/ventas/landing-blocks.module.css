@@ -312,6 +312,16 @@ button.vcol {
   overflow: visible;
 }
 
+.projectGroup {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.projectGroup + .projectGroup {
+  margin-top: 8px;
+}
+
 .row {
   display: grid;
   grid-template-columns: minmax(140px, 220px) minmax(80px, 1fr);

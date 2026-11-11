@@ -446,7 +446,7 @@ export default function CommandCenter() {
 
   return (
     <div className="vc-command">
-      <header className="vc-head">
+      <header className="vc-head cc-filter-battery">
         <ProjectPillRow
           options={projectOptions}
           selectedIds={bar.proyectos}
@@ -526,6 +526,7 @@ export default function CommandCenter() {
         objetivos={objetivos}
         objetivosError={errors["objetivos-de-ventas"] ?? null}
       />
+      <hr className="op-filter-rule vc-band-rule" />
 
       <section aria-label="Status contra la fecha de cierre">
         <article className="vc-card">
@@ -546,8 +547,9 @@ export default function CommandCenter() {
           )}
         </article>
       </section>
+      <hr className="op-filter-rule vc-band-rule" />
 
-      <section aria-label="Conversión e inventario">
+      <section aria-label="Tasa de conversión">
         <article className="vc-card">
           <h2>Tasa de conversión</h2>
           {/* <p className="vc-sub">
@@ -555,13 +557,20 @@ export default function CommandCenter() {
           </p> */}
           {totales ? <FunnelChart funnel={totales.funnel} onStage={(id, label) => toggleFocus({ kind: "etapa", id, label })} /> : <StatusLine section="ventas-totales" errors={errors} busy={busy} />}
         </article>
+      </section>
+      <hr className="op-filter-rule vc-band-rule" />
+
+      <section aria-label="Inventario">
         <div className="vc-grid-2">
           <article className="vc-card">
             <h2>Inventario general por proyecto</h2>
             {inventario ? (
               <>
                 {/* {inventario.caption ? <p className="vc-sub">{inventario.caption}</p> : null} */}
-                {inventario.notice ? <p className="op-note">{inventario.notice}</p> : null}
+                {/* Restore if requested: “N unidades están en otro estado.”
+                {inventario.notice?.includes("otro estado") ? <p className="op-note">{inventario.notice}</p> : null}
+                */}
+                {inventario.notice && !inventario.notice.includes("otro estado") ? <p className="op-note">{inventario.notice}</p> : null}
                 {bar.asesor ? <p className="op-note">El inventario no se parte por asesor.</p> : null}
                 <StackChart
                   rows={displayProjects(inventario.byProject)}
@@ -607,6 +616,7 @@ export default function CommandCenter() {
           </article>
         </div>
       </section>
+      <hr className="op-filter-rule vc-band-rule" />
 
       <section className="vc-grid-2" aria-label="Brechas contra el ritmo">
         <article className="vc-card">
@@ -635,6 +645,7 @@ export default function CommandCenter() {
           )}
         </article>
       </section>
+      <hr className="op-filter-rule vc-band-rule" />
 
       <section className="vc-grid-2" aria-label="Canales y modelos">
         <article className="vc-card">
@@ -646,11 +657,16 @@ export default function CommandCenter() {
           <ModeloPanel vistas={vistas} errors={errors} busy={busy} />
         </article>
       </section>
+      <hr className="op-filter-rule vc-band-rule" />
 
       <ValorBand vistas={vistas} errors={errors} busy={busy} />
+      <hr className="op-filter-rule vc-band-rule" />
       <DesistenciasPanel vistas={vistas} errors={errors} busy={busy} onProject={(id, label) => toggleFocus({ kind: "proyecto", id, label })} />
+      <hr className="op-filter-rule vc-band-rule" />
       <ControlesPanel vistas={vistas} errors={errors} busy={busy} />
+      <hr className="op-filter-rule vc-band-rule" />
       <ReferidosBand vistas={vistas} errors={errors} busy={busy} />
+      <hr className="op-filter-rule vc-band-rule" />
 
       <section id="vc-detalle" className="vc-card" aria-label="Detalle operativo">
         <h2>Tratos que todavía no son venta</h2>

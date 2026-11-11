@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { compareProjectLabels, isDisplayProject } from "@/lib/projects";
+import { compareProjectLabels, isDisplayProject, PROJECT_DISPLAY_ORDER, projectKey } from "@/lib/projects";
 import type { FunnelStage, MeasureRow, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
 
@@ -475,7 +475,9 @@ export function AsesoresBlock({ totales, objetivos, objetivosError }: Omit<Props
       {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
       {objetivos ? (
         <>
+          {/* Restore if requested: “La meta de un mes abierto es la del mes completo…”.
           {objetivos.caption && !objetivos.caption.includes("¿") ? <p className={styles.caption}>{objetivos.caption}</p> : null}
+          */}
           {objetivos.notice ? <p className={styles.caption}>{objetivos.notice}</p> : null}
           {totales?.targetNote ? <p className={styles.caption}>{totales.targetNote}</p> : null}
           {rosterAsesores(objetivos).length === 0 ? (
@@ -489,6 +491,26 @@ export function AsesoresBlock({ totales, objetivos, objetivosError }: Omit<Props
   );
 }
 
+type AdvisorPlace = { project: string; projectUnits: number };
+
+function rosterProject(
+  asesorId: string,
+  objetivos: ObjetivosVista,
+  projects: readonly ProjectBar[],
+): AdvisorPlace | null {
+  const byId = new Map(projects.map((project) => [project.id, project]));
+  const cells = objetivos.editor.cells
+    .filter((cell) => cell.asesorId === asesorId && byId.has(cell.projectId))
+    .sort((a, b) => {
+      const byMonth = b.month.localeCompare(a.month);
+      if (byMonth !== 0) return byMonth;
+      return compareProjectLabels(byId.get(a.projectId)?.label ?? "", byId.get(b.projectId)?.label ?? "");
+    });
+  const project = cells[0] ? byId.get(cells[0].projectId) : undefined;
+  if (!project) return null;
+  return { project: project.label, projectUnits: project.units };
+}
+
 function AsesorRows({
   objetivos,
   stage,
@@ -498,49 +520,107 @@ function AsesorRows({
   stage: FunnelStage | null;
   projects: readonly ProjectBar[];
 }) {
-  const rows = rosterAsesores(objetivos).sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
-  const scale = rows.reduce((max, row) => Math.max(max, row.units, row.targetUnits ?? 0), 1);
-  const seenProjects = new Set<string>();
-  const painted = rows.map((row) => {
-    const place = singleProject(row.label, row.units, stage, projects);
-    const hue = place ? hueKey(place.project) : "";
-    const lead = hue.length > 0 && !seenProjects.has(hue);
-    if (hue) seenProjects.add(hue);
-    return { row, place, hue, lead };
-  });
+  const placed = rosterAsesores(objetivos).map((row) => ({
+    row,
+    place: rosterProject(row.id, objetivos, projects) ?? singleProject(row.label, row.units, stage, projects),
+  }));
+  const scale = placed.reduce((max, item) => Math.max(max, item.row.units, item.row.targetUnits ?? 0), 1);
+  const groups = new Map<string, typeof placed>();
+  for (const name of PROJECT_DISPLAY_ORDER) groups.set(projectKey(name), []);
+  const rest: typeof placed = [];
+  for (const item of placed) {
+    const key = item.place ? projectKey(item.place.project) : "";
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(item);
+    else rest.push(item);
+  }
+  const byUnits = (a: (typeof placed)[number], b: (typeof placed)[number]) =>
+    b.row.units - a.row.units || a.row.label.localeCompare(b.row.label, "es");
+  for (const bucket of groups.values()) bucket.sort(byUnits);
+  rest.sort(byUnits);
+
   return (
     <div className={styles.rankList}>
-      {painted.map(({ row, place, hue, lead }) => {
-        const gap = row.gapUnits;
+      {PROJECT_DISPLAY_ORDER.map((name) => {
+        const items = groups.get(projectKey(name)) ?? [];
+        if (items.length === 0) return null;
         return (
-          <div key={row.id} className={styles.row}>
-            <span className={styles.rowName}>
-              {row.label}
-              {place ? <span className={styles.rowProject}>{place.project}</span> : null}
-            </span>
-            <span className={styles.track} aria-hidden="true">
-              <span
-                className={styles.barFill}
-                data-project={hue || undefined}
-                data-lead={lead ? "true" : undefined}
-                style={{ width: widthOf(row.units, scale) }}
+          <div key={projectKey(name)} className={styles.projectGroup}>
+            {items.map((item, index) => (
+              <AsesorLine
+                key={item.row.id}
+                row={item.row}
+                place={item.place}
+                hue={item.place ? hueKey(item.place.project) : ""}
+                lead={index === 0}
+                scale={scale}
+                total={objetivos.units}
               />
-              {row.targetUnits != null ? <span className={styles.tickMark} style={{ left: widthOf(row.targetUnits, scale) }} /> : null}
-            </span>
-            <span className={styles.rowMeta}>
-              {whole(row.units)}
-              <span> · {shareText(row.units, objetivos.units)} del total</span>
-              {place ? <span> · {shareText(row.units, place.projectUnits)} de {place.project}</span> : null}
-              {row.targetUnits != null ? (
-                <>
-                  <span> · meta {whole(row.targetUnits)}</span>
-                  {gap != null ? <span className={toneClass(gap)}>{signedWhole(gap)}</span> : null}
-                </>
-              ) : null}
-            </span>
+            ))}
           </div>
         );
       })}
+      {rest.length > 0 ? (
+        <div className={styles.projectGroup}>
+          {rest.map((item) => (
+            <AsesorLine
+              key={item.row.id}
+              row={item.row}
+              place={item.place}
+              hue={item.place ? hueKey(item.place.project) : ""}
+              lead={false}
+              scale={scale}
+              total={objetivos.units}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AsesorLine({
+  row,
+  place,
+  hue,
+  lead,
+  scale,
+  total,
+}: {
+  row: MeasureRow;
+  place: AdvisorPlace | null;
+  hue: string;
+  lead: boolean;
+  scale: number;
+  total: number;
+}) {
+  const gap = row.gapUnits;
+  return (
+    <div className={styles.row}>
+      <span className={styles.rowName}>
+        {row.label}
+        {place ? <span className={styles.rowProject}>{place.project}</span> : null}
+      </span>
+      <span className={styles.track} aria-hidden="true">
+        <span
+          className={styles.barFill}
+          data-project={hue || undefined}
+          data-lead={lead && hue ? "true" : undefined}
+          style={{ width: widthOf(row.units, scale) }}
+        />
+        {row.targetUnits != null ? <span className={styles.tickMark} style={{ left: widthOf(row.targetUnits, scale) }} /> : null}
+      </span>
+      <span className={styles.rowMeta}>
+        {whole(row.units)}
+        <span> · {shareText(row.units, total)} del total</span>
+        {place ? <span> · {shareText(row.units, place.projectUnits)} de {place.project}</span> : null}
+        {row.targetUnits != null ? (
+          <>
+            <span> · meta {whole(row.targetUnits)}</span>
+            {gap != null ? <span className={toneClass(gap)}>{signedWhole(gap)}</span> : null}
+          </>
+        ) : null}
+      </span>
     </div>
   );
 }
