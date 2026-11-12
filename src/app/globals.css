@@ -1556,6 +1556,39 @@ main:has(.section-page) > .section-page > .section-sidebar {
   font-weight: 700;
 }
 .vc-card > h2:not(:first-child) { margin-top: 18px; }
+.vc-card.vc-detail {
+  padding: 8px 12px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-card);
+}
+.vc-card.vc-detail > h2 {
+  margin: 0 0 8px;
+  color: rgba(13, 32, 65, 0.75);
+  font-size: calc(26px * 0.75);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.vc-card.vc-detail > h2:not(:first-child) { margin-top: 18px; }
+.vc-card.vc-detail h3 {
+  margin: 14px 0 6px;
+  color: rgba(13, 32, 65, 0.75);
+  font-size: 14px;
+  font-weight: 700;
+}
+.vc-card.vc-detail .vt-table-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+.vc-card.vc-detail .vt-table th,
+.vc-card.vc-detail .vt-table th button {
+  color: rgba(13, 32, 65, 0.75);
+}
+.vc-card.vc-detail .vt-table td {
+  color: #0d2041;
+  font-variant-numeric: tabular-nums;
+}
 .vc-referidos {
   margin: 4px 0 0;
   padding: 0;

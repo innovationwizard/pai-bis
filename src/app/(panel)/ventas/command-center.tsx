@@ -6,11 +6,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
   LabelList,
-  Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -19,25 +15,21 @@ import {
 import {
   type BlockerRow,
   type Choice,
-  type DescuentoVista,
   type FunnelStage,
-  type PrecioVista,
-  type ReferidosVista,
   type SaleLine,
   type StageDeal,
   type StatusRow,
-  type ValorVista,
   type VentasVista,
   type VistaSection,
 } from "@/lib/ventas/vista-types";
 import { ProjectPillRow } from "@/components/project-pill-row";
-import { compareProjectLabels, isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
+import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
 import { AsesoresBlock, CanalesBlock, ReservasMetaBlock, StatusAsesorBlock, StatusCierreChart, StatusProyectoBlock, VentasTotalesBlock } from "./landing-blocks";
+import { ControlesGrid, DesistimientosBands, InventarioBands, ModeloBand, ReferidosBand, TasaBand, ValorBand } from "./lower-bands";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
 const RED = "#b91c1c";
-const AMBER = "#b45309";
 const GRID = "#e2e8f0";
 const CHART_CAP = 12;
 
@@ -89,17 +81,11 @@ type Focus =
 type SortKey = "unit" | "who" | "stage" | "missing" | "days" | "gtq";
 
 const moneyFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
-const dollarFormat = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 1 });
 
 function money(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "—";
   return moneyFormat.format(value);
-}
-
-function dollars(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return dollarFormat.format(value);
 }
 
 function count(value: number | null | undefined): string {
@@ -111,13 +97,6 @@ function signed(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "Sin meta";
   const text = count(value);
   return value > 0 ? `+${text}` : text;
-}
-
-function pct(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  const n = value * 100;
-  const digits = Math.abs(n) >= 10 || n === 0 ? 0 : 1;
-  return `${new Intl.NumberFormat("es-GT", { maximumFractionDigits: digits }).format(n)}%`;
 }
 
 function dotted(iso: string | null | undefined): string {
@@ -139,24 +118,6 @@ function tipNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value !== "" && Number.isFinite(Number(value))) return Number(value);
   return null;
-}
-
-function labelStack(value: unknown): string {
-  const n = tipNumber(value);
-  if (n == null || n === 0) return "";
-  return count(n);
-}
-
-function labelMoney(value: unknown): string {
-  const n = tipNumber(value);
-  if (n == null) return "";
-  return money(n);
-}
-
-function labelDollars(value: unknown): string {
-  const n = tipNumber(value);
-  if (n == null) return "";
-  return dollars(n);
 }
 
 function labelSigned(value: unknown): string {
@@ -186,16 +147,6 @@ function readRow(input: unknown): { id: string; label: string } | null {
   const row = payloadOf(input);
   if (!row || typeof row.id !== "string" || typeof row.label !== "string") return null;
   return { id: row.id, label: row.label };
-}
-
-function readTower(input: unknown): { projectId: string; tower: string; label: string } | null {
-  const row = payloadOf(input);
-  if (!row || typeof row.id !== "string" || typeof row.tower !== "string" || typeof row.label !== "string") return null;
-  return { projectId: row.id, tower: row.tower, label: row.label };
-}
-
-function isStageId(value: string): value is FunnelStage["id"] {
-  return value === "reservas" || value === "promesas" || value === "recibos" || value === "netas";
 }
 
 function sameFocus(current: Focus | null, next: Focus): boolean {
@@ -318,16 +269,6 @@ function ChartFrame({ height, children }: { height: number; children: ReactEleme
   );
 }
 
-function tipPair(value: unknown, name: unknown): [string, string] {
-  if (value == null) return ["Sin meta", String(name ?? "")];
-  return [count(tipNumber(value)), String(name ?? "")];
-}
-
-function moneyTip(value: unknown, name: unknown): [string, string] {
-  if (value == null) return ["Sin monto", String(name ?? "")];
-  return [money(tipNumber(value)), String(name ?? "")];
-}
-
 export default function CommandCenter() {
   const [bar, setBar] = useState<BarState>(INITIAL);
   const [focus, setFocus] = useState<Focus | null>(null);
@@ -437,6 +378,13 @@ export default function CommandCenter() {
     for (const project of projects) map.set(project.id, project.label);
     return map;
   }, [projects]);
+  const roster = useMemo(() => {
+    const selected = bar.proyectos;
+    const source = selected === null
+      ? projectOptions
+      : projectOptions.filter((option) => option.id !== "" && selected.includes(option.id));
+    return source.map((option) => ({ id: option.id, label: option.label }));
+  }, [bar.proyectos, projectOptions]);
 
   return (
     <div className="vc-command">
@@ -552,79 +500,28 @@ export default function CommandCenter() {
       />
       <hr className="op-filter-rule vc-band-rule" />
 
-      <section aria-label="Tasa de conversión">
-        <article className="vc-card">
-          <h2>Tasa de conversión</h2>
-          {/* <p className="vc-sub">
-            Reservas, promesas firmadas, recibos publicados y ventas netas. El porcentaje compara cada etapa con la anterior. Si pasa de 100 %, entraron tratos que no venían de esa etapa.
-          </p> */}
-          {totales ? <FunnelChart funnel={totales.funnel} onStage={(id, label) => toggleFocus({ kind: "etapa", id, label })} /> : <StatusLine section="ventas-totales" errors={errors} busy={busy} />}
-        </article>
-      </section>
+      <TasaBand
+        funnel={totales ? totales.funnel : null}
+        pending={<StatusLine section="ventas-totales" errors={errors} busy={busy} />}
+        onStage={(id, label) => toggleFocus({ kind: "etapa", id, label })}
+      />
       <hr className="op-filter-rule vc-band-rule" />
 
-      <section aria-label="Inventario">
-        <div className="vc-grid-2">
-          <article className="vc-card">
-            <h2>Inventario general por proyecto</h2>
-            {inventario ? (
-              <>
-                {/* {inventario.caption ? <p className="vc-sub">{inventario.caption}</p> : null} */}
-                {/* Restore if requested: “N unidades están en otro estado.”
-                {inventario.notice?.includes("otro estado") ? <p className="op-note">{inventario.notice}</p> : null}
-                */}
-                {inventario.notice && !inventario.notice.includes("otro estado") ? <p className="op-note">{inventario.notice}</p> : null}
-                {bar.asesor ? <p className="op-note">El inventario no se parte por asesor.</p> : null}
-                <StackChart
-                  rows={displayProjects(inventario.byProject)}
-                  onPick={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
-                />
-              </>
-            ) : (
-              <StatusLine section="inventario-general" errors={errors} busy={busy} />
-            )}
-          </article>
-          <article className="vc-card">
-            <h2>Inventario general por torre</h2>
-            {inventario ? (
-              <StackChart
-                rows={[...inventario.byTower]
-                  .filter((row) => {
-                    const label = inventario.byProject.find((project) => project.id === row.projectId)?.label
-                      ?? projectName.get(row.projectId)
-                      ?? "";
-                    return isDisplayProject(label);
-                  })
-                  .sort((a, b) => {
-                    const byProject = compareProjectLabels(
-                      projectName.get(a.projectId) ?? "",
-                      projectName.get(b.projectId) ?? "",
-                    );
-                    if (byProject !== 0) return byProject;
-                    return a.tower.localeCompare(b.tower, "es");
-                  })
-                  .map((row) => ({
-                    id: row.projectId,
-                    label: `${projectName.get(row.projectId) ?? "Proyecto"} · ${row.tower}`,
-                    tower: row.tower,
-                    vendido: row.vendido,
-                    congelado: row.congelado,
-                    disponible: row.disponible,
-                  }))}
-                onTower={(projectId, tower, label) => toggleFocus({ kind: "torre", projectId, tower, label })}
-              />
-            ) : (
-              <StatusLine section="inventario-general" errors={errors} busy={busy} />
-            )}
-          </article>
-        </div>
-      </section>
+      <InventarioBands
+        vista={inventario}
+        pending={<StatusLine section="inventario-general" errors={errors} busy={busy} />}
+        roster={roster}
+        projectName={projectName}
+        asesorNote={bar.asesor ? "El inventario no se parte por asesor." : null}
+        onProject={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
+        onTower={(projectId, tower, label) => toggleFocus({ kind: "torre", projectId, tower, label })}
+      />
       <hr className="op-filter-rule vc-band-rule" />
 
+      {/* Brecha contra el ritmo por proyecto y por asesor.
       <section className="vc-grid-2" aria-label="Brechas contra el ritmo">
         <article className="vc-card">
           <h2>Brecha contra el ritmo por proyecto</h2>
-          {/* <p className="vc-sub">Real menos ritmo a la fecha de cierre. Rojo: déficit. Azul: excedente.</p> */}
           {status ? (
             <GapBars
               rows={displayProjects(status.byProject)}
@@ -649,25 +546,47 @@ export default function CommandCenter() {
         </article>
       </section>
       <hr className="op-filter-rule vc-band-rule" />
+      */}
 
-      <section aria-label="Ventas por modelo">
-        <article className="vc-card">
-          <h2>Ventas por modelo</h2>
-          <ModeloPanel vistas={vistas} errors={errors} busy={busy} />
-        </article>
-      </section>
-      <hr className="op-filter-rule vc-band-rule" />
-
-      <ValorBand vistas={vistas} errors={errors} busy={busy} />
-      <hr className="op-filter-rule vc-band-rule" />
-      <DesistenciasPanel vistas={vistas} errors={errors} busy={busy} onProject={(id, label) => toggleFocus({ kind: "proyecto", id, label })} />
-      <hr className="op-filter-rule vc-band-rule" />
-      <ControlesPanel vistas={vistas} errors={errors} busy={busy} />
-      <hr className="op-filter-rule vc-band-rule" />
-      <ReferidosBand vistas={vistas} errors={errors} busy={busy} />
+      <ModeloBand
+        vista={vistaOf(vistas, "analisis-de-inventario")}
+        pending={<StatusLine section="analisis-de-inventario" errors={errors} busy={busy} />}
+      />
       <hr className="op-filter-rule vc-band-rule" />
 
-      <section id="vc-detalle" className="vc-card" aria-label="Detalle operativo">
+      <ValorBand
+        precios={vistaOf(vistas, "subidas-de-precios")}
+        preciosPending={<StatusLine section="subidas-de-precios" errors={errors} busy={busy} />}
+        descuentos={vistaOf(vistas, "descuentos")}
+        descuentosPending={<StatusLine section="descuentos" errors={errors} busy={busy} />}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
+      <DesistimientosBands
+        vista={vistaOf(vistas, "desistimientos")}
+        pending={<StatusLine section="desistimientos" errors={errors} busy={busy} />}
+        roster={roster}
+        onProject={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
+      <ControlesGrid
+        descuentos={vistaOf(vistas, "descuentos")}
+        descuentosPending={<StatusLine section="descuentos" errors={errors} busy={busy} />}
+        precios={vistaOf(vistas, "subidas-de-precios")}
+        preciosPending={<StatusLine section="subidas-de-precios" errors={errors} busy={busy} />}
+        casos={vistaOf(vistas, "ff-y-casos-especiales")}
+        casosPending={<StatusLine section="ff-y-casos-especiales" errors={errors} busy={busy} />}
+        promos={vistaOf(vistas, "promociones")}
+        promosPending={<StatusLine section="promociones" errors={errors} busy={busy} />}
+        roster={roster}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
+      <ReferidosBand
+        vista={vistaOf(vistas, "control-referidos")}
+        pending={<StatusLine section="control-referidos" errors={errors} busy={busy} />}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
+
+      <section id="vc-detalle" className="vc-card vc-detail" aria-label="Detalle operativo">
         <h2>Tratos que todavía no son venta</h2>
         <p className="vc-sub">Tienen reserva, promesa o recibo en el periodo y no cierran las dos puertas. La columna Falta es la puerta que no está.</p>
         {focus ? (
@@ -726,45 +645,6 @@ function StatusLine({
   return <p className="op-note">Cargando…</p>;
 }
 
-function FunnelChart({ funnel, onStage }: { funnel: FunnelStage[]; onStage: (id: FunnelStage["id"], label: string) => void }) {
-  const data = funnel.map((stage) => ({
-    id: stage.id,
-    label: stage.label,
-    count: stage.count,
-    mark: stage.conversion == null ? count(stage.count) : `${count(stage.count)} · ${pct(stage.conversion)}`,
-  }));
-  if (data.length === 0) return <p className="op-note">Nada que graficar en este periodo.</p>;
-  return (
-    <>
-      <ChartFrame height={220}>
-        <BarChart layout="vertical" data={data} margin={{ left: 8, right: 72, top: 4, bottom: 0 }}>
-          <CartesianGrid stroke={GRID} horizontal={false} />
-          <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-          <YAxis type="category" dataKey="label" width={150} tick={{ fontSize: 12, fill: NAVY }} axisLine={false} tickLine={false} />
-          <Tooltip formatter={(value, name) => tipPair(value, name)} />
-          <Bar
-            dataKey="count"
-            name="Volumen"
-            fill={NAVY}
-            barSize={16}
-            isAnimationActive={false}
-            cursor="pointer"
-            onClick={(row) => {
-              const hit = readRow(row);
-              if (hit && isStageId(hit.id)) onStage(hit.id, hit.label);
-            }}
-          >
-            <LabelList dataKey="mark" position="right" fill="#334155" fontSize={11} />
-          </Bar>
-        </BarChart>
-      </ChartFrame>
-      {/* <p className="vc-sub">
-        {funnel.map((stage) => `${stage.label}: ${stage.source}, ${stage.grain}`).join(" · ")}
-      </p> */}
-    </>
-  );
-}
-
 function GapBars({
   rows,
   hidden = 0,
@@ -799,467 +679,6 @@ function GapBars({
       </ChartFrame>
       {withoutMeta > 0 ? <p className="op-note">{withoutMeta} sin meta, fuera de la barra.</p> : null}
       {hidden > 0 ? <p className="op-note">{data.length} de {data.length + hidden} {hiddenText}.</p> : null}
-    </>
-  );
-}
-
-function StackChart({
-  rows,
-  onPick,
-  onTower,
-}: {
-  rows: { id: string; label: string; tower?: string; vendido: number; congelado: number; disponible: number }[];
-  onPick?: (id: string, label: string) => void;
-  onTower?: (projectId: string, tower: string, label: string) => void;
-}) {
-  if (rows.length === 0) return <p className="op-note">Nada que graficar en este periodo.</p>;
-  function pick(row: unknown) {
-    if (onTower) {
-      const tower = readTower(row);
-      if (tower) onTower(tower.projectId, tower.tower, tower.label);
-      return;
-    }
-    const hit = readRow(row);
-    if (hit && onPick) onPick(hit.id, hit.label);
-  }
-  return (
-    <ChartFrame height={Math.max(220, rows.length * 32 + 48)}>
-      <BarChart layout="vertical" data={rows} margin={{ left: 8, right: 12, top: 8, bottom: 0 }}>
-        <CartesianGrid stroke={GRID} horizontal={false} />
-        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-        <YAxis type="category" dataKey="label" width={160} tickFormatter={(value) => clip(String(value), 28)} tick={{ fontSize: 11, fill: NAVY }} axisLine={false} tickLine={false} />
-        <Tooltip formatter={(value, name) => tipPair(value, name)} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="disponible" name="Disponible" stackId="estado" fill={BLUE} isAnimationActive={false} cursor="pointer" onClick={pick}>
-          <LabelList dataKey="disponible" position="center" formatter={labelStack} fill="#fff" fontSize={10} />
-        </Bar>
-        <Bar dataKey="congelado" name="Congelado" stackId="estado" fill={AMBER} isAnimationActive={false} cursor="pointer" onClick={pick}>
-          <LabelList dataKey="congelado" position="center" formatter={labelStack} fill="#fff" fontSize={10} />
-        </Bar>
-        <Bar dataKey="vendido" name="Vendido" stackId="estado" fill={NAVY} isAnimationActive={false} cursor="pointer" onClick={pick}>
-          <LabelList dataKey="vendido" position="center" formatter={labelStack} fill="#fff" fontSize={10} />
-        </Bar>
-      </BarChart>
-    </ChartFrame>
-  );
-}
-
-type AmountRow = { id: string; label: string; units: number; gtq: number | null };
-
-function barMark(
-  row: AmountRow,
-  dataKey: "units" | "gtq",
-  moneyValues: boolean,
-  showGtq: boolean,
-  format: ((value: number | null) => string) | undefined,
-): string {
-  if (format) return format(dataKey === "gtq" ? row.gtq : row.units);
-  if (moneyValues) return row.gtq == null ? "" : money(row.gtq);
-  if (showGtq && row.gtq != null) return `${count(row.units)} · ${money(row.gtq)}`;
-  return count(row.units);
-}
-
-function NamedBars({
-  rows,
-  dataKey,
-  name,
-  fill,
-  moneyValues = false,
-  showGtq = false,
-  format,
-  onPick,
-}: {
-  rows: AmountRow[];
-  dataKey: "units" | "gtq";
-  name: string;
-  fill: string;
-  moneyValues?: boolean;
-  showGtq?: boolean;
-  format?: (value: number | null) => string;
-  onPick?: (id: string, label: string) => void;
-}) {
-  const eligible = rows.filter((row) => (dataKey === "gtq" ? row.gtq != null : true));
-  if (eligible.length === 0) return <p className="op-note">Nada que graficar en este periodo.</p>;
-  const shown = capRows(eligible, CHART_CAP);
-  const data = shown.rows.map((row) => ({
-    ...row,
-    mark: barMark(row, dataKey, moneyValues, showGtq, format),
-  }));
-  const wide = moneyValues || showGtq || format != null;
-  return (
-    <>
-      <ChartFrame height={Math.max(200, data.length * 32 + 36)}>
-        <BarChart layout="vertical" data={data} margin={{ left: 8, right: wide ? 132 : 48, top: 8, bottom: 0 }}>
-          <CartesianGrid stroke={GRID} horizontal={false} />
-          <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-          <YAxis type="category" dataKey="label" width={150} tickFormatter={(value) => clip(String(value))} tick={{ fontSize: 11, fill: NAVY }} axisLine={false} tickLine={false} />
-          <Tooltip formatter={(value, seriesName) => (moneyValues || format ? (format ? [format(tipNumber(value)), String(seriesName ?? "")] : moneyTip(value, seriesName)) : tipPair(value, seriesName))} />
-          <Bar dataKey={dataKey} name={name} fill={fill} barSize={12} isAnimationActive={false} cursor={onPick ? "pointer" : undefined} onClick={(row) => {
-            if (!onPick) return;
-            const hit = readRow(row);
-            if (hit && hit.id !== "otras") onPick(hit.id, hit.label);
-          }}>
-            <LabelList dataKey="mark" position="right" fill="#334155" fontSize={11} />
-          </Bar>
-        </BarChart>
-      </ChartFrame>
-      {shown.hidden > 0 ? <p className="op-note">{data.length} de {data.length + shown.hidden}.</p> : null}
-    </>
-  );
-}
-
-type BandProps = {
-  vistas: Partial<Record<VistaSection, VentasVista>>;
-  errors: Partial<Record<VistaSection, string>>;
-  busy: VistaSection[];
-};
-
-function ModeloPanel({ vistas, errors, busy }: BandProps) {
-  const vista = vistaOf(vistas, "analisis-de-inventario");
-  if (!vista) return <StatusLine section="analisis-de-inventario" errors={errors} busy={busy} />;
-  const ranked = [...vista.models].sort((a, b) => b.sold - a.sold || a.label.localeCompare(b.label, "es"));
-  return (
-    <>
-      {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
-      <NamedBars
-        rows={ranked.map((row) => ({ id: row.id, label: row.label, units: row.sold, gtq: null }))}
-        dataKey="units"
-        name="Vendidas"
-        fill={NAVY}
-      />
-    </>
-  );
-}
-
-function DesistenciasPanel({
-  vistas,
-  errors,
-  busy,
-  onProject,
-}: BandProps & { onProject: (id: string, label: string) => void }) {
-  const vista = vistaOf(vistas, "desistimientos");
-  const projectRows = vista ? displayProjects(vista.byProject) : [];
-  const moneyMode = vista != null && (vista.motivos.some((row) => row.gtq != null) || projectRows.some((row) => row.gtq != null));
-  return (
-    <section className="vc-grid-2" aria-label="Desistimientos">
-      <article className="vc-card">
-        <h2>Desistimientos por motivo</h2>
-        {!vista ? <StatusLine section="desistimientos" errors={errors} busy={busy} /> : (
-          <>
-            {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
-            <NamedBars rows={vista.motivos} dataKey={moneyMode ? "gtq" : "units"} name={moneyMode ? "Valor" : "Unidades"} fill={RED} moneyValues={moneyMode} />
-          </>
-        )}
-      </article>
-      <article className="vc-card">
-        <h2>Desistimientos por proyecto</h2>
-        {vista ? (
-          <NamedBars rows={projectRows} dataKey={moneyMode ? "gtq" : "units"} name={moneyMode ? "Valor" : "Unidades"} fill={RED} moneyValues={moneyMode} onPick={onProject} />
-        ) : (
-          <StatusLine section="desistimientos" errors={errors} busy={busy} />
-        )}
-      </article>
-    </section>
-  );
-}
-
-function ValorBand({ vistas, errors, busy }: BandProps) {
-  const valor = vistaOf(vistas, "valor-del-proyecto");
-  const precios = vistaOf(vistas, "subidas-de-precios");
-  const descuentos = vistaOf(vistas, "descuentos");
-  return (
-    <section aria-label="Valor de proyecto">
-      <article className="vc-card">
-        <h2>Valor de proyecto</h2>
-        {!valor ? <StatusLine section="valor-del-proyecto" errors={errors} busy={busy} /> : (
-          <>
-            {valor.notice ? <p className="op-note">{valor.notice}</p> : null}
-            <ValueTrajectory months={valor.months} />
-            <ProjectValue rows={displayProjects(valor.byProject)} />
-          </>
-        )}
-      </article>
-      <div className="vc-grid-2">
-        <article className="vc-card">
-          <h2>Trayectoria de precios</h2>
-          {!precios ? <StatusLine section="subidas-de-precios" errors={errors} busy={busy} /> : <PriceTrajectory vista={precios} />}
-        </article>
-        <article className="vc-card">
-          <h2>Impacto del descuento</h2>
-          {!descuentos ? <StatusLine section="descuentos" errors={errors} busy={busy} /> : <DiscountImpact vista={descuentos} />}
-        </article>
-      </div>
-    </section>
-  );
-}
-
-function ValueTrajectory({ months }: { months: ValorVista["months"] }) {
-  if (months.length === 0) return <p className="op-note">Nada que graficar en este periodo.</p>;
-  return (
-    <ChartFrame height={280}>
-      <ComposedChart data={months} margin={{ left: 8, right: 12, top: 22, bottom: 16 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-        <YAxis tickFormatter={(value) => labelMoney(value)} tick={{ fontSize: 11, fill: "#64748b" }} width={84} axisLine={false} tickLine={false} />
-        <Tooltip formatter={(value, name) => moneyTip(value, name)} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="desistido" name="Desistido" fill={RED} barSize={14} isAnimationActive={false}>
-          <LabelList dataKey="desistido" position="top" formatter={labelMoney} fill={RED} fontSize={9} />
-        </Bar>
-        <Line type="monotone" dataKey="ventas" name="Ventas" stroke={NAVY} strokeWidth={2} dot={{ r: 2 }} isAnimationActive={false}>
-          <LabelList dataKey="ventas" position="bottom" formatter={labelMoney} fill={NAVY} fontSize={9} />
-        </Line>
-      </ComposedChart>
-    </ChartFrame>
-  );
-}
-
-function ProjectValue({ rows }: { rows: ValorVista["byProject"] }) {
-  const gtq = rows.filter((row) => row.disponibleGtq != null || row.desistidoGtq != null);
-  const usd = rows.filter((row) => row.disponibleUsd != null);
-  if (gtq.length === 0 && usd.length === 0) return null;
-  return (
-    <>
-      {gtq.length > 0 ? (
-        <ChartFrame height={Math.max(180, gtq.length * 48 + 36)}>
-          <BarChart layout="vertical" data={gtq} margin={{ left: 8, right: 96, top: 8, bottom: 0 }}>
-            <CartesianGrid stroke={GRID} horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="label" width={140} tickFormatter={(value) => clip(String(value))} tick={{ fontSize: 11, fill: NAVY }} axisLine={false} tickLine={false} />
-            <Tooltip formatter={(value, name) => moneyTip(value, name)} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="disponibleGtq" name="Disponible" fill={BLUE} barSize={10} isAnimationActive={false}>
-              <LabelList dataKey="disponibleGtq" position="right" formatter={labelMoney} fill="#334155" fontSize={10} />
-            </Bar>
-            <Bar dataKey="desistidoGtq" name="Desistido" fill={RED} barSize={10} isAnimationActive={false}>
-              <LabelList dataKey="desistidoGtq" position="right" formatter={labelMoney} fill="#334155" fontSize={10} />
-            </Bar>
-          </BarChart>
-        </ChartFrame>
-      ) : null}
-      {usd.length > 0 ? (
-        <ChartFrame height={Math.max(160, usd.length * 36 + 36)}>
-          <BarChart layout="vertical" data={usd} margin={{ left: 8, right: 96, top: 8, bottom: 0 }}>
-            <CartesianGrid stroke={GRID} horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="label" width={140} tickFormatter={(value) => clip(String(value))} tick={{ fontSize: 11, fill: NAVY }} axisLine={false} tickLine={false} />
-            <Tooltip formatter={(value, name) => [dollars(tipNumber(value)), String(name ?? "")]} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="disponibleUsd" name="Disponible $" fill={NAVY} barSize={10} isAnimationActive={false}>
-              <LabelList dataKey="disponibleUsd" position="right" formatter={labelDollars} fill="#334155" fontSize={10} />
-            </Bar>
-          </BarChart>
-        </ChartFrame>
-      ) : null}
-    </>
-  );
-}
-
-function PriceTrajectory({ vista }: { vista: PrecioVista }) {
-  if (vista.months.length === 0) return <p className="op-note">{vista.notice ?? "Nada que graficar en este periodo."}</p>;
-  return (
-    <>
-      {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
-      <CurrencyLine months={vista.months} dataKey="gtq" name="Quetzales" stroke={NAVY} format={labelMoney} />
-      <CurrencyLine months={vista.months} dataKey="usd" name="Dólares" stroke={BLUE} format={labelDollars} />
-    </>
-  );
-}
-
-function CurrencyLine({
-  months,
-  dataKey,
-  name,
-  stroke,
-  format,
-}: {
-  months: PrecioVista["months"];
-  dataKey: "gtq" | "usd";
-  name: string;
-  stroke: string;
-  format: (value: unknown) => string;
-}) {
-  return (
-    <ChartFrame height={200}>
-      <LineChart data={months} margin={{ left: 8, right: 12, top: 18, bottom: 4 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={48} />
-        <Tooltip formatter={(value) => [format(value), name]} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Line type="monotone" dataKey={dataKey} name={name} stroke={stroke} strokeWidth={2} dot={{ r: 2 }} isAnimationActive={false}>
-          <LabelList dataKey={dataKey} position="top" formatter={format} fill={stroke} fontSize={9} />
-        </Line>
-      </LineChart>
-    </ChartFrame>
-  );
-}
-
-function DiscountImpact({ vista }: { vista: DescuentoVista }) {
-  if (vista.gtq == null && vista.saleGtq == null) {
-    return <p className="op-note">{vista.notice ?? "Nada que graficar en este periodo."}</p>;
-  }
-  return (
-    <NamedBars
-      rows={[
-        { id: "ventas", label: "Ventas con descuento", units: vista.units, gtq: vista.saleGtq },
-        { id: "descuento", label: "Descuento", units: vista.units, gtq: vista.gtq },
-      ]}
-      dataKey="gtq"
-      name="Quetzales"
-      fill={AMBER}
-      moneyValues
-    />
-  );
-}
-
-function casoAmounts(vista: Extract<VentasVista, { section: "ff-y-casos-especiales" }>): AmountRow[] {
-  const byTipo = new Map<string, { n: number; gtq: number; priced: boolean }>();
-  for (const row of vista.traces) {
-    const current = byTipo.get(row.tipo) ?? { n: 0, gtq: 0, priced: true };
-    current.n += 1;
-    if (row.gtq == null) current.priced = false;
-    else current.gtq += row.gtq;
-    byTipo.set(row.tipo, current);
-  }
-  const complete = vista.marked != null && vista.traces.length > 0 && vista.traces.length === vista.marked;
-  return vista.tipos.map((row) => {
-    if (row.gtq != null || !complete || row.id === "resto") return row;
-    const found = byTipo.get(row.label);
-    if (!found || !found.priced || found.n !== row.units) return row;
-    return { ...row, gtq: found.gtq };
-  });
-}
-
-function ControlesPanel({ vistas, errors, busy }: BandProps) {
-  const descuentos = vistaOf(vistas, "descuentos");
-  const precios = vistaOf(vistas, "subidas-de-precios");
-  const casos = vistaOf(vistas, "ff-y-casos-especiales");
-  const promos = vistaOf(vistas, "promociones");
-  const promoMoney = promos?.tipos.some((row) => row.gtq != null) ?? false;
-  const gtqProjects = displayProjects((precios?.byProject ?? []).filter((row) => row.gtq != null));
-  const usdProjects = displayProjects((precios?.byProject ?? []).filter((row) => row.usd != null));
-  return (
-    <section className="vc-grid-2" aria-label="Controles">
-      <article className="vc-card">
-        <h2>Descuentos</h2>
-        {!descuentos ? <StatusLine section="descuentos" errors={errors} busy={busy} /> : (
-          <>
-            {descuentos.notice ? <p className="op-note">{descuentos.notice}</p> : null}
-            {descuentos.tipos.length > 0 ? (
-              <NamedBars
-                rows={descuentos.tipos}
-                dataKey={descuentos.tipos.some((row) => row.gtq != null) ? "gtq" : "units"}
-                name="Descuento"
-                fill={AMBER}
-                moneyValues={descuentos.tipos.some((row) => row.gtq != null)}
-              />
-            ) : null}
-          </>
-        )}
-      </article>
-      <article className="vc-card">
-        <h2>Subidas de precios</h2>
-        {!precios ? <StatusLine section="subidas-de-precios" errors={errors} busy={busy} /> : (
-          <>
-            {precios.notice ? <p className="op-note">{precios.notice}</p> : null}
-            {gtqProjects.length > 0 ? (
-              <NamedBars
-                rows={gtqProjects.map((row) => ({ id: row.id, label: row.label, units: row.units, gtq: row.gtq }))}
-                dataKey="gtq"
-                name="Quetzales"
-                fill={NAVY}
-                moneyValues
-              />
-            ) : null}
-            {usdProjects.length > 0 ? (
-              <NamedBars
-                rows={usdProjects.map((row) => ({ id: `${row.id}:usd`, label: row.label, units: row.units, gtq: row.usd }))}
-                dataKey="gtq"
-                name="Dólares"
-                fill={BLUE}
-                format={dollars}
-              />
-            ) : null}
-          </>
-        )}
-      </article>
-      <article className="vc-card">
-        <h2>F&amp;F y casos especiales</h2>
-        {!casos ? <StatusLine section="ff-y-casos-especiales" errors={errors} busy={busy} /> : (
-          <>
-            {casos.notice ? <p className="op-note">{casos.notice}</p> : null}
-            {casos.tipos.length > 0 ? <NamedBars rows={casoAmounts(casos)} dataKey="units" name="Unidades" fill={NAVY} showGtq /> : null}
-          </>
-        )}
-      </article>
-      <article className="vc-card">
-        <h2>Promociones</h2>
-        {!promos ? <StatusLine section="promociones" errors={errors} busy={busy} /> : (
-          <>
-            {promos.notice ? <p className="op-note">{promos.notice}</p> : null}
-            <NamedBars
-              rows={promos.tipos}
-              dataKey={promoMoney ? "gtq" : "units"}
-              name={promoMoney ? "Quetzales" : "Unidades"}
-              fill={NAVY}
-              moneyValues={promoMoney}
-              showGtq={!promoMoney}
-            />
-          </>
-        )}
-      </article>
-    </section>
-  );
-}
-
-function ReferidosBand({ vistas, errors, busy }: BandProps) {
-  const vista = vistaOf(vistas, "control-referidos");
-  return (
-    <section aria-label="Control Referidos">
-      <article className="vc-card">
-        <h2>Control Referidos</h2>
-        {!vista ? <StatusLine section="control-referidos" errors={errors} busy={busy} /> : <ReferidosBody vista={vista} />}
-      </article>
-    </section>
-  );
-}
-
-function ReferidosBody({ vista }: { vista: ReferidosVista }) {
-  const marked = vista.si != null && vista.si > 0;
-  const names = vista.nombres.length > 0;
-  return (
-    <>
-      {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
-      {vista.scopedDeals === 0 ? null : vista.si == null && !names ? (
-        <p className="op-note">Estos tratos no traen referido, tipo de referido ni nombre de referidor.</p>
-      ) : (
-        <>
-          {vista.si === 0 ? <p className="op-note">Ningún trato está marcado como referido.</p> : null}
-          {marked ? (
-            <>
-              <p className="vc-sub">{count(vista.si)} {vista.si === 1 ? "referido" : "referidos"}.</p>
-              {vista.byTipo.length > 0 ? (
-                <NamedBars rows={vista.byTipo} dataKey="units" name="Referidos" fill={NAVY} />
-              ) : null}
-              {vista.sinTipo != null && vista.sinTipo > 0 ? (
-                <p className="op-note">{count(vista.sinTipo)} sin tipo de referido.</p>
-              ) : null}
-            </>
-          ) : null}
-          {names ? (
-            <>
-              <h3>Referidores</h3>
-              <ul className="vc-referidos">
-                {vista.nombres.map((name) => <li key={name}>{name}</li>)}
-              </ul>
-              {vista.nombresTotal != null && vista.nombresTotal > vista.nombres.length ? (
-                <p className="op-note">La lista trae {vista.nombres.length} de {vista.nombresTotal}.</p>
-              ) : null}
-            </>
-          ) : null}
-        </>
-      )}
     </>
   );
 }
