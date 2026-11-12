@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { compareProjectLabels, isDisplayProject, PROJECT_DISPLAY_ORDER, projectKey } from "@/lib/projects";
-import type { FunnelStage, MeasureRow, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
+import type { FunnelStage, MeasureRow, ObjetivosVista, StatusVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
 
 const TOTAL_PRIOR = "reservas del periodo anterior";
@@ -780,5 +780,139 @@ function AsesorRows({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function statusProjectRows(status: StatusVista): GoalRow[] {
+  return [...status.byProject]
+    .filter((row) => isDisplayProject(row.label))
+    .sort((a, b) => compareProjectLabels(a.label, b.label))
+    .map((row) => ({
+      id: row.id,
+      name: row.label,
+      units: row.units,
+      target: row.paceUnits,
+      hue: hueKey(row.label),
+      lead: false,
+      solid: true,
+    }));
+}
+
+function statusProjects(status: StatusVista): ProjectBar[] {
+  return [...status.byProject]
+    .filter((row) => isDisplayProject(row.label))
+    .map((row) => ({ id: row.id, label: row.label, units: row.units }))
+    .sort((a, b) => compareProjectLabels(a.label, b.label));
+}
+
+function statusAsesorProject(
+  asesorId: string,
+  status: StatusVista,
+  projects: readonly ProjectBar[],
+): { project: string } | null {
+  const byId = new Map(projects.map((project) => [project.id, project]));
+  const cells = status.editor.cells
+    .filter((cell) => cell.asesorId === asesorId && byId.has(cell.projectId))
+    .sort((a, b) => {
+      const byMonth = b.month.localeCompare(a.month);
+      if (byMonth !== 0) return byMonth;
+      return compareProjectLabels(byId.get(a.projectId)?.label ?? "", byId.get(b.projectId)?.label ?? "");
+    });
+  const project = cells[0] ? byId.get(cells[0].projectId) : undefined;
+  if (!project) return null;
+  return { project: project.label };
+}
+
+export function StatusProyectoBlock({ status }: { status: StatusVista }) {
+  const rows = statusProjectRows(status);
+  return (
+    <section className={`${styles.block} ${styles.metaBand}`} aria-labelledby="vt-status-proyecto-title">
+      <div className={styles.bandHead}>
+        <h2 id="vt-status-proyecto-title" className={styles.panelTitle}>Status por proyecto</h2>
+      </div>
+      {rows.length > 0 ? <GoalList rows={rows} mode="u" /> : null}
+    </section>
+  );
+}
+
+function StatusAsesorRows({
+  status,
+  totales,
+}: {
+  status: StatusVista;
+  totales: TotalesVista | null;
+}) {
+  const projects = statusProjects(status);
+  const stage = reservaStage(totales);
+  const placed = status.byAsesor.map((row) => ({
+    row,
+    place: statusAsesorProject(row.id, status, projects) ?? singleProject(row.label, row.units, stage, projects),
+  }));
+  const groups = new Map<string, typeof placed>();
+  for (const name of PROJECT_DISPLAY_ORDER) groups.set(projectKey(name), []);
+  const rest: typeof placed = [];
+  for (const item of placed) {
+    const key = item.place ? projectKey(item.place.project) : "";
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(item);
+    else rest.push(item);
+  }
+  const byUnits = (a: (typeof placed)[number], b: (typeof placed)[number]) =>
+    b.row.units - a.row.units || a.row.label.localeCompare(b.row.label, "es");
+  for (const bucket of groups.values()) bucket.sort(byUnits);
+  rest.sort(byUnits);
+
+  const toGoal = (item: (typeof placed)[number], lead: boolean): GoalRow => ({
+    id: item.row.id,
+    name: item.row.label,
+    units: item.row.units,
+    target: item.row.paceUnits,
+    hue: item.place ? hueKey(item.place.project) : "",
+    lead,
+    solid: true,
+  });
+  const grouped = PROJECT_DISPLAY_ORDER.map((name) => {
+    const items = groups.get(projectKey(name)) ?? [];
+    return { key: projectKey(name), rows: items.map((item, index) => toGoal(item, index === 0)) };
+  }).filter((group) => group.rows.length > 0);
+  const loose = rest.map((item) => toGoal(item, false));
+  const rows = [...grouped.flatMap((group) => group.rows), ...loose];
+  if (rows.length === 0) return null;
+  const axis = axisOf(rows, "u");
+  const marks = gridMarks(axis.scale);
+  const line = (row: GoalRow) => <GoalLine key={row.id} row={row} axis={axis} mode="u" />;
+  const bands = loose.length > 0 ? grouped.length + 1 : grouped.length;
+
+  return (
+    <div className={`${styles.goalFrame} ${styles.goalFrameGrouped}`}>
+      <GoalScale marks={marks} scale={axis.scale} span={bands} />
+      {grouped.map((group, index) => (
+        <div key={group.key} className={styles.projectGroup} style={{ gridRow: index + 1 }}>
+          {group.rows.map(line)}
+        </div>
+      ))}
+      {loose.length > 0 ? (
+        <div className={styles.projectGroup} style={{ gridRow: grouped.length + 1 }}>
+          {loose.map(line)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function StatusAsesorBlock({
+  status,
+  totales,
+}: {
+  status: StatusVista;
+  totales: TotalesVista | null;
+}) {
+  return (
+    <section className={`${styles.block} ${styles.panel}`} aria-labelledby="vt-status-asesor-title">
+      <div className={styles.bandHead}>
+        <h2 id="vt-status-asesor-title" className={styles.panelTitle}>Status por asesor</h2>
+      </div>
+      <StatusAsesorRows status={status} totales={totales} />
+    </section>
   );
 }

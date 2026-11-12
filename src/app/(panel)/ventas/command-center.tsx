@@ -32,7 +32,7 @@ import {
 } from "@/lib/ventas/vista-types";
 import { ProjectPillRow } from "@/components/project-pill-row";
 import { compareProjectLabels, isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
-import { AsesoresBlock, ReservasMetaBlock, VentasTotalesBlock } from "./landing-blocks";
+import { AsesoresBlock, ReservasMetaBlock, StatusAsesorBlock, StatusProyectoBlock, VentasTotalesBlock } from "./landing-blocks";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
@@ -546,6 +546,8 @@ export default function CommandCenter() {
               <RhythmChart vista={status} />
               {status.notice ? <p className="op-note">{status.notice}</p> : null}
               {totales?.targetNote ? <p className="op-note">{totales.targetNote}</p> : null}
+              <StatusProyectoBlock status={status} />
+              <StatusAsesorBlock status={status} totales={totales} />
             </>
           ) : (
             <StatusLine section="status-de-ventas" errors={errors} busy={busy} />
