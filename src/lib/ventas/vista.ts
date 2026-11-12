@@ -1113,11 +1113,12 @@ function sinDatoName(label: string): boolean {
   return key === "sin dato";
 }
 
-function fuenteParts(name: string): string[] {
-  return name
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part !== "" && !sinDatoName(part));
+function fuenteChannel(name: string): string | null {
+  const segment = name.includes(",")
+    ? (name.split(",").map((part) => part.trim()).find((part) => part !== "") ?? "")
+    : name.trim();
+  if (segment === "" || sinDatoName(segment)) return null;
+  return segment;
 }
 
 function reservasByFuente(reservas: Reserva[], dims: Dims): CanalesVista["byFuente"] {
@@ -1126,16 +1127,16 @@ function reservasByFuente(reservas: Reserva[], dims: Dims): CanalesVista["byFuen
     if (!row.fuenteId) continue;
     const named = dims.fuentes.get(row.fuenteId);
     if (!named || named.sin) continue;
-    for (const label of fuenteParts(named.name)) {
-      const exact = named.name === label;
-      const current = counts.get(label);
-      if (!current) {
-        counts.set(label, { id: exact ? row.fuenteId : label, reservas: 1 });
-        continue;
-      }
-      current.reservas += 1;
-      if (exact) current.id = row.fuenteId;
+    const label = fuenteChannel(named.name);
+    if (!label) continue;
+    const exact = named.name === label;
+    const current = counts.get(label);
+    if (!current) {
+      counts.set(label, { id: exact ? row.fuenteId : label, reservas: 1 });
+      continue;
     }
+    current.reservas += 1;
+    if (exact) current.id = row.fuenteId;
   }
   return [...counts.entries()].flatMap(([label, bucket]) => {
     if (bucket.reservas <= 0) return [];
