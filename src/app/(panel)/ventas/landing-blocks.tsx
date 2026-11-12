@@ -485,7 +485,6 @@ type GoalMode = "u" | "pct";
 type GoalRow = {
   id: string;
   name: string;
-  detail: string | null;
   units: number;
   target: number | null;
   hue: string;
@@ -596,10 +595,7 @@ function GoalLine({ row, axis, mode, frameRow }: { row: GoalRow; axis: GoalAxis;
   const segTo = tickPct == null ? 0 : Math.max(barPct, tickPct);
   return (
     <div className={styles.goalRow} style={frameRow == null ? undefined : { gridRow: frameRow }}>
-      <span className={styles.goalName}>
-        {row.name}
-        {row.detail ? <span className={styles.goalDetail}>{row.detail}</span> : null}
-      </span>
+      <span className={styles.goalName}>{row.name}</span>
       <div className={styles.goalPlot}>
         <div className={styles.goalField}>
           {tickPct != null && segTo - segFrom > 0.05 ? (
@@ -660,7 +656,6 @@ export function ReservasMetaBlock({
   const rows = metaProjects(objetivos).map((row) => ({
     id: row.id,
     name: row.label,
-    detail: null,
     units: row.units,
     target: row.targetUnits,
     hue: hueKey(row.label),
@@ -753,12 +748,11 @@ function AsesorRows({
   const toGoal = (item: (typeof placed)[number], lead: boolean): GoalRow => ({
     id: item.row.id,
     name: item.row.label,
-    detail: item.place ? item.place.project : null,
     units: item.row.units,
     target: item.row.targetUnits,
     hue: item.place ? hueKey(item.place.project) : "",
     lead,
-    solid: false,
+    solid: true,
   });
   const grouped = PROJECT_DISPLAY_ORDER.map((name) => {
     const items = groups.get(projectKey(name)) ?? [];

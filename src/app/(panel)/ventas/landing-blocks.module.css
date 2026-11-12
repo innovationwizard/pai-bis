@@ -301,6 +301,7 @@ button.vcol {
 .vbar[data-project="benestare"] { color: var(--project-benestare); }
 .vbar[data-project="boulevard-5"] { color: var(--project-boulevard-5); }
 .vbar[data-project="bosque-las-tapias"] { color: var(--project-bosque-las-tapias); }
+.vbar[data-project="santa-elena"] { color: var(--project-santa-elena); }
 
 .vname {
   font-size: 12px;
@@ -348,11 +349,9 @@ button.vcol {
   overflow-wrap: anywhere;
 }
 
-.goalDetail { font-size: 11px; font-weight: 600; }
-
 .goalPlot {
   position: relative;
-  height: 52px;
+  height: 60px;
   min-width: 0;
   overflow: visible;
 }
@@ -420,31 +419,24 @@ button.vcol {
   bottom: 2px;
   left: 0;
   z-index: 1;
-  height: 16px;
+  height: 24px;
   border-radius: 2px;
 }
 
-.goalBarSolid { background: var(--color-muted); }
-.goalBarSolid[data-project="benestare"] { background: var(--project-benestare); }
-.goalBarSolid[data-project="boulevard-5"] { background: var(--project-boulevard-5); }
-.goalBarSolid[data-project="bosque-las-tapias"] { background: var(--project-bosque-las-tapias); }
-.goalBarSolid[data-project="santa-elena"] { background: var(--project-santa-elena); }
-
-.goalBarMix {
-  --advisor-hue: var(--color-muted);
-  --advisor-mix: 50%;
-  background: color-mix(in srgb, var(--advisor-hue), white var(--advisor-mix));
-}
-
-.goalBarMix[data-lead="true"] { --advisor-mix: 18%; }
-.goalBarMix[data-project="benestare"] { --advisor-hue: var(--project-benestare); }
-.goalBarMix[data-project="boulevard-5"] { --advisor-hue: var(--project-boulevard-5); }
-.goalBarMix[data-project="bosque-las-tapias"] { --advisor-hue: var(--project-bosque-las-tapias); }
-.goalBarMix[data-project="santa-elena"] { --advisor-hue: var(--project-santa-elena); }
+.goalBarSolid,
+.goalBarMix { background: var(--color-muted); }
+.goalBarSolid[data-project="benestare"],
+.goalBarMix[data-project="benestare"] { background: var(--project-benestare); }
+.goalBarSolid[data-project="boulevard-5"],
+.goalBarMix[data-project="boulevard-5"] { background: var(--project-boulevard-5); }
+.goalBarSolid[data-project="bosque-las-tapias"],
+.goalBarMix[data-project="bosque-las-tapias"] { background: var(--project-bosque-las-tapias); }
+.goalBarSolid[data-project="santa-elena"],
+.goalBarMix[data-project="santa-elena"] { background: var(--project-santa-elena); }
 
 .goalActual {
   position: absolute;
-  bottom: 2px;
+  bottom: 6px;
   z-index: 2;
   height: 16px;
   color: var(--color-text-primary);
@@ -603,7 +595,13 @@ button.vcol {
   min-width: 0;
 }
 
-.bandHead .panelTitle { margin: 0; }
+.bandHead .panelTitle {
+  margin: 0;
+  color: rgba(13, 32, 65, 0.75);
+  font-size: calc(26px * 0.75);
+  font-weight: 700;
+  line-height: 1.25;
+}
 
 .measure { flex: none; }
 
