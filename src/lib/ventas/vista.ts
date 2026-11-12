@@ -1103,18 +1103,43 @@ function buildStatus(
   };
 }
 
+function sinDatoName(label: string): boolean {
+  const key = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return key === "sin dato";
+}
+
+function fuenteParts(name: string): string[] {
+  return name
+    .split(", ")
+    .map((part) => part.trim())
+    .filter((part) => part !== "" && !sinDatoName(part));
+}
+
 function reservasByFuente(reservas: Reserva[], dims: Dims): CanalesVista["byFuente"] {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { id: string; reservas: number }>();
   for (const row of reservas) {
     if (!row.fuenteId) continue;
     const named = dims.fuentes.get(row.fuenteId);
     if (!named || named.sin) continue;
-    counts.set(row.fuenteId, (counts.get(row.fuenteId) ?? 0) + 1);
+    for (const label of fuenteParts(named.name)) {
+      const exact = named.name === label;
+      const current = counts.get(label);
+      if (!current) {
+        counts.set(label, { id: exact ? row.fuenteId : label, reservas: 1 });
+        continue;
+      }
+      current.reservas += 1;
+      if (exact) current.id = row.fuenteId;
+    }
   }
-  return [...counts.entries()].flatMap(([id, reservas]) => {
-    const label = dims.fuentes.get(id)?.name ?? "";
-    if (reservas <= 0 || label.trim() === "") return [];
-    return [{ id, label, reservas }];
+  return [...counts.entries()].flatMap(([label, bucket]) => {
+    if (bucket.reservas <= 0) return [];
+    return [{ id: bucket.id, label, reservas: bucket.reservas }];
   });
 }
 
