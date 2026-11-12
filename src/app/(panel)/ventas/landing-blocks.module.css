@@ -587,6 +587,13 @@ button.vcol {
 
 .metaBand .panelTitle { margin: 0; }
 
+.metaBand .goalPlot { height: 84px; }
+
+.metaBand .goalBarSolid,
+.metaBand .goalBarMix { height: 48px; }
+
+.metaBand .goalActual { bottom: 18px; }
+
 .bandHead {
   display: flex;
   align-items: center;
