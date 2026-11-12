@@ -1115,7 +1115,7 @@ function sinDatoName(label: string): boolean {
 
 function fuenteParts(name: string): string[] {
   return name
-    .split(", ")
+    .split(",")
     .map((part) => part.trim())
     .filter((part) => part !== "" && !sinDatoName(part));
 }
