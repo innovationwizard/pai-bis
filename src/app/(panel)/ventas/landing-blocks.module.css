@@ -305,35 +305,34 @@ button.vcol {
   line-height: 1.25;
 }
 
-.goalList {
-  display: flex;
-  flex-direction: column;
+.goalFrame {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) 72px;
+  column-gap: 12px;
+  row-gap: 6px;
+  padding-right: 16px;
   min-width: 0;
   overflow: visible;
 }
 
+.goalFrameGrouped { row-gap: 12px; }
+
 .projectGroup {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: 6px;
   min-width: 0;
-}
-
-.projectGroup + .projectGroup {
-  margin-top: 12px;
-}
-
-.goalRow + .goalRow,
-.projectGroup > .goalRow + .goalRow {
-  margin-top: 6px;
+  z-index: 1;
 }
 
 .goalRow {
   display: grid;
-  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) 72px;
-  column-gap: 12px;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
   min-width: 0;
-  padding-right: 16px;
+  z-index: 1;
 }
 
 .goalName {
@@ -361,13 +360,20 @@ button.vcol {
   inset: 0 60px 0 0;
 }
 
+.goalScale {
+  grid-column: 2;
+  position: relative;
+  z-index: 0;
+  margin-right: 60px;
+  pointer-events: none;
+}
+
 .goalGridLine {
   position: absolute;
-  top: 26px;
-  bottom: 6px;
-  z-index: 0;
+  top: 0;
+  bottom: 0;
   width: 1px;
-  background: rgba(148, 163, 184, 0.4);
+  background: rgba(148, 163, 184, 0.18);
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -596,10 +602,25 @@ button.vcol {
 .measure { flex: none; }
 
 @media (max-width: 640px) {
+  .goalFrame,
+  .goalFrameGrouped {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 0;
+  }
+  .goalFrameGrouped { gap: 12px; }
+  .goalScale { display: none; }
+  .projectGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
   .goalRow {
+    display: grid;
+    grid-column: auto;
     grid-template-columns: minmax(0, 1fr);
     row-gap: 4px;
-    padding-right: 0;
   }
   .goalDelta { width: auto; }
 }

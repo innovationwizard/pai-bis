@@ -573,7 +573,18 @@ function MeasureToggle({ mode, onChange }: { mode: GoalMode; onChange: (mode: Go
   );
 }
 
-function GoalLine({ row, axis, marks, mode }: { row: GoalRow; axis: GoalAxis; marks: readonly number[]; mode: GoalMode }) {
+function GoalScale({ marks, scale, span }: { marks: readonly number[]; scale: number; span: number }) {
+  if (marks.length === 0 || span <= 0) return null;
+  return (
+    <div className={styles.goalScale} style={{ gridRow: `1 / span ${span}` }} aria-hidden="true">
+      {marks.map((mark) => (
+        <span key={mark} className={styles.goalGridLine} style={{ left: `${fieldPct(mark, scale)}%` }} />
+      ))}
+    </div>
+  );
+}
+
+function GoalLine({ row, axis, mode, frameRow }: { row: GoalRow; axis: GoalAxis; mode: GoalMode; frameRow?: number }) {
   const barPct = fieldPct(barValue(row, axis), axis.scale);
   const tick = tickValue(row, axis);
   const tickPct = tick == null ? null : fieldPct(tick, axis.scale);
@@ -584,16 +595,13 @@ function GoalLine({ row, axis, marks, mode }: { row: GoalRow; axis: GoalAxis; ma
   const segFrom = tickPct == null ? 0 : Math.min(barPct, tickPct);
   const segTo = tickPct == null ? 0 : Math.max(barPct, tickPct);
   return (
-    <div className={styles.goalRow}>
+    <div className={styles.goalRow} style={frameRow == null ? undefined : { gridRow: frameRow }}>
       <span className={styles.goalName}>
         {row.name}
         {row.detail ? <span className={styles.goalDetail}>{row.detail}</span> : null}
       </span>
       <div className={styles.goalPlot}>
         <div className={styles.goalField}>
-          {marks.map((mark) => (
-            <span key={mark} className={styles.goalGridLine} style={{ left: `${fieldPct(mark, axis.scale)}%` }} aria-hidden="true" />
-          ))}
           {tickPct != null && segTo - segFrom > 0.05 ? (
             <span
               className={`${styles.goalSeg} ${short ? styles.goalShort : ""} ${over ? styles.goalOver : ""}`}
@@ -632,9 +640,10 @@ function GoalList({ rows, mode }: { rows: readonly GoalRow[]; mode: GoalMode }) 
   const axis = axisOf(rows, mode);
   const marks = gridMarks(axis.scale);
   return (
-    <div className={styles.goalList}>
-      {rows.map((row) => (
-        <GoalLine key={row.id} row={row} axis={axis} marks={marks} mode={mode} />
+    <div className={styles.goalFrame}>
+      <GoalScale marks={marks} scale={axis.scale} span={rows.length} />
+      {rows.map((row, index) => (
+        <GoalLine key={row.id} row={row} axis={axis} mode={mode} frameRow={index + 1} />
       ))}
     </div>
   );
@@ -760,16 +769,22 @@ function AsesorRows({
   if (rows.length === 0) return null;
   const axis = axisOf(rows, "u");
   const marks = gridMarks(axis.scale);
-  const line = (row: GoalRow) => <GoalLine key={row.id} row={row} axis={axis} marks={marks} mode="u" />;
+  const line = (row: GoalRow) => <GoalLine key={row.id} row={row} axis={axis} mode="u" />;
+  const bands = loose.length > 0 ? grouped.length + 1 : grouped.length;
 
   return (
-    <div className={styles.goalList}>
-      {grouped.map((group) => (
-        <div key={group.key} className={styles.projectGroup}>
+    <div className={`${styles.goalFrame} ${styles.goalFrameGrouped}`}>
+      <GoalScale marks={marks} scale={axis.scale} span={bands} />
+      {grouped.map((group, index) => (
+        <div key={group.key} className={styles.projectGroup} style={{ gridRow: index + 1 }}>
           {group.rows.map(line)}
         </div>
       ))}
-      {loose.length > 0 ? <div className={styles.projectGroup}>{loose.map(line)}</div> : null}
+      {loose.length > 0 ? (
+        <div className={styles.projectGroup} style={{ gridRow: grouped.length + 1 }}>
+          {loose.map(line)}
+        </div>
+      ) : null}
     </div>
   );
 }
