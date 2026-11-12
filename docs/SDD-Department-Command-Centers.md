@@ -94,7 +94,7 @@ All 14 Operativo checklist items are 0-click.
 
 | # | Checklist item | Visualization |
 |---|----------------|---------------|
-| 1 | Ventas totales | Hero pair (units + value) + cumulative pace chart (solid = current period, dashed = prior) |
+| 1 | Ventas totales | Hero units (reservas) + project bars |
 | 2 | Ventas versus objetivos de proyectos - totales y por asesor | Compact bullet charts or overlapping bars, one set per proyecto + ranked asesor view |
 | 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por asesor | Pace or bullet against expected trajectory, color-coded for deficit/surplus, by proyecto and by asesor |
 | 6 | Inventario general: Vendido, congelado, disponible | Stacked horizontal bars by proyecto/torre |
