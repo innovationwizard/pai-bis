@@ -496,15 +496,10 @@ type GoalRow = {
 type GoalAxis = { kind: GoalMode; scale: number };
 
 function gridMarks(scale: number): number[] {
-  if (!(scale > 1)) return [];
-  const raw = scale / 4;
-  const pow = 10 ** Math.floor(Math.log10(raw));
-  const n = raw / pow;
-  const nice = n <= 1.5 ? 1 : n <= 3 ? 2 : n <= 7 ? 5 : 10;
-  const step = nice * pow;
+  if (!(scale > 0)) return [];
+  const top = Math.floor(scale) + 1;
   const marks: number[] = [];
-  const limit = scale * 0.995;
-  for (let value = step; value < limit; value += step) marks.push(value);
+  for (let value = 0; value <= top; value += 1) marks.push(value);
   return marks;
 }
 
@@ -527,6 +522,11 @@ function axisOf(rows: readonly GoalRow[], mode: GoalMode): GoalAxis {
 function fieldPct(value: number, scale: number): number {
   if (scale <= 0) return 0;
   return Math.min(100, Math.max(0, (value / scale) * 100));
+}
+
+function markPct(value: number, scale: number): string {
+  if (scale <= 0) return "0%";
+  return `${(value / scale) * 100}%`;
 }
 
 function barValue(row: GoalRow, axis: GoalAxis): number {
@@ -578,7 +578,7 @@ function GoalScale({ marks, scale, span }: { marks: readonly number[]; scale: nu
   return (
     <div className={styles.goalScale} style={{ gridRow: `1 / span ${span}` }} aria-hidden="true">
       {marks.map((mark) => (
-        <span key={mark} className={styles.goalGridLine} style={{ left: `${fieldPct(mark, scale)}%` }} />
+        <span key={mark} className={styles.goalGridLine} style={{ left: markPct(mark, scale) }} />
       ))}
     </div>
   );
