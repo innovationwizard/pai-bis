@@ -989,7 +989,7 @@ function sinDatoLabel(label: string): boolean {
 
 function channelRows(vista: CanalesVista): { id: string; label: string; units: number }[] {
   return vista.byFuente
-    .filter((row) => row.reservas > 0 && !sinDatoLabel(row.label))
+    .filter((row) => row.reservas > 0 && !sinDatoLabel(row.label) && !row.label.includes(","))
     .map((row) => ({ id: row.id, label: row.label, units: row.reservas }))
     .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
 }
