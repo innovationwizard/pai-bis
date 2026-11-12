@@ -71,7 +71,7 @@ button.vcol {
   align-items: flex-start;
   gap: 8px;
   width: 100%;
-  padding: 8px;
+  padding: 12px 14px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-card);
@@ -79,8 +79,8 @@ button.vcol {
 }
 
 .kpiName {
-  color: #0d2041;
-  font-size: 26px;
+  color: rgba(13, 32, 65, 0.9);
+  font-size: calc(26px * 0.75);
   font-weight: 700;
   line-height: 1.25;
 }
@@ -88,7 +88,7 @@ button.vcol {
 .kpiValue {
   align-self: stretch;
   width: 100%;
-  font-size: 64px;
+  font-size: calc(64px * 0.75);
   font-weight: 700;
   line-height: 1;
   text-align: center;
@@ -96,7 +96,7 @@ button.vcol {
 
 .kpiUnit {
   margin-left: 4px;
-  font-size: 26px;
+  font-size: calc(26px * 0.75);
   font-weight: 600;
 }
 
@@ -204,7 +204,7 @@ button.vcol {
   min-width: 0;
   min-height: 240px;
   height: 100%;
-  padding: 8px;
+  padding: 14px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-card);
@@ -285,13 +285,15 @@ button.vcol {
   display: flex;
   flex: 1 1 auto;
   align-items: flex-end;
+  justify-content: center;
   width: 100%;
   min-height: 140px;
 }
 
 .vbar {
   display: block;
-  width: 100%;
+  width: 60%;
+  margin-inline: auto;
   background: currentColor;
   color: var(--color-muted);
 }
@@ -471,8 +473,8 @@ button.vcol {
 
 .overview {
   flex: 0 0 auto;
-  height: 22dvh;
-  min-height: 168px;
+  height: 18dvh;
+  min-height: calc(168px * 18 / 22);
   overflow: hidden;
 }
 
@@ -531,11 +533,11 @@ button.vcol {
 
 .projects .kpi {
   gap: 4px;
-  padding: 6px 8px;
+  padding: 10px 12px;
 }
 
 .projects .kpiValue {
-  font-size: 52px;
+  font-size: calc(52px * 0.75);
 }
 
 .projects .vplot {
