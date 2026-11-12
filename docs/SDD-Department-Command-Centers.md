@@ -60,6 +60,12 @@ Research on dashboard density and visual hierarchy shows that a sudden change fr
 
 These rules apply to every department Command Center and to every sub-section within them.
 
+### Abstraction order and visual hierarchy
+
+The abstraction order is the stronger principle. Higher-level aggregates (project) appear before lower-level aggregates (asesor). This order is not reversed for layout convenience.
+
+Visual weight communicates the same order without text. Elements that represent a higher level of abstraction use greater thickness or area than elements that represent a lower level. In the Objetivos bands, project bars are thicker than asesor bars so the hierarchy is readable at a glance. The same principle applies to every department Command Center and every sub-section: when two levels of the same measure appear together, the higher level occupies more visual mass.
+
 ---
 
 ## 3. Shared Layout Pattern (applied to every department page)
