@@ -100,7 +100,7 @@ function metaProjects(objetivos: ObjetivosVista | null): MetaRow[] {
       id: row.id,
       label: row.label,
       units: row.units,
-      targetUnits: row.targetUnits,
+      targetUnits: projectKey(row.label) === projectKey("SANTA ELENA") ? (row.targetUnits ?? 0) : row.targetUnits,
     }))
     .sort((a, b) => compareProjectLabels(a.label, b.label));
 }
@@ -480,6 +480,166 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
   );
 }
 
+type GoalMode = "u" | "pct";
+
+type GoalRow = {
+  id: string;
+  name: string;
+  detail: string | null;
+  units: number;
+  target: number | null;
+  hue: string;
+  lead: boolean;
+  solid: boolean;
+};
+
+type GoalAxis = { kind: GoalMode; scale: number };
+
+function gridMarks(scale: number): number[] {
+  if (!(scale > 1)) return [];
+  const raw = scale / 4;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const n = raw / pow;
+  const nice = n <= 1.5 ? 1 : n <= 3 ? 2 : n <= 7 ? 5 : 10;
+  const step = nice * pow;
+  const marks: number[] = [];
+  const limit = scale * 0.995;
+  for (let value = step; value < limit; value += step) marks.push(value);
+  return marks;
+}
+
+function axisOf(rows: readonly GoalRow[], mode: GoalMode): GoalAxis {
+  const unitPeak = rows.reduce((max, row) => Math.max(max, row.units, row.target ?? 0), 0);
+  const units = unitPeak <= 0 ? 1 : unitPeak;
+  if (mode !== "pct") return { kind: "u", scale: units };
+  let peak = 0;
+  let any = false;
+  for (const row of rows) {
+    if (row.target != null && row.target > 0) {
+      any = true;
+      peak = Math.max(peak, (row.units / row.target) * 100);
+    }
+  }
+  if (!any) return { kind: "u", scale: units };
+  return { kind: "pct", scale: Math.max(100, peak) };
+}
+
+function fieldPct(value: number, scale: number): number {
+  if (scale <= 0) return 0;
+  return Math.min(100, Math.max(0, (value / scale) * 100));
+}
+
+function barValue(row: GoalRow, axis: GoalAxis): number {
+  if (axis.kind === "pct") {
+    if (row.target != null && row.target > 0) return (row.units / row.target) * 100;
+    return 0;
+  }
+  return row.units;
+}
+
+function tickValue(row: GoalRow, axis: GoalAxis): number | null {
+  if (row.target == null) return null;
+  if (axis.kind === "pct" && row.target > 0) return 100;
+  return row.target;
+}
+
+function anchor(pct: number): string {
+  if (pct <= 0) return "translateX(0)";
+  if (pct >= 100) return "translateX(-100%)";
+  return "translateX(-50%)";
+}
+
+function actualText(row: GoalRow, mode: GoalMode): string {
+  if (mode === "pct" && row.target != null && row.target > 0) return `${Math.round((row.units / row.target) * 100)}%`;
+  return whole(row.units);
+}
+
+function metaText(row: GoalRow, mode: GoalMode): string | null {
+  if (row.target == null) return null;
+  if (mode === "pct" && row.target > 0) return "100%";
+  return whole(row.target);
+}
+
+function MeasureToggle({ mode, onChange }: { mode: GoalMode; onChange: (mode: GoalMode) => void }) {
+  return (
+    <div className={`tier-switch tier-switch-compact ${styles.measure}`} role="group" aria-label="Unidades o porcentaje">
+      <button type="button" aria-pressed={mode === "u"} aria-label="Unidades" onClick={() => onChange("u")}>
+        U
+      </button>
+      <button type="button" aria-pressed={mode === "pct"} aria-label="Porcentaje" onClick={() => onChange("pct")}>
+        %
+      </button>
+    </div>
+  );
+}
+
+function GoalLine({ row, axis, marks, mode }: { row: GoalRow; axis: GoalAxis; marks: readonly number[]; mode: GoalMode }) {
+  const barPct = fieldPct(barValue(row, axis), axis.scale);
+  const tick = tickValue(row, axis);
+  const tickPct = tick == null ? null : fieldPct(tick, axis.scale);
+  const meta = metaText(row, mode);
+  const gap = row.target == null ? null : row.units - row.target;
+  const short = tickPct != null && barPct < tickPct;
+  const over = tickPct != null && barPct > tickPct;
+  const segFrom = tickPct == null ? 0 : Math.min(barPct, tickPct);
+  const segTo = tickPct == null ? 0 : Math.max(barPct, tickPct);
+  return (
+    <div className={styles.goalRow}>
+      <span className={styles.goalName}>
+        {row.name}
+        {row.detail ? <span className={styles.goalDetail}>{row.detail}</span> : null}
+      </span>
+      <div className={styles.goalPlot}>
+        <div className={styles.goalField}>
+          {marks.map((mark) => (
+            <span key={mark} className={styles.goalGridLine} style={{ left: `${fieldPct(mark, axis.scale)}%` }} aria-hidden="true" />
+          ))}
+          {tickPct != null && segTo - segFrom > 0.05 ? (
+            <span
+              className={`${styles.goalSeg} ${short ? styles.goalShort : ""} ${over ? styles.goalOver : ""}`}
+              style={{ left: `${segFrom}%`, width: `${segTo - segFrom}%` }}
+              aria-hidden="true"
+            />
+          ) : null}
+          <span
+            className={row.solid ? styles.goalBarSolid : styles.goalBarMix}
+            data-project={row.hue || undefined}
+            data-lead={row.lead && row.hue ? "true" : undefined}
+            style={{ width: `${barPct}%` }}
+            aria-hidden="true"
+          />
+          {tickPct != null ? (
+            <span className={styles.goalTick} style={{ left: `${tickPct}%`, transform: anchor(tickPct) }} aria-hidden="true" />
+          ) : null}
+          {meta != null && tickPct != null ? (
+            <span className={styles.goalMeta} style={{ left: `${tickPct}%`, transform: anchor(tickPct) }}>
+              {meta}
+            </span>
+          ) : null}
+          <span className={styles.goalActual} style={{ left: `calc(${barPct}% + 6px)` }}>
+            {actualText(row, mode)}
+          </span>
+        </div>
+      </div>
+      <span className={styles.goalDelta}>
+        {gap != null ? <span className={toneClass(gap)}>{signedWhole(gap)}</span> : null}
+      </span>
+    </div>
+  );
+}
+
+function GoalList({ rows, mode }: { rows: readonly GoalRow[]; mode: GoalMode }) {
+  const axis = axisOf(rows, mode);
+  const marks = gridMarks(axis.scale);
+  return (
+    <div className={styles.goalList}>
+      {rows.map((row) => (
+        <GoalLine key={row.id} row={row} axis={axis} marks={marks} mode={mode} />
+      ))}
+    </div>
+  );
+}
+
 export function ReservasMetaBlock({
   objetivos,
   objetivosError,
@@ -487,39 +647,27 @@ export function ReservasMetaBlock({
   objetivos: ObjetivosVista | null;
   objetivosError: string | null;
 }) {
-  const rows = metaProjects(objetivos);
-  const scale = rows.reduce((max, row) => Math.max(max, row.units, row.targetUnits ?? 0), 1);
+  const [mode, setMode] = useState<GoalMode>("u");
+  const rows = metaProjects(objetivos).map((row) => ({
+    id: row.id,
+    name: row.label,
+    detail: null,
+    units: row.units,
+    target: row.targetUnits,
+    hue: hueKey(row.label),
+    lead: false,
+    solid: true,
+  }));
   return (
     <section className={`${styles.block} ${styles.metaBand}`} aria-labelledby="vt-meta-title">
-      <h2 id="vt-meta-title" className={styles.panelTitle}>Reservas y meta</h2>
+      <div className={styles.bandHead}>
+        <h2 id="vt-meta-title" className={styles.panelTitle}>Objetivos por proyecto</h2>
+        <MeasureToggle mode={mode} onChange={setMode} />
+      </div>
       {!objetivos && objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
       {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
       {objetivos && rows.length === 0 ? <p className={styles.caption}>Sin proyectos en este periodo.</p> : null}
-      {rows.length > 0 ? (
-        <div className={styles.metaList}>
-          {rows.map((row) => (
-            <div key={row.id} className={styles.metaRow}>
-              <span className={styles.metaName}>{row.label}</span>
-              <span className={styles.metaTrack} aria-hidden="true">
-                <span
-                  className={styles.metaFill}
-                  data-project={hueKey(row.label)}
-                  style={{ width: widthOf(row.units, scale) }}
-                />
-                {row.targetUnits != null ? (
-                  <span className={styles.metaTick} style={{ left: widthOf(row.targetUnits, scale) }} />
-                ) : null}
-              </span>
-              <span className={styles.metaFigures}>
-                {whole(row.units)}
-                <span className={styles.metaTarget}>
-                  {row.targetUnits == null ? "Sin meta" : `meta ${whole(row.targetUnits)}`}
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      {rows.length > 0 ? <GoalList rows={rows} mode={mode} /> : null}
     </section>
   );
 }
@@ -529,7 +677,9 @@ export function AsesoresBlock({ totales, objetivos, objetivosError }: Omit<Props
   const projects = chartProjects(objetivos);
   return (
     <section className={`${styles.block} ${styles.panel}`} aria-labelledby="vt-asesores-title">
-      <h2 id="vt-asesores-title" className={styles.panelTitle}>Asesores</h2>
+      <div className={styles.bandHead}>
+        <h2 id="vt-asesores-title" className={styles.panelTitle}>Objetivos por asesor</h2>
+      </div>
       {!objetivos && objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
       {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
       {objetivos ? (
@@ -537,13 +687,7 @@ export function AsesoresBlock({ totales, objetivos, objetivosError }: Omit<Props
           {/* Restore if requested: “La meta de un mes abierto es la del mes completo…”.
           {objetivos.caption && !objetivos.caption.includes("¿") ? <p className={styles.caption}>{objetivos.caption}</p> : null}
           */}
-          {objetivos.notice ? <p className={styles.caption}>{objetivos.notice}</p> : null}
-          {totales?.targetNote ? <p className={styles.caption}>{totales.targetNote}</p> : null}
-          {rosterAsesores(objetivos).length === 0 ? (
-            <p className={styles.caption}>Sin asesores en este periodo.</p>
-          ) : (
-            <AsesorRows objetivos={objetivos} stage={stage} projects={projects} />
-          )}
+          <AsesorRows objetivos={objetivos} stage={stage} projects={projects} />
         </>
       ) : null}
     </section>
@@ -583,7 +727,6 @@ function AsesorRows({
     row,
     place: rosterProject(row.id, objetivos, projects) ?? singleProject(row.label, row.units, stage, projects),
   }));
-  const scale = placed.reduce((max, item) => Math.max(max, item.row.units, item.row.targetUnits ?? 0), 1);
   const groups = new Map<string, typeof placed>();
   for (const name of PROJECT_DISPLAY_ORDER) groups.set(projectKey(name), []);
   const rest: typeof placed = [];
@@ -598,88 +741,35 @@ function AsesorRows({
   for (const bucket of groups.values()) bucket.sort(byUnits);
   rest.sort(byUnits);
 
-  return (
-    <div className={styles.rankList}>
-      {PROJECT_DISPLAY_ORDER.map((name) => {
-        const items = groups.get(projectKey(name)) ?? [];
-        if (items.length === 0) return null;
-        return (
-          <div key={projectKey(name)} className={styles.projectGroup}>
-            {items.map((item, index) => (
-              <AsesorLine
-                key={item.row.id}
-                row={item.row}
-                place={item.place}
-                hue={item.place ? hueKey(item.place.project) : ""}
-                lead={index === 0}
-                scale={scale}
-                total={objetivos.units}
-              />
-            ))}
-          </div>
-        );
-      })}
-      {rest.length > 0 ? (
-        <div className={styles.projectGroup}>
-          {rest.map((item) => (
-            <AsesorLine
-              key={item.row.id}
-              row={item.row}
-              place={item.place}
-              hue={item.place ? hueKey(item.place.project) : ""}
-              lead={false}
-              scale={scale}
-              total={objetivos.units}
-            />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
+  const toGoal = (item: (typeof placed)[number], lead: boolean): GoalRow => ({
+    id: item.row.id,
+    name: item.row.label,
+    detail: item.place ? item.place.project : null,
+    units: item.row.units,
+    target: item.row.targetUnits,
+    hue: item.place ? hueKey(item.place.project) : "",
+    lead,
+    solid: false,
+  });
+  const grouped = PROJECT_DISPLAY_ORDER.map((name) => {
+    const items = groups.get(projectKey(name)) ?? [];
+    return { key: projectKey(name), rows: items.map((item, index) => toGoal(item, index === 0)) };
+  }).filter((group) => group.rows.length > 0);
+  const loose = rest.map((item) => toGoal(item, false));
+  const rows = [...grouped.flatMap((group) => group.rows), ...loose];
+  if (rows.length === 0) return null;
+  const axis = axisOf(rows, "u");
+  const marks = gridMarks(axis.scale);
+  const line = (row: GoalRow) => <GoalLine key={row.id} row={row} axis={axis} marks={marks} mode="u" />;
 
-function AsesorLine({
-  row,
-  place,
-  hue,
-  lead,
-  scale,
-  total,
-}: {
-  row: MeasureRow;
-  place: AdvisorPlace | null;
-  hue: string;
-  lead: boolean;
-  scale: number;
-  total: number;
-}) {
-  const gap = row.gapUnits;
   return (
-    <div className={styles.row}>
-      <span className={styles.rowName}>
-        {row.label}
-        {place ? <span className={styles.rowProject}>{place.project}</span> : null}
-      </span>
-      <span className={styles.track} aria-hidden="true">
-        <span
-          className={styles.barFill}
-          data-project={hue || undefined}
-          data-lead={lead && hue ? "true" : undefined}
-          style={{ width: widthOf(row.units, scale) }}
-        />
-        {row.targetUnits != null ? <span className={styles.tickMark} style={{ left: widthOf(row.targetUnits, scale) }} /> : null}
-      </span>
-      <span className={styles.rowMeta}>
-        {whole(row.units)}
-        <span> · {shareText(row.units, total)} del total</span>
-        {place ? <span> · {shareText(row.units, place.projectUnits)} de {place.project}</span> : null}
-        {row.targetUnits != null ? (
-          <>
-            <span> · meta {whole(row.targetUnits)}</span>
-            {gap != null ? <span className={toneClass(gap)}>{signedWhole(gap)}</span> : null}
-          </>
-        ) : null}
-      </span>
+    <div className={styles.goalList}>
+      {grouped.map((group) => (
+        <div key={group.key} className={styles.projectGroup}>
+          {group.rows.map(line)}
+        </div>
+      ))}
+      {loose.length > 0 ? <div className={styles.projectGroup}>{loose.map(line)}</div> : null}
     </div>
   );
 }

@@ -159,8 +159,7 @@ button.vcol {
   font-size: 11px;
 }
 
-.vname,
-.rowName {
+.vname {
   font-weight: 700;
   overflow-wrap: anywhere;
 }
@@ -306,7 +305,7 @@ button.vcol {
   line-height: 1.25;
 }
 
-.rankList {
+.goalList {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -320,73 +319,139 @@ button.vcol {
 }
 
 .projectGroup + .projectGroup {
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
-.row {
+.goalRow + .goalRow,
+.projectGroup > .goalRow + .goalRow {
+  margin-top: 6px;
+}
+
+.goalRow {
   display: grid;
-  grid-template-columns: minmax(140px, 220px) minmax(80px, 1fr);
-  gap: 4px 12px;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) 72px;
+  column-gap: 12px;
   align-items: center;
   min-width: 0;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--color-border);
+  padding-right: 16px;
 }
 
-.rowName {
+.goalName {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
   font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
-.rowProject { font-size: 11px; font-weight: 600; }
+.goalDetail { font-size: 11px; font-weight: 600; }
 
-.track {
+.goalPlot {
   position: relative;
-  height: 8px;
+  height: 72px;
+  min-width: 0;
   overflow: visible;
-  border-radius: 2px;
-  background: var(--color-border);
 }
 
-.barFill {
+.goalField {
+  position: absolute;
+  inset: 0 60px 0 0;
+}
+
+.goalGridLine {
+  position: absolute;
+  top: 26px;
+  bottom: 6px;
+  z-index: 0;
+  width: 1px;
+  background: rgba(148, 163, 184, 0.4);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.goalMeta {
   position: absolute;
   top: 0;
+  z-index: 2;
+  height: 16px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.goalTick {
+  position: absolute;
+  top: 26px;
+  z-index: 1;
+  height: 14px;
+  width: 2px;
+  background: var(--color-text-primary);
+  pointer-events: none;
+}
+
+.goalSeg {
+  position: absolute;
+  top: 31px;
+  z-index: 1;
+  height: 3px;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.goalShort { background: var(--color-danger); }
+.goalOver { background: var(--color-success); }
+
+.goalBarSolid,
+.goalBarMix {
+  position: absolute;
+  bottom: 10px;
   left: 0;
-  height: 100%;
+  z-index: 1;
+  height: 8px;
   border-radius: 2px;
+}
+
+.goalBarSolid { background: var(--color-muted); }
+.goalBarSolid[data-project="benestare"] { background: var(--project-benestare); }
+.goalBarSolid[data-project="boulevard-5"] { background: var(--project-boulevard-5); }
+.goalBarSolid[data-project="bosque-las-tapias"] { background: var(--project-bosque-las-tapias); }
+.goalBarSolid[data-project="santa-elena"] { background: var(--project-santa-elena); }
+
+.goalBarMix {
   --advisor-hue: var(--color-muted);
   --advisor-mix: 50%;
   background: color-mix(in srgb, var(--advisor-hue), white var(--advisor-mix));
 }
 
-.barFill[data-lead="true"] { --advisor-mix: 18%; }
-.barFill[data-project="benestare"] { --advisor-hue: var(--project-benestare); }
-.barFill[data-project="boulevard-5"] { --advisor-hue: var(--project-boulevard-5); }
-.barFill[data-project="bosque-las-tapias"] { --advisor-hue: var(--project-bosque-las-tapias); }
+.goalBarMix[data-lead="true"] { --advisor-mix: 18%; }
+.goalBarMix[data-project="benestare"] { --advisor-hue: var(--project-benestare); }
+.goalBarMix[data-project="boulevard-5"] { --advisor-hue: var(--project-boulevard-5); }
+.goalBarMix[data-project="bosque-las-tapias"] { --advisor-hue: var(--project-bosque-las-tapias); }
+.goalBarMix[data-project="santa-elena"] { --advisor-hue: var(--project-santa-elena); }
 
-.tickMark {
+.goalActual {
   position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  background: var(--color-text-primary);
-  transform: translateX(-50%);
+  bottom: 6px;
+  z-index: 2;
+  height: 16px;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
 }
 
-.rowMeta {
-  grid-column: 1 / -1;
+.goalDelta {
+  display: flex;
+  justify-content: flex-start;
+  width: 72px;
   min-width: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
 }
-
-.rowMeta .up,
-.rowMeta .down,
-.rowMeta .flat { margin-left: 8px; }
 
 /* First band is a fixed share of the viewport. Together with the project rows it fills the
    first screen under the filters (header, page padding, pills, and toolbar ≈ 308px).
@@ -518,80 +583,23 @@ button.vcol {
 
 .metaBand .panelTitle { margin: 0; }
 
-.metaList {
+.bandHead {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-
-.metaRow {
-  display: grid;
-  grid-template-columns: minmax(132px, 200px) minmax(72px, 1fr) auto;
-  gap: 4px 12px;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   min-width: 0;
 }
 
-.metaName {
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
+.bandHead .panelTitle { margin: 0; }
 
-.metaTrack {
-  position: relative;
-  height: 8px;
-  overflow: visible;
-  border-radius: 2px;
-  background: var(--color-border);
-}
-
-.metaFill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  border-radius: 2px;
-  background: var(--color-muted);
-}
-
-.metaFill[data-project="benestare"] { background: var(--project-benestare); }
-.metaFill[data-project="boulevard-5"] { background: var(--project-boulevard-5); }
-.metaFill[data-project="bosque-las-tapias"] { background: var(--project-bosque-las-tapias); }
-.metaFill[data-project="santa-elena"] { background: var(--project-santa-elena); }
-
-.metaTick {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  background: var(--color-text-primary);
-  transform: translateX(-50%);
-}
-
-.metaFigures {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  color: var(--color-text-primary);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.metaTarget {
-  color: var(--color-muted);
-  font-weight: 600;
-}
+.measure { flex: none; }
 
 @media (max-width: 640px) {
-  .row { grid-template-columns: minmax(0, 1fr); }
-  .rowName,
-  .track,
-  .rowMeta { grid-column: 1; }
-  .metaRow { grid-template-columns: minmax(0, 1fr); }
-  .metaFigures { white-space: normal; }
+  .goalRow {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 4px;
+    padding-right: 0;
+  }
+  .goalDelta { width: auto; }
 }
