@@ -527,7 +527,7 @@ export default function CommandCenter() {
       />
       <hr className="op-filter-rule vc-band-rule" />
 
-      <section aria-label="Status contra la fecha de cierre">
+      <section aria-label="Status de todos los proyectos">
         <article className="vc-card">
           <StatusCierreChart
             vista={status}

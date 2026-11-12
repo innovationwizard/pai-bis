@@ -992,9 +992,8 @@ export function StatusCierreChart({
   return (
     <section className={`${styles.block} ${styles.panel} ${styles.statusBand}`} aria-labelledby="vt-status-cierre-title">
       <div className={styles.bandHead}>
-        <h2 id="vt-status-cierre-title" className={styles.panelTitle}>Status contra la fecha de cierre</h2>
+        <h2 id="vt-status-cierre-title" className={styles.panelTitle}>Status de todos los proyectos</h2>
       </div>
-      <p className="vc-sub">Reservas</p>
       {plot}
     </section>
   );
