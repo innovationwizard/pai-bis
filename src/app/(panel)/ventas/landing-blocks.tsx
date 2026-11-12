@@ -1046,7 +1046,7 @@ export function CanalesBlock({
 }) {
   const rows = vista ? channelRows(vista) : [];
   return (
-    <section className={`${styles.block} ${styles.panel}`} aria-labelledby="vt-canales-title">
+    <section className={`${styles.block} ${styles.panel} ${styles.channelWip}`} aria-labelledby="vt-canales-title">
       <div className={styles.bandHead}>
         <h2 id="vt-canales-title" className={styles.panelTitle}>Ventas por canales</h2>
       </div>

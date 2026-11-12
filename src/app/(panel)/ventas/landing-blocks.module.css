@@ -620,6 +620,14 @@ button.vcol {
   min-width: 0;
 }
 
+/* The channel counts are wrong. The stripe marks this band as not ready. */
+.channelWip {
+  background: repeating-linear-gradient(45deg, #f9fafb, #f9fafb 10px, #ffffff 10px, #ffffff 20px);
+  border: 1px dashed #d1d5db;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 .channelFrame {
   display: grid;
   grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
