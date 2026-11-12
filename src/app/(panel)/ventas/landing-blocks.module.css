@@ -79,7 +79,7 @@ button.vcol {
 }
 
 .kpiName {
-  color: rgba(13, 32, 65, 0.8);
+  color: rgba(13, 32, 65, 0.75);
   font-size: calc(26px * 0.75);
   font-weight: 700;
   line-height: 1.25;
