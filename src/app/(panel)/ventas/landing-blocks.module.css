@@ -612,6 +612,14 @@ button.vcol {
 
 .measure { flex: none; }
 
+.statusBand { gap: 4px; }
+
+.statusPlot {
+  width: 100%;
+  height: 188px;
+  min-width: 0;
+}
+
 @media (max-width: 640px) {
   .goalFrame,
   .goalFrameGrouped {

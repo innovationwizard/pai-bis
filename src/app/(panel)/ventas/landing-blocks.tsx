@@ -1,6 +1,17 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import {
+  CartesianGrid,
+  LabelList,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { compareProjectLabels, isDisplayProject, PROJECT_DISPLAY_ORDER, projectKey } from "@/lib/projects";
 import type { FunnelStage, MeasureRow, ObjetivosVista, StatusVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
@@ -913,6 +924,78 @@ export function StatusAsesorBlock({
         <h2 id="vt-status-asesor-title" className={styles.panelTitle}>Status por asesor</h2>
       </div>
       <StatusAsesorRows status={status} totales={totales} />
+    </section>
+  );
+}
+
+const RHYTHM_NAVY = "#0d2041";
+const RHYTHM_BLUE = "#0573b0";
+const RHYTHM_GRID = "#e2e8f0";
+const rhythmCount = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 1 });
+
+function rhythmNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value !== "" && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+function rhythmCountText(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return rhythmCount.format(value);
+}
+
+function rhythmLabel(value: unknown): string {
+  const n = rhythmNumber(value);
+  if (n == null) return "";
+  return rhythmCountText(n);
+}
+
+function rhythmTip(value: unknown, name: unknown): [string, string] {
+  if (value == null) return ["Sin meta", String(name ?? "")];
+  return [rhythmCountText(rhythmNumber(value)), String(name ?? "")];
+}
+
+function StatusRhythmPlot({ points }: { points: StatusVista["rhythm"] }) {
+  return (
+    <div className={styles.statusPlot}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={points} margin={{ left: 0, right: 8, top: 18, bottom: 16 }}>
+          <CartesianGrid stroke={RHYTHM_GRID} vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={32} />
+          <Tooltip formatter={(value, name) => rhythmTip(value, name)} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Line type="monotone" dataKey="real" name="Real" stroke={RHYTHM_NAVY} strokeWidth={4.5} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false}>
+            <LabelList dataKey="real" position="top" formatter={rhythmLabel} fill="#334155" fontSize={9} />
+          </Line>
+          <Line type="monotone" dataKey="ritmo" name="Ritmo" stroke={RHYTHM_BLUE} strokeWidth={3.5} strokeDasharray="8 5" dot={{ r: 3 }} connectNulls={false} isAnimationActive={false}>
+            <LabelList dataKey="ritmo" position="bottom" formatter={rhythmLabel} fill={RHYTHM_BLUE} fontSize={9} />
+          </Line>
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export function StatusCierreChart({
+  vista,
+  pending,
+}: {
+  vista: StatusVista | null;
+  pending: ReactNode;
+}) {
+  const plot = !vista
+    ? pending
+    : vista.rhythm.length === 0
+      ? <p className="op-note">Nada que graficar en este periodo.</p>
+      : <StatusRhythmPlot points={vista.rhythm} />;
+  return (
+    <section className={`${styles.block} ${styles.panel} ${styles.statusBand}`} aria-labelledby="vt-status-cierre-title">
+      <div className={styles.bandHead}>
+        <h2 id="vt-status-cierre-title" className={styles.panelTitle}>Status contra la fecha de cierre</h2>
+      </div>
+      <p className="vc-sub">Reservas</p>
+      {plot}
     </section>
   );
 }

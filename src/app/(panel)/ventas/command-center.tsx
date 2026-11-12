@@ -32,7 +32,7 @@ import {
 } from "@/lib/ventas/vista-types";
 import { ProjectPillRow } from "@/components/project-pill-row";
 import { compareProjectLabels, isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
-import { AsesoresBlock, ReservasMetaBlock, StatusAsesorBlock, StatusProyectoBlock, VentasTotalesBlock } from "./landing-blocks";
+import { AsesoresBlock, ReservasMetaBlock, StatusAsesorBlock, StatusCierreChart, StatusProyectoBlock, VentasTotalesBlock } from "./landing-blocks";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
@@ -139,12 +139,6 @@ function tipNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value !== "" && Number.isFinite(Number(value))) return Number(value);
   return null;
-}
-
-function labelCount(value: unknown): string {
-  const n = tipNumber(value);
-  if (n == null) return "";
-  return count(n);
 }
 
 function labelStack(value: unknown): string {
@@ -535,23 +529,18 @@ export default function CommandCenter() {
 
       <section aria-label="Status contra la fecha de cierre">
         <article className="vc-card">
-          <h2>Status contra la fecha de cierre</h2>
-          <p className="vc-sub">Reservas</p>
+          <StatusCierreChart
+            vista={status}
+            pending={<StatusLine section="status-de-ventas" errors={errors} busy={busy} />}
+          />
           {status ? (
             <>
-              {/* <p className="vc-sub">
-                Fecha de cierre {dotted(status.closeOn)}. {status.dayLabel}. Real {count(status.units)} · ritmo {count(status.paceUnits)} · {signed(status.gapUnits)} unidades.
-              </p>
-              {status.caption ? <p className="vc-sub">{status.caption}</p> : null} */}
-              <RhythmChart vista={status} />
               {status.notice ? <p className="op-note">{status.notice}</p> : null}
               {totales?.targetNote ? <p className="op-note">{totales.targetNote}</p> : null}
               <StatusProyectoBlock status={status} />
               <StatusAsesorBlock status={status} totales={totales} />
             </>
-          ) : (
-            <StatusLine section="status-de-ventas" errors={errors} busy={busy} />
-          )}
+          ) : null}
         </article>
       </section>
       <hr className="op-filter-rule vc-band-rule" />
@@ -732,27 +721,6 @@ function StatusLine({
   if (errors[section]) return <p className="op-note op-warn">{errors[section]}</p>;
   if (busy.includes(section) || busy.length === 0) return <p className="op-note">Cargando…</p>;
   return <p className="op-note">Cargando…</p>;
-}
-
-function RhythmChart({ vista }: { vista: Extract<VentasVista, { section: "status-de-ventas" }> }) {
-  if (vista.rhythm.length === 0) return <p className="op-note">Nada que graficar en este periodo.</p>;
-  return (
-    <ChartFrame height={280}>
-      <LineChart data={vista.rhythm} margin={{ left: 0, right: 8, top: 18, bottom: 16 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={32} />
-        <Tooltip formatter={(value, name) => tipPair(value, name)} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Line type="monotone" dataKey="real" name="Real" stroke={NAVY} strokeWidth={2.5} dot={{ r: 2 }} connectNulls={false} isAnimationActive={false}>
-          <LabelList dataKey="real" position="top" formatter={labelCount} fill="#334155" fontSize={9} />
-        </Line>
-        <Line type="monotone" dataKey="ritmo" name="Ritmo" stroke={BLUE} strokeWidth={2} strokeDasharray="4 3" dot={{ r: 2 }} connectNulls={false} isAnimationActive={false}>
-          <LabelList dataKey="ritmo" position="bottom" formatter={labelCount} fill={BLUE} fontSize={9} />
-        </Line>
-      </LineChart>
-    </ChartFrame>
-  );
 }
 
 function FunnelChart({ funnel, onStage }: { funnel: FunnelStage[]; onStage: (id: FunnelStage["id"], label: string) => void }) {
