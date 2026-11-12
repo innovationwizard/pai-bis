@@ -384,7 +384,7 @@ export function InventarioBands({
   });
   const towers = towerRows(vista, roster, projectName, onTower);
   return (
-    <div className={styles.stack}>
+    <div className={styles.pair}>
       <section className={styles.band} aria-labelledby="vt-inventario-proyecto-title">
         <h2 id="vt-inventario-proyecto-title" className={styles.title}>Inventario general por proyecto</h2>
         {notice ? <p className="op-note">{notice}</p> : null}
@@ -584,7 +584,7 @@ export function DesistimientosBands({
     hue: hueKey(item.label),
   }));
   return (
-    <div className={styles.stack}>
+    <div className={styles.pair}>
       <section className={styles.band} aria-labelledby="vt-desist-motivo-title">
         <h2 id="vt-desist-motivo-title" className={styles.title}>Desistimientos por motivo</h2>
         {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
