@@ -620,9 +620,87 @@ button.vcol {
   min-width: 0;
 }
 
+.channelFrame {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 2px;
+  min-width: 0;
+}
+
+.channelRow {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-width: 0;
+  z-index: 1;
+}
+
+.channelPlot {
+  position: relative;
+  height: 32px;
+  min-width: 0;
+  overflow: visible;
+}
+
+.channelField {
+  position: absolute;
+  inset: 0 60px 0 0;
+}
+
+.channelStem {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 1;
+  height: 2px;
+  border-radius: 1px;
+  background: #0d2041;
+  transform: translateY(-50%);
+}
+
+.channelDot {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0d2041;
+  transform: translate(-50%, -50%);
+}
+
+.channelCount {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+button.goalName {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
 @media (max-width: 640px) {
   .goalFrame,
-  .goalFrameGrouped {
+  .goalFrameGrouped,
+  .channelFrame {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -635,7 +713,8 @@ button.vcol {
     flex-direction: column;
     gap: 2px;
   }
-  .goalRow {
+  .goalRow,
+  .channelRow {
     display: grid;
     grid-column: auto;
     grid-template-columns: minmax(0, 1fr);

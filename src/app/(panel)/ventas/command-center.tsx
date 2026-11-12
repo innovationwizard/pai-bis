@@ -32,7 +32,7 @@ import {
 } from "@/lib/ventas/vista-types";
 import { ProjectPillRow } from "@/components/project-pill-row";
 import { compareProjectLabels, isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
-import { AsesoresBlock, ReservasMetaBlock, StatusAsesorBlock, StatusCierreChart, StatusProyectoBlock, VentasTotalesBlock } from "./landing-blocks";
+import { AsesoresBlock, CanalesBlock, ReservasMetaBlock, StatusAsesorBlock, StatusCierreChart, StatusProyectoBlock, VentasTotalesBlock } from "./landing-blocks";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
@@ -545,6 +545,13 @@ export default function CommandCenter() {
       </section>
       <hr className="op-filter-rule vc-band-rule" />
 
+      <CanalesBlock
+        vista={vistaOf(vistas, "ventas-por-canales")}
+        error={errors["ventas-por-canales"] ?? null}
+        onFuente={(id, label) => toggleFocus({ kind: "fuente", id, label })}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
+
       <section aria-label="Tasa de conversión">
         <article className="vc-card">
           <h2>Tasa de conversión</h2>
@@ -643,11 +650,7 @@ export default function CommandCenter() {
       </section>
       <hr className="op-filter-rule vc-band-rule" />
 
-      <section className="vc-grid-2" aria-label="Canales y modelos">
-        <article className="vc-card">
-          <h2>Ventas por canales</h2>
-          <CanalesPanel vistas={vistas} errors={errors} busy={busy} onFuente={(id, label) => toggleFocus({ kind: "fuente", id, label })} />
-        </article>
+      <section aria-label="Ventas por modelo">
         <article className="vc-card">
           <h2>Ventas por modelo</h2>
           <ModeloPanel vistas={vistas} errors={errors} busy={busy} />
@@ -924,22 +927,6 @@ function ModeloPanel({ vistas, errors, busy }: BandProps) {
         name="Vendidas"
         fill={NAVY}
       />
-    </>
-  );
-}
-
-function CanalesPanel({
-  vistas,
-  errors,
-  busy,
-  onFuente,
-}: BandProps & { onFuente: (id: string, label: string) => void }) {
-  const vista = vistaOf(vistas, "ventas-por-canales");
-  if (!vista) return <StatusLine section="ventas-por-canales" errors={errors} busy={busy} />;
-  return (
-    <>
-      {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
-      <NamedBars rows={vista.channels} dataKey="units" name="Unidades" fill={NAVY} showGtq onPick={onFuente} />
     </>
   );
 }

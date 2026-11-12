@@ -274,6 +274,7 @@ export type CanalesVista = VistaBase & {
   leader: string | null;
   leaderShare: number | null;
   channels: { id: string; label: string; units: number; gtq: number | null; share: number }[];
+  byFuente: { id: string; label: string; reservas: number }[];
   months: string[];
   series: { id: string; label: string; units: number[] }[];
 };

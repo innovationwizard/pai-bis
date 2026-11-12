@@ -13,7 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { compareProjectLabels, isDisplayProject, PROJECT_DISPLAY_ORDER, projectKey } from "@/lib/projects";
-import type { FunnelStage, MeasureRow, ObjetivosVista, StatusVista, TotalesVista } from "@/lib/ventas/vista-types";
+import type { CanalesVista, FunnelStage, MeasureRow, ObjetivosVista, StatusVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
 
 const TOTAL_PRIOR = "reservas del periodo anterior";
@@ -974,6 +974,86 @@ function StatusRhythmPlot({ points }: { points: StatusVista["rhythm"] }) {
         </LineChart>
       </ResponsiveContainer>
     </div>
+  );
+}
+
+function sinDatoLabel(label: string): boolean {
+  const key = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return key === "sin dato";
+}
+
+function channelRows(vista: CanalesVista): { id: string; label: string; units: number }[] {
+  return vista.byFuente
+    .filter((row) => row.reservas > 0 && !sinDatoLabel(row.label))
+    .map((row) => ({ id: row.id, label: row.label, units: row.reservas }))
+    .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
+}
+
+function ChannelPlot({
+  rows,
+  onFuente,
+}: {
+  rows: readonly { id: string; label: string; units: number }[];
+  onFuente?: (id: string, label: string) => void;
+}) {
+  const peak = rows.reduce((max, row) => Math.max(max, row.units), 0);
+  const scale = peak <= 0 ? 1 : peak;
+  const marks = gridMarks(scale);
+  return (
+    <div className={styles.channelFrame}>
+      <GoalScale marks={marks} scale={scale} span={rows.length} />
+      {rows.map((row, index) => {
+        const pct = fieldPct(row.units, scale);
+        const name = onFuente && row.id !== "otras" ? (
+          <button type="button" className={styles.goalName} onClick={() => onFuente(row.id, row.label)}>
+            {row.label}
+          </button>
+        ) : (
+          <span className={styles.goalName}>{row.label}</span>
+        );
+        return (
+          <div key={row.id} className={styles.channelRow} style={{ gridRow: index + 1 }}>
+            {name}
+            <div className={styles.channelPlot}>
+              <div className={styles.channelField}>
+                <span className={styles.channelStem} style={{ width: `${pct}%` }} aria-hidden="true" />
+                <span className={styles.channelDot} style={{ left: `${pct}%` }} aria-hidden="true" />
+                <span className={styles.channelCount} style={{ left: `calc(${pct}% + 10px)` }}>
+                  {whole(row.units)}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function CanalesBlock({
+  vista,
+  error,
+  onFuente,
+}: {
+  vista: CanalesVista | null;
+  error: string | null;
+  onFuente?: (id: string, label: string) => void;
+}) {
+  const rows = vista ? channelRows(vista) : [];
+  return (
+    <section className={`${styles.block} ${styles.panel}`} aria-labelledby="vt-canales-title">
+      <div className={styles.bandHead}>
+        <h2 id="vt-canales-title" className={styles.panelTitle}>Ventas por canales</h2>
+      </div>
+      {!vista && error ? <p className={styles.warn}>{error}</p> : null}
+      {!vista && !error ? <p className={styles.caption}>Cargando…</p> : null}
+      {rows.length > 0 ? <ChannelPlot rows={rows} onFuente={onFuente} /> : null}
+    </section>
   );
 }
 

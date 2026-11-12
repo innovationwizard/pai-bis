@@ -95,7 +95,7 @@ type Sale = {
   valueGtq: number | null;
 };
 
-type Reserva = { day: string; projectId: string; asesorId: string };
+type Reserva = { day: string; projectId: string; asesorId: string; fuenteId: string };
 
 type Named = { id: string; name: string; sin: boolean };
 type Dims = {
@@ -268,10 +268,10 @@ async function loadReservas(
   }
 
   const dealIds = [...new Set(raw.flatMap((row) => (row.dealId ? [row.dealId] : [])))];
-  const deals = new Map<string, { projectId: string; asesorId: string; unitId: string | null }>();
+  const deals = new Map<string, { projectId: string; asesorId: string; unitId: string | null; fuenteId: string }>();
   for (let index = 0; index < dealIds.length; index += 80) {
     const slice = dealIds.slice(index, index + 80);
-    const { data, error } = await client.from("dim_deal").select("id,project_id,asesor_id,unit_id").in("id", slice);
+    const { data, error } = await client.from("dim_deal").select("id,project_id,asesor_id,unit_id,fuente_id").in("id", slice);
     if (error) throw new Error(error.message);
     for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
       const id = row.id == null ? "" : String(row.id);
@@ -280,6 +280,7 @@ async function loadReservas(
         projectId: row.project_id == null ? "" : String(row.project_id),
         asesorId: row.asesor_id == null ? "" : String(row.asesor_id),
         unitId: row.unit_id == null || row.unit_id === "" ? null : String(row.unit_id),
+        fuenteId: row.fuente_id == null || row.fuente_id === "" ? "" : String(row.fuente_id),
       });
     }
   }
@@ -302,7 +303,7 @@ async function loadReservas(
   const rows: Reserva[] = [];
   for (const row of raw) {
     if (!row.dealId) {
-      if (open) rows.push({ day: row.day, projectId: "", asesorId: "" });
+      if (open) rows.push({ day: row.day, projectId: "", asesorId: "", fuenteId: "" });
       continue;
     }
     const deal = deals.get(row.dealId);
@@ -311,7 +312,7 @@ async function loadReservas(
     if (!projectOk(deal.projectId, filters)) continue;
     if (filters.asesorId && deal.asesorId !== filters.asesorId) continue;
     if (filters.torreId && (deal.unitId ? towers.get(deal.unitId) ?? "" : "") !== filters.torreId) continue;
-    rows.push({ day: row.day, projectId: deal.projectId, asesorId: deal.asesorId });
+    rows.push({ day: row.day, projectId: deal.projectId, asesorId: deal.asesorId, fuenteId: deal.fuenteId });
   }
   return { rows, capped };
 }
@@ -1102,6 +1103,21 @@ function buildStatus(
   };
 }
 
+function reservasByFuente(reservas: Reserva[], dims: Dims): CanalesVista["byFuente"] {
+  const counts = new Map<string, number>();
+  for (const row of reservas) {
+    if (!row.fuenteId) continue;
+    const named = dims.fuentes.get(row.fuenteId);
+    if (!named || named.sin) continue;
+    counts.set(row.fuenteId, (counts.get(row.fuenteId) ?? 0) + 1);
+  }
+  return [...counts.entries()].flatMap(([id, reservas]) => {
+    const label = dims.fuentes.get(id)?.name ?? "";
+    if (reservas <= 0 || label.trim() === "") return [];
+    return [{ id, label, reservas }];
+  });
+}
+
 function buildCanales(
   filters: Filters,
   range: DateWindow,
@@ -1110,6 +1126,7 @@ function buildCanales(
   trail: Sale[],
   capped: boolean,
   choices: VentasVista["choices"],
+  reservas: Reserva[],
 ): CanalesVista {
   const gross = moneyOf(sales);
   const grouped = new Map<string, Sale[]>();
@@ -1166,6 +1183,7 @@ function buildCanales(
     leader: channels[0]?.id === "otras" ? null : channels[0]?.label ?? null,
     leaderShare: channels[0]?.id === "otras" ? null : channels[0]?.share ?? null,
     channels,
+    byFuente: reservasByFuente(reservas, dims),
     months: months.map(shortMonth),
     series,
   };
@@ -1230,12 +1248,13 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
 
   const needsLoss = section === "ventas-totales";
   const needsTarget = section === "objetivos-de-ventas" || section === "status-de-ventas";
+  const needsReservas = needsTarget || section === "ventas-por-canales";
   const dims = await loadDims(client);
   const [sold, lost, book, reservas] = await Promise.all([
     fetchIslands(client, "sale_on", windows, filters.projectIds),
     needsLoss ? fetchIslands(client, "lost_on", windows, filters.projectIds) : Promise.resolve({ rows: [] as Sale[], capped: false }),
     needsTarget ? loadTargets(client, dims, months) : Promise.resolve(null),
-    needsTarget ? loadReservas(client, range, filters, dims) : Promise.resolve({ rows: [] as Reserva[], capped: false }),
+    needsReservas ? loadReservas(client, range, filters, dims) : Promise.resolve({ rows: [] as Reserva[], capped: false }),
   ]);
   const targetBook = book ?? (await loadTargets(client, dims, []));
 
@@ -1303,7 +1322,7 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
     body = buildStatus(filters, range, today, dims, sales, reservas.rows, targetBook, capped, choices);
   } else {
     const trail = applySpecific(sold.rows, filters, section);
-    body = buildCanales(filters, range, dims, sales, trail, capped, choices);
+    body = buildCanales(filters, range, dims, sales, trail, capped, choices, reservas.rows);
   }
 
   payloadCache.set(key, { at: Date.now(), body });
