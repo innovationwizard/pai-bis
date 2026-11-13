@@ -227,10 +227,16 @@
   column-gap: 8px;
   align-items: start;
   min-width: 0;
+  --group-head: 0px;
+}
+
+.colChart[data-grouped="true"] {
+  --group-head: 32px;
 }
 
 .yAxis {
   position: relative;
+  margin-top: var(--group-head);
 }
 
 .yTick {
@@ -261,7 +267,7 @@
 
 .colGrid {
   position: absolute;
-  top: 0;
+  top: var(--group-head);
   right: 0;
   left: 0;
   border-bottom: 1px solid rgba(148, 163, 184, 0.45);
@@ -274,6 +280,39 @@
   left: 0;
   height: 1px;
   background: rgba(148, 163, 184, 0.28);
+}
+
+.colGroups {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.colGroup {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.colGroup + .colGroup {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.colGroupName {
+  display: -webkit-box;
+  height: var(--group-head);
+  overflow: hidden;
+  color: rgba(13, 32, 65, 0.75);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .colRow {
@@ -396,6 +435,67 @@ button.col { cursor: pointer; }
   max-width: 100%;
   min-width: 0;
 }
+
+.colNameClamp {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.multiples {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
+  min-width: 0;
+  --group-head: 26px;
+}
+
+.miniTrack {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mini {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.miniTitle {
+  height: 22px;
+  margin: 0 0 4px;
+  overflow: hidden;
+  color: rgba(13, 32, 65, 0.8);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.miniStage {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.miniGrid {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.45);
+  pointer-events: none;
+}
+
+.mini .colStack,
+.mini .colZero { width: 84%; }
 
 .plotLine {
   width: 100%;

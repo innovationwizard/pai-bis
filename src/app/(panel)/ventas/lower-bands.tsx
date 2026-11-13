@@ -416,6 +416,57 @@ function StackColumn({
 
 type ColumnGroup = { key: string; label: string | null; rows: readonly StackRow[] };
 
+function SmallMultiples({ groups }: { groups: readonly ColumnGroup[] }) {
+  const plot = TOWER_PLOT;
+  const peak = groups.reduce((max, group) => {
+    return group.rows.reduce((rowMax, row) => {
+      const total = row.segments.reduce((sum, segment) => sum + segment.value, 0);
+      return Math.max(rowMax, total);
+    }, max);
+  }, 0);
+  const { scale, marks } = columnScale(peak);
+  return (
+    <>
+      <ul className={styles.legend}>
+        {STOCK.map((item) => (
+          <li key={item.key}>
+            <span className={styles.swatch} style={{ background: item.color }} aria-hidden="true" />
+            {item.label}
+          </li>
+        ))}
+      </ul>
+      <div className={styles.multiples}>
+        <div className={styles.yAxis} style={{ height: plot }} aria-hidden="true">
+          {marks.map((mark) => (
+            <span key={mark} className={styles.yTick} style={{ bottom: tickBottom(mark, scale) }}>
+              {count(mark)}
+            </span>
+          ))}
+        </div>
+        <div className={styles.miniTrack}>
+          {groups.map((group) => (
+            <section key={group.key} className={styles.mini} style={{ flex: `${Math.max(group.rows.length, 1)} 1 0` }} aria-label={group.label ?? undefined}>
+              <h3 className={styles.miniTitle}>{group.label}</h3>
+              <div className={styles.miniStage}>
+                <div className={styles.miniGrid} style={{ height: plot }} aria-hidden="true">
+                  {marks.map((mark) => mark <= 0 ? null : (
+                    <span key={mark} className={styles.colGridLine} style={{ bottom: `${(mark / scale) * 100}%` }} />
+                  ))}
+                </div>
+                <div className={styles.colRow} style={{ gap: COLUMN_GAP }}>
+                  {group.rows.map((row) => (
+                    <StackColumn key={row.key} row={row} scale={scale} plot={plot} wrap />
+                  ))}
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function StackChart({ groups, weight }: { groups: readonly ColumnGroup[]; weight: Weight }) {
   const plot = weight === "project" ? PROJECT_PLOT : TOWER_PLOT;
   const grouped = groups.some((group) => group.label);
@@ -564,14 +615,24 @@ export function InventarioBands({
       </section>
       <section className={styles.band} aria-labelledby="vt-inventario-por-proyecto-title">
         <h2 id="vt-inventario-por-proyecto-title" className={styles.title}>Inventario por proyecto</h2>
-        {towers.length === 0 ? emptyNote(null) : <StackChart groups={towers} weight="row" />}
+        {towers.length === 0 ? emptyNote(null) : <SmallMultiples groups={towers} />}
       </section>
       <section className={styles.band} aria-labelledby="vt-inventario-modelo-title">
         <h2 id="vt-inventario-modelo-title" className={styles.title}>Inventario por modelo</h2>
-        {models.length === 0 ? emptyNote(null) : <StackChart groups={models} weight="row" />}
+        {models.length === 0 ? emptyNote(null) : <SmallMultiples groups={models} />}
       </section>
     </div>
   );
+}
+
+function isMissingLabel(label: string): boolean {
+  const key = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return key === "sin dato" || key === "sin torre" || key === "sin modelo" || key === "sin asesor" || key === "asesor pending" || key === "meta pending";
 }
 
 function towerGroups(
@@ -582,14 +643,16 @@ function towerGroups(
 ): ColumnGroup[] {
   const groups: ColumnGroup[] = [];
   for (const slot of projectSlots(vista, roster, projectName)) {
+    if (projectKey(slot.label) === projectKey("SANTA ELENA")) continue;
     const towers = vista.byTower
       .filter((tower) => projectKey(slot.nameOf.get(tower.projectId) ?? "") === projectKey(slot.label))
+      .filter((tower) => !isMissingLabel(tower.tower))
       .sort((a, b) => a.tower.localeCompare(b.tower, "es"));
     if (towers.length === 0) continue;
     groups.push({
       key: slot.id || slot.label,
       label: slot.label,
-          rows: towers.map((tower, index) => {
+      rows: towers.map((tower, index) => {
         const label = `${slot.label} · ${tower.tower}`;
         return {
           key: `${tower.projectId}:${index}:${tower.tower}`,
@@ -620,6 +683,7 @@ function modelGroups(
     const models = vista.byModel
       .filter((model) => projectKey(slot.nameOf.get(model.projectId) ?? "") === projectKey(slot.label))
       .filter((model) => model.vendido + model.reservado + model.congelado + model.disponible > 0)
+      .filter((model) => !isMissingLabel(model.model))
       .sort((a, b) => a.model.localeCompare(b.model, "es"));
     if (models.length === 0) continue;
     groups.push({
