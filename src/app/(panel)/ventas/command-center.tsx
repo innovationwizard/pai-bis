@@ -311,10 +311,11 @@ export default function CommandCenter() {
     };
   }, [bar]);
 
-  useEffect(() => {
-    if (!focus) return;
-    document.getElementById("vc-detalle")?.scrollIntoView({ block: "nearest" });
-  }, [focus]);
+  // The detail tables are outside the 14 Operativo items.
+  // useEffect(() => {
+  //   if (!focus) return;
+  //   document.getElementById("vc-detalle")?.scrollIntoView({ block: "nearest" });
+  // }, [focus]);
 
   function update(patch: Partial<BarState>) {
     setFocus(null);
@@ -568,6 +569,7 @@ export default function CommandCenter() {
         vista={vistaOf(vistas, "control-referidos")}
         pending={<StatusLine section="control-referidos" errors={errors} busy={busy} />}
       />
+      {/* Outside the 14 Operativo items: exception table and line-level sales list.
       <hr className="op-filter-rule vc-band-rule" />
 
       <section id="vc-detalle" className="vc-card vc-detail" aria-label="Detalle operativo">
@@ -611,6 +613,7 @@ export default function CommandCenter() {
           <StatusLine section="ventas-totales" errors={errors} busy={busy} />
         )}
       </section>
+      */}
     </div>
   );
 }
