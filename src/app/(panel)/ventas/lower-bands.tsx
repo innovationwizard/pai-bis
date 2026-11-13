@@ -59,6 +59,7 @@ type StackRow = {
   key: string;
   id: string;
   label: string;
+  axis?: string;
   segments: StackSegment[];
   onOpen?: () => void;
 };
@@ -274,7 +275,6 @@ function clickableChart(
 const PROJECT_PLOT = 300;
 const TOWER_PLOT = 252;
 const SEGMENT_LABEL = 16;
-const TOWER_COLUMN = 152;
 const COLUMN_GAP = 4;
 
 function segmentInk(color: string): string {
@@ -324,14 +324,7 @@ function tickBottom(mark: number, scale: number): string {
 
 function ColumnName({ label, wrap }: { label: string; wrap: boolean }) {
   if (!wrap) return <span className={styles.colName}>{label}</span>;
-  const splitAt = label.indexOf(" · ");
-  if (splitAt < 0) return <span className={styles.colName}>{label}</span>;
-  return (
-    <span className={styles.colName}>
-      <span>{label.slice(0, splitAt)}</span>
-      <span>{label.slice(splitAt + 3)}</span>
-    </span>
-  );
+  return <span className={`${styles.colName} ${styles.colNameClamp}`} title={label}>{label}</span>;
 }
 
 function StackColumn({
@@ -339,20 +332,17 @@ function StackColumn({
   scale,
   plot,
   wrap,
-  tower,
 }: {
   row: StackRow;
   scale: number;
   plot: number;
   wrap: boolean;
-  tower: boolean;
 }) {
   const values = row.segments.map((segment) => segment.value);
   const total = values.reduce((sum, value) => sum + value, 0);
   const slices = columnSlices(values, scale, plot);
   const spoken = row.segments.map((segment) => `${count(segment.value)} ${segment.label.toLowerCase()}`).join(", ");
   const spokenLabel = `${row.label}: ${spoken}`;
-  const towerStyle = tower ? { flex: `1 0 ${TOWER_COLUMN}px`, minWidth: TOWER_COLUMN } : undefined;
   const drawn = slices.flatMap((slice, index) => (slice.height > 0 ? [index] : []));
   const bottomIndex = drawn[0] ?? -1;
   const topIndex = drawn[drawn.length - 1] ?? -1;
@@ -407,32 +397,35 @@ function StackColumn({
           </div>
         )}
       </div>
-      <ColumnName label={row.label} wrap={wrap} />
+      <ColumnName label={row.axis ?? row.label} wrap={wrap} />
     </>
   );
   if (!row.onOpen) {
     return (
-      <div className={styles.col} style={towerStyle} role="group" aria-label={spokenLabel}>
+      <div className={styles.col} role="group" aria-label={spokenLabel}>
         {chart}
       </div>
     );
   }
   return (
-    <button type="button" className={styles.col} style={towerStyle} aria-label={spokenLabel} onClick={row.onOpen}>
+    <button type="button" className={styles.col} aria-label={spokenLabel} onClick={row.onOpen}>
       {chart}
     </button>
   );
 }
 
-function StackChart({ rows, weight }: { rows: readonly StackRow[]; weight: Weight }) {
+type ColumnGroup = { key: string; label: string | null; rows: readonly StackRow[] };
+
+function StackChart({ groups, weight }: { groups: readonly ColumnGroup[]; weight: Weight }) {
   const plot = weight === "project" ? PROJECT_PLOT : TOWER_PLOT;
-  const tower = weight === "row";
-  const peak = rows.reduce((max, row) => {
-    const total = row.segments.reduce((sum, segment) => sum + segment.value, 0);
-    return Math.max(max, total);
+  const grouped = groups.some((group) => group.label);
+  const peak = groups.reduce((max, group) => {
+    return group.rows.reduce((rowMax, row) => {
+      const total = row.segments.reduce((sum, segment) => sum + segment.value, 0);
+      return Math.max(rowMax, total);
+    }, max);
   }, 0);
   const { scale, marks } = columnScale(peak);
-  const track = rows.length * TOWER_COLUMN + Math.max(0, rows.length - 1) * COLUMN_GAP;
   return (
     <>
       <ul className={styles.legend}>
@@ -443,7 +436,7 @@ function StackChart({ rows, weight }: { rows: readonly StackRow[]; weight: Weigh
           </li>
         ))}
       </ul>
-      <div className={styles.colChart} data-weight={weight}>
+      <div className={styles.colChart} data-weight={weight} data-grouped={grouped ? "true" : "false"}>
         <div className={styles.yAxis} style={{ height: plot }} aria-hidden="true">
           {marks.map((mark) => (
             <span key={mark} className={styles.yTick} style={{ bottom: tickBottom(mark, scale) }}>
@@ -451,16 +444,23 @@ function StackChart({ rows, weight }: { rows: readonly StackRow[]; weight: Weigh
             </span>
           ))}
         </div>
-        <div className={tower ? styles.colScroll : styles.colClip}>
-          <div className={styles.colBody} style={tower ? { minWidth: track } : undefined}>
+        <div className={styles.colClip}>
+          <div className={styles.colBody}>
             <div className={styles.colGrid} style={{ height: plot }} aria-hidden="true">
               {marks.map((mark) => mark <= 0 ? null : (
                 <span key={mark} className={styles.colGridLine} style={{ bottom: `${(mark / scale) * 100}%` }} />
               ))}
             </div>
-            <div className={styles.colRow} style={{ gap: COLUMN_GAP }}>
-              {rows.map((row) => (
-                <StackColumn key={row.key} row={row} scale={scale} plot={plot} wrap={tower} tower={tower} />
+            <div className={styles.colGroups}>
+              {groups.map((group) => (
+                <div key={group.key} className={styles.colGroup} style={{ flex: `${Math.max(group.rows.length, 1)} 1 0` }}>
+                  {grouped ? <div className={styles.colGroupName}>{group.label}</div> : null}
+                  <div className={styles.colRow} style={{ gap: COLUMN_GAP }}>
+                    {group.rows.map((row) => (
+                      <StackColumn key={row.key} row={row} scale={scale} plot={plot} wrap={grouped} />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -552,58 +552,105 @@ export function InventarioBands({
       onOpen: id ? () => onProject(id, item.label) : undefined,
     } satisfies StackRow;
   });
-  const towers = towerRows(vista, roster, projectName, onTower);
+  const towers = towerGroups(vista, roster, projectName, onTower);
+  const models = modelGroups(vista, roster, projectName);
   return (
     <div className={styles.pair}>
-      <section className={styles.band} aria-labelledby="vt-inventario-proyecto-title">
-        <h2 id="vt-inventario-proyecto-title" className={styles.title}>Inventario general por proyecto</h2>
+      <section className={styles.band} aria-labelledby="vt-inventario-todos-title">
+        <h2 id="vt-inventario-todos-title" className={styles.title}>Inventario de todos los proyectos</h2>
         {notice ? <p className="op-note">{notice}</p> : null}
         {asesorNote ? <p className="op-note">{asesorNote}</p> : null}
-        {projects.length === 0 ? emptyNote(null) : <StackChart rows={projects} weight="project" />}
+        {projects.length === 0 ? emptyNote(null) : <StackChart groups={[{ key: "proyectos", label: null, rows: projects }]} weight="project" />}
       </section>
-      <section className={styles.band} aria-labelledby="vt-inventario-torre-title">
-        <h2 id="vt-inventario-torre-title" className={styles.title}>Inventario general por torre</h2>
-        {towers.length === 0 ? emptyNote(null) : <StackChart rows={towers} weight="row" />}
+      <section className={styles.band} aria-labelledby="vt-inventario-por-proyecto-title">
+        <h2 id="vt-inventario-por-proyecto-title" className={styles.title}>Inventario por proyecto</h2>
+        {towers.length === 0 ? emptyNote(null) : <StackChart groups={towers} weight="row" />}
+      </section>
+      <section className={styles.band} aria-labelledby="vt-inventario-modelo-title">
+        <h2 id="vt-inventario-modelo-title" className={styles.title}>Inventario por modelo</h2>
+        {models.length === 0 ? emptyNote(null) : <StackChart groups={models} weight="row" />}
       </section>
     </div>
   );
 }
 
-function towerRows(
+function towerGroups(
   vista: InventarioVista,
   roster: readonly ProjectSlot[],
   projectName: ReadonlyMap<string, string>,
   onTower: (projectId: string, tower: string, label: string) => void,
-): StackRow[] {
+): ColumnGroup[] {
+  const groups: ColumnGroup[] = [];
+  for (const slot of projectSlots(vista, roster, projectName)) {
+    const towers = vista.byTower
+      .filter((tower) => projectKey(slot.nameOf.get(tower.projectId) ?? "") === projectKey(slot.label))
+      .sort((a, b) => a.tower.localeCompare(b.tower, "es"));
+    if (towers.length === 0) continue;
+    groups.push({
+      key: slot.id || slot.label,
+      label: slot.label,
+          rows: towers.map((tower, index) => {
+        const label = `${slot.label} · ${tower.tower}`;
+        return {
+          key: `${tower.projectId}:${index}:${tower.tower}`,
+          id: tower.projectId,
+          label,
+          axis: tower.tower,
+          segments: stockSegments({
+            vendido: tower.vendido,
+            reservado: tower.reservado,
+            congelado: tower.congelado,
+            disponible: tower.disponible,
+          }),
+          onOpen: () => onTower(tower.projectId, tower.tower, label),
+        };
+      }),
+    });
+  }
+  return groups;
+}
+
+function modelGroups(
+  vista: InventarioVista,
+  roster: readonly ProjectSlot[],
+  projectName: ReadonlyMap<string, string>,
+): ColumnGroup[] {
+  const groups: ColumnGroup[] = [];
+  for (const slot of projectSlots(vista, roster, projectName)) {
+    const models = vista.byModel
+      .filter((model) => projectKey(slot.nameOf.get(model.projectId) ?? "") === projectKey(slot.label))
+      .filter((model) => model.vendido + model.reservado + model.congelado + model.disponible > 0)
+      .sort((a, b) => a.model.localeCompare(b.model, "es"));
+    if (models.length === 0) continue;
+    groups.push({
+      key: slot.id || slot.label,
+      label: slot.label,
+      rows: models.map((model, index) => ({
+        key: `${model.projectId}:${index}:${model.model}`,
+        id: model.projectId,
+        label: `${slot.label} · ${model.model}`,
+        axis: model.model,
+        segments: stockSegments({
+          vendido: model.vendido,
+          reservado: model.reservado,
+          congelado: model.congelado,
+          disponible: model.disponible,
+        }),
+      })),
+    });
+  }
+  return groups;
+}
+
+function projectSlots(
+  vista: InventarioVista,
+  roster: readonly ProjectSlot[],
+  projectName: ReadonlyMap<string, string>,
+): { id: string; label: string; nameOf: Map<string, string> }[] {
   const nameOf = new Map<string, string>();
   for (const project of vista.byProject) nameOf.set(project.id, project.label);
   for (const [id, label] of projectName) if (!nameOf.has(id)) nameOf.set(id, label);
-  const slots = orderedProjects(roster, vista.byProject);
-  const rows: StackRow[] = [];
-  for (const slot of slots) {
-    const towers = vista.byTower
-      .filter((tower) => {
-        const name = nameOf.get(tower.projectId) ?? "";
-        return projectKey(name) === projectKey(slot.label);
-      })
-      .sort((a, b) => a.tower.localeCompare(b.tower, "es"));
-    for (const tower of towers) {
-      const label = `${slot.label} · ${tower.tower}`;
-      rows.push({
-        key: `${tower.projectId}:${tower.tower}`,
-        id: tower.projectId,
-        label,
-        segments: stockSegments({
-          vendido: tower.vendido,
-          reservado: tower.reservado,
-          congelado: tower.congelado,
-          disponible: tower.disponible,
-        }),
-        onOpen: () => onTower(tower.projectId, tower.tower, label),
-      });
-    }
-  }
-  return rows;
+  return orderedProjects(roster, vista.byProject).map((slot) => ({ id: slot.id, label: slot.label, nameOf }));
 }
 
 function isPollutedModelLabel(label: string): boolean {

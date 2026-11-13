@@ -43,6 +43,10 @@ Take what the CEO and Managers already have in mind and are already familiar wit
 12. **Project order.** Canonical project display order is BOULEVARD 5, BENESTARE, BOSQUE LAS TAPIAS, SANTA ELENA (by date of birth). It is defined in the shared constant `src/lib/projects.ts` so reordering is a config change.
 13. **Audience chart preference.** Horizontal bars are among the least preferred types of charts by the audience (CEO and Managers). Prefer vertical bars, bullets, funnels, composed charts, or other forms whenever they can communicate the same information with equal or better density and clarity. Use horizontal bars only when they are the clearest option for the data (for example, long category labels or stacked status mixes) and always apply the visual-density continuity rules so they do not appear thin or sparse.
 
+### Missing-data labels
+
+Do not display the text “Sin dato”, “Sin asesor”, “Asesor pending”, “Meta pending”, “Sin torre”, “Sin modelo”, or any equivalent placeholder. If a required breakdown has no rows (for example a project with no asesores, a project with no towers, or a channel with no reservas), omit the row or the block entirely. The absence is communicated by the missing element, not by a label that explains the absence.
+
 ### Inventory status colours
 
 Status colours for inventory (Disponible, Congelado, Reservado, Vendido, etc.) must be identical to those already used on the unit availability grid (/disponibilidad). Do not introduce a new palette on the command centre. Source of truth: UNIT_STATUS_COLORS in src/lib/reservas/constants.ts (Disponible #22c55e, En revisión #f59e0b, Reservado #3b82f6, Congelado #a855f7, Vendido #6b7280).
@@ -103,10 +107,10 @@ All 14 Operativo checklist items are 0-click.
 | 1 | Ventas totales | Hero units (reservas) + project bars |
 | 2 | Ventas versus objetivos de proyectos - totales y por asesor | Compact bullet charts or overlapping bars, one set per proyecto + ranked asesor view |
 | 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por asesor | Pace or bullet against expected trajectory, color-coded for deficit/surplus, by proyecto and by asesor |
-| 6 | Inventario general: Vendido, congelado, disponible | Vertical stacked columns by proyecto and by torre. Status colors match the availability-grid palette (Disponible #22c55e, Reservado #3b82f6, Congelado #a855f7, Vendido #6b7280). En revisión is omitted. Numeric labels on every segment. Thick columns and tight gaps to satisfy visual-density continuity. Y-axis scale includes modest headroom (approximately 10–15 % above the maximum value) so the tallest column does not touch the top of the plot and large empty space above the columns is avoided. For the torre chart, wrap labels onto two lines rather than rotating them. |
+| 6 | Inventario general: Vendido, congelado, disponible | Vertical stacked columns in three bands:<br>- “Inventario de todos los proyectos”: one stacked column per project (canonical order).<br>- “Inventario por proyecto”: stacked columns grouped by project (towers of the same project sit together). Column width reduced so the band does not overflow the page horizontally.<br>- “Inventario por modelo”: stacked columns by modelo, same design rules as “Inventario por proyecto” (grouped if useful, width controlled to avoid horizontal overflow).<br>Status colors match the availability-grid palette (Disponible #22c55e, Reservado #3b82f6, Congelado #a855f7, Vendido #6b7280). En revisión is omitted. Numeric labels on every segment. Thick columns, tight gaps, and modest y-axis headroom (~10–15 % above the maximum) to satisfy visual-density continuity. Wrap long labels onto two lines rather than rotating them. |
 | 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
 
-Santa Elena sales are paused for strategic reasons. Its meta for the current period is zero. It has no asesores assigned. Do not display “Sin meta”, “Sin asesor”, “Asesor pending”, or any equivalent placeholder text.
+Santa Elena consists of individual houses, not towers. It therefore has no tower breakdown. The data model may still contain a single “Principal” tower row; the UI must not surface that row as a tower. Sales for Santa Elena are currently paused for strategic reasons. Its meta for the current period is zero. It has no asesores assigned. The project remains in the canonical order and is shown with its actual values (including zero) and its meta (including zero). Do not display “Sin meta”, “Sin asesor”, “Asesor pending”, “Sin torre”, “Sin dato”, or any equivalent placeholder text.
 
 ### 4.2 Band B — Analytical and control graphics (0 clicks)
 

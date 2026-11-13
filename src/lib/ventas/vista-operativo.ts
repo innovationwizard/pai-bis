@@ -447,6 +447,21 @@ function buildGeneral(range: DateWindow, dims: Dims, stock: StockRow[], empty: b
     if (kind !== "otro") current[kind] += 1;
     towers.set(key, current);
   }
+  const models = new Map<string, InventarioVista["byModel"][number]>();
+  for (const row of stock) {
+    const key = `${row.projectId}|${row.modelId}`;
+    const current = models.get(key) ?? {
+      projectId: row.projectId,
+      model: dims.models.get(row.modelId) ?? "Sin dato",
+      vendido: 0,
+      reservado: 0,
+      congelado: 0,
+      disponible: 0,
+    };
+    const kind = bucket(row.pageStatus);
+    if (kind !== "otro") current[kind] += 1;
+    models.set(key, current);
+  }
   const vendidoPrice = prices(groups.vendido);
   const congeladoPrice = prices(groups.congelado);
   const disponiblePrice = prices(groups.disponible);
@@ -480,6 +495,7 @@ function buildGeneral(range: DateWindow, dims: Dims, stock: StockRow[], empty: b
     otros,
     byProject,
     byTower: [...towers.values()],
+    byModel: [...models.values()],
   };
 }
 
