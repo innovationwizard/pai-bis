@@ -532,7 +532,7 @@ function StackColumn({
 
 type ColumnGroup = { key: string; label: string | null; rows: readonly StackRow[] };
 
-function SmallMultiples({ groups, legend = true }: { groups: readonly ColumnGroup[]; legend?: boolean }) {
+function SmallMultiples({ groups, legend = true, fit = false }: { groups: readonly ColumnGroup[]; legend?: boolean; fit?: boolean }) {
   const plot = TOWER_PLOT;
   const peak = groups.reduce((max, group) => {
     return group.rows.reduce((rowMax, row) => {
@@ -553,7 +553,7 @@ function SmallMultiples({ groups, legend = true }: { groups: readonly ColumnGrou
           ))}
         </ul>
       ) : null}
-      <div className={styles.multiples}>
+      <div className={fit ? `${styles.multiples} ${styles.multiplesFit}` : styles.multiples}>
         <div className={styles.yAxis} style={{ height: plot }} aria-hidden="true">
           {marks.map((mark) => (
             <span key={mark} className={styles.yTick} style={{ bottom: tickBottom(mark, scale) }}>
@@ -733,7 +733,7 @@ export function InventarioBands({
       </section>
       <section className={styles.band} aria-labelledby="vt-inventario-por-proyecto-title">
         <h2 id="vt-inventario-por-proyecto-title" className={styles.title}>Inventario por proyecto</h2>
-        {towers.length === 0 ? emptyNote(null) : <SmallMultiples groups={towers} />}
+        {towers.length === 0 ? emptyNote(null) : <SmallMultiples groups={towers} fit />}
       </section>
       <section className={styles.band} aria-labelledby="vt-inventario-modelo-title">
         <h2 id="vt-inventario-modelo-title" className={styles.title}>Inventario por modelo</h2>
@@ -751,15 +751,6 @@ function isMissingLabel(label: string): boolean {
     .replace(/\s+/g, " ")
     .trim();
   return key === "sin dato" || key === "sin torre" || key === "sin modelo" || key === "sin asesor" || key === "asesor pending" || key === "meta pending";
-}
-
-function isPrincipalTower(label: string): boolean {
-  return label
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim() === "principal";
 }
 
 function towerGroups(
@@ -801,27 +792,47 @@ function towerGroups(
       });
       continue;
     }
-    const named = towers.filter((tower) => !isMissingLabel(tower.tower) && !isPrincipalTower(tower.tower));
-    if (named.length === 0) continue;
+    const named = towers.filter((tower) => !isMissingLabel(tower.tower));
+    if (named.length > 0) {
+      groups.push({
+        key: slot.id || slot.label,
+        label: slot.label,
+        rows: named.map((tower, index) => {
+          const label = `${slot.label} · ${tower.tower}`;
+          return {
+            key: `${tower.projectId}:${index}:${tower.tower}`,
+            id: tower.projectId,
+            label,
+            axis: tower.tower,
+            segments: stockSegments({
+              vendido: tower.vendido,
+              reservado: tower.reservado,
+              congelado: tower.congelado,
+              disponible: tower.disponible,
+            }),
+            onOpen: () => onTower(tower.projectId, tower.tower, label),
+          };
+        }),
+      });
+      continue;
+    }
+    const fromProject = vista.byProject.find((project) => projectKey(project.label) === projectKey(slot.label));
     groups.push({
       key: slot.id || slot.label,
       label: slot.label,
-      rows: named.map((tower, index) => {
-        const label = `${slot.label} · ${tower.tower}`;
-        return {
-          key: `${tower.projectId}:${index}:${tower.tower}`,
-          id: tower.projectId,
-          label,
-          axis: tower.tower,
-          segments: stockSegments({
-            vendido: tower.vendido,
-            reservado: tower.reservado,
-            congelado: tower.congelado,
-            disponible: tower.disponible,
-          }),
-          onOpen: () => onTower(tower.projectId, tower.tower, label),
-        };
-      }),
+      rows: [{
+        key: `${slot.id || slot.label}:total`,
+        id: slot.id,
+        label: slot.label,
+        axis: slot.label,
+        segments: stockSegments({
+          vendido: fromProject?.vendido ?? 0,
+          reservado: fromProject?.reservado ?? 0,
+          congelado: fromProject?.congelado ?? 0,
+          disponible: fromProject?.disponible ?? 0,
+        }),
+        onOpen: slot.id ? () => onProject(slot.id, slot.label) : undefined,
+      }],
     });
   }
   return groups;
