@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { projectKey } from "@/lib/projects";
+import { EMBUDO_PIPELINES, embudoFunnel, type EmbudoInput } from "./embudo";
 import { monthEnd, monthStart, monthsTouched, resolveRange, windowLabel, guatemalaToday, type DateWindow } from "./period";
 import type { VistaFilters } from "./vista";
 import type {
@@ -13,7 +14,6 @@ import type {
   NamedBar,
   PrecioVista,
   PromoVista,
-  RateRow,
   ReferidosVista,
   ValorVista,
   VentasVista,
@@ -24,7 +24,6 @@ const CAP = 5000;
 const STOCK_MS = 60_000;
 const NO_SALES = "Este periodo todavía no tiene ventas.";
 const NO_STOCK = "Este inventario todavía no tiene filas.";
-const VISIT_CAPTION = "Una visita de este periodo que se vuelve venta en un periodo siguiente no entra en el numerador.";
 
 const STOCK_SECTIONS = ["analisis-de-inventario", "inventario-general", "valor-del-proyecto", "tasa-de-conversion"] as const;
 type StockSection = (typeof STOCK_SECTIONS)[number];
@@ -60,8 +59,6 @@ type Dims = {
   cases: Map<string, Named>;
 };
 
-type DealStamp = { projectId: string; asesorId: string; fuenteId: string };
-
 const stockCache = new Map<string, { at: number; rows: StockRow[] }>();
 let dimCache: { at: number; dims: Dims } | null = null;
 
@@ -91,11 +88,6 @@ function monthsBack(to: string, count: number): string {
   const [year, month] = start.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1 - (count - 1), 1));
   return date.toISOString().slice(0, 10);
-}
-
-function rate(part: number, whole: number): number | null {
-  if (whole <= 0) return null;
-  return part / whole;
 }
 
 function emptyChoices(): AnalisisVista["choices"] {
@@ -837,175 +829,101 @@ async function unitNames(client: Db, ids: string[]): Promise<Map<string, string>
   return names;
 }
 
-async function countRows(client: Db, table: string, column: string, from: string, to: string, filters: VistaFilters): Promise<number> {
-  let query = client.from(table).select("*", { count: "exact", head: true }).gte(column, from).lte(column, to);
-  const ids = projectList(filters);
-  if (ids) query = query.in("project_id", ids);
-  if (filters.asesorId) query = query.eq("asesor_id", filters.asesorId);
-  if (filters.fuenteId) query = query.eq("fuente_id", filters.fuenteId);
-  const { count, error } = await query;
-  if (error) throw new Error(error.message);
-  return count ?? 0;
+const EMBUDO_PAGE = 1000;
+const EMBUDO_CAP = 200_000;
+
+function pipelineSlugs(projectIds: string[] | null, dims: Dims): string[] {
+  if (projectIds === null) return EMBUDO_PIPELINES.map((pipeline) => pipeline.slug);
+  const wanted = new Set<string>();
+  for (const id of projectIds) {
+    const name = dims.projects.find((project) => project.id === id)?.name;
+    if (!name) continue;
+    const key = projectKey(name);
+    const pipeline = EMBUDO_PIPELINES.find((item) => projectKey(item.label) === key);
+    if (pipeline) wanted.add(pipeline.slug);
+  }
+  return EMBUDO_PIPELINES.map((pipeline) => pipeline.slug).filter((slug) => wanted.has(slug));
+}
+
+function visiblePerson(name: string): boolean {
+  const key = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return key !== "" && key !== "sin dato" && key !== "sin asesor" && key !== "asesor pending";
+}
+
+function asOrder(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(parsed) ? parsed : 0;
+}
+
+async function loadEmbudoRows(
+  client: Db,
+  range: DateWindow,
+  slugs: readonly string[],
+  asesorId: string | null,
+): Promise<{ pipeline: string; status: string; stageOrder: number; asesorId: string }[]> {
+  if (slugs.length === 0) return [];
+  const rows: { pipeline: string; status: string; stageOrder: number; asesorId: string }[] = [];
+  for (let offset = 0; offset < EMBUDO_CAP; offset += EMBUDO_PAGE) {
+    let query = client
+      .from("embudo_deal")
+      .select("pipeline_slug,status,stage_order,asesor_id")
+      .gte("add_on", range.from)
+      .lte("add_on", range.to)
+      .in("pipeline_slug", [...slugs])
+      .order("pipedrive_deal_id");
+    if (asesorId) query = query.eq("asesor_id", asesorId);
+    const { data, error } = await query.range(offset, offset + EMBUDO_PAGE - 1);
+    if (error) throw new Error("No se pudo leer la tasa de conversión.");
+    const batch = (data ?? []) as { pipeline_slug: unknown; status: unknown; stage_order: unknown; asesor_id: unknown }[];
+    for (const row of batch) {
+      rows.push({
+        pipeline: String(row.pipeline_slug),
+        status: String(row.status),
+        stageOrder: asOrder(row.stage_order),
+        asesorId: String(row.asesor_id ?? ""),
+      });
+    }
+    if (batch.length < EMBUDO_PAGE) return rows;
+  }
+  throw new Error("No se pudo leer la tasa de conversión.");
 }
 
 async function buildConversion(client: Db, filters: VistaFilters, range: DateWindow): Promise<ConversionVista> {
-  const from = monthsBack(range.to, 6);
   const dims = await loadDims(client);
-  const projectScope = (query: DatedQuery): DatedQuery => {
-    let scoped = query;
-    const ids = projectList(filters);
-    if (ids) scoped = query.in("project_id", ids);
-    if (filters.asesorId) scoped = scoped.eq("asesor_id", filters.asesorId);
-    if (filters.fuenteId) scoped = scoped.eq("fuente_id", filters.fuenteId);
-    return scoped;
-  };
-  const monthStarts = monthsTouched(from, range.to);
-  const [leadTotal, saleTotal, monthSeries, leads, sales, visits, pcvs] = await Promise.all([
-    countRows(client, "dim_deal", "add_on", range.from, range.to, filters),
-    countRows(client, "v_sale", "sale_on", range.from, range.to, filters),
-    Promise.all(monthStarts.map(async (month) => {
-      const end = monthEnd(month) < range.to ? monthEnd(month) : range.to;
-      const [leadCount, saleCount] = await Promise.all([
-        countRows(client, "dim_deal", "add_on", month, end, filters),
-        countRows(client, "v_sale", "sale_on", month, end, filters),
-      ]);
-      return { label: shortMonth(month), leads: leadCount, sales: saleCount, rate: rate(saleCount, leadCount) };
-    })),
-    fetchDated(client, "dim_deal", "add_on", "id,add_on,project_id,asesor_id,fuente_id", range.from, range.to, projectScope),
-    fetchDated(client, "v_sale", "sale_on", "deal_id,sale_on,project_id,asesor_id,fuente_id", range.from, range.to, projectScope),
-    fetchDated(client, "fact_visit", "visit_on", "deal_id,fuente_id,visit_on", range.from, range.to, (query) =>
-      filters.fuenteId ? query.eq("fuente_id", filters.fuenteId) : query,
-    ),
-    fetchDated(client, "fact_pcv_issuance", "clock_on", "deal_id,clock_on", range.from, range.to),
-  ]);
-  const dealIds = [...new Set([
-    ...visits.rows.map((row) => (row.deal_id ? String(row.deal_id) : "")),
-    ...pcvs.rows.map((row) => String(row.deal_id)),
-  ].filter(Boolean))];
-  const deals = await dealStamps(client, dealIds);
-  const visitRows = visits.rows.filter((row) => passDeal(row.deal_id ? String(row.deal_id) : null, deals, filters));
-  const pcvRows = pcvs.rows.filter((row) => passDeal(String(row.deal_id), deals, filters));
-  const periodLeads = leads.rows;
-  const periodSales = sales.rows;
-  const byFuente = rateRows(
-    uniqueIds(periodLeads, "fuente_id", visitRows, "fuente_id", periodSales, "fuente_id"),
-    (id) => dims.fuentes.get(id)?.name ?? "Sin dato",
-    periodLeads,
-    visitRows,
-    periodSales,
-    pcvRows,
-    deals,
-    "fuente_id",
-  );
-  const byAsesor = rateRows(
-    uniqueIds(periodLeads, "asesor_id", periodSales, "asesor_id"),
-    (id) => dims.asesores.get(id)?.name ?? "Sin dato",
-    periodLeads,
-    visitRows,
-    periodSales,
-    pcvRows,
-    deals,
-    "asesor_id",
-  );
+  const slugs = pipelineSlugs(filters.projectIds, dims);
+  const loaded = await loadEmbudoRows(client, range, slugs, filters.asesorId);
+  const deals: EmbudoInput[] = loaded.map((row) => ({
+    pipeline: row.pipeline,
+    status: row.status,
+    stageOrder: row.stageOrder,
+  }));
   const choices = emptyChoices();
-  choices.fuente = countChoices(periodLeads.map((row) => String(row.fuente_id)), new Map([...dims.fuentes].map(([id, row]) => [id, row.name])));
-  choices.asesor = countChoices(periodLeads.map((row) => String(row.asesor_id)), new Map([...dims.asesores].map(([id, row]) => [id, row.name])));
-  const capped = leads.capped || sales.capped || visits.capped || pcvs.capped;
+  const asesorLabels = new Map<string, string>();
+  for (const [id, asesor] of dims.asesores) {
+    if (!asesor.sin && visiblePerson(asesor.name)) asesorLabels.set(id, asesor.name);
+  }
+  choices.asesor = countChoices(
+    loaded.map((row) => row.asesorId).filter((id) => asesorLabels.has(id)),
+    asesorLabels,
+  );
+  const slugSet = new Set(slugs);
   return {
-    ...base(
-      "De los leads del periodo, ¿cuántos llegan a visita, a venta y a PCV?",
-      range,
-      VISIT_CAPTION,
-      capped ? "El detalle por fuente llegó al tope de filas. Las tasas usan el conteo completo del periodo." : leadTotal === 0 ? "Este periodo todavía no tiene leads." : null,
-      dims,
-      choices,
-    ),
+    ...base("Tasa de conversión", range, "", null, dims, choices),
     section: "tasa-de-conversion",
-    leads: leadTotal,
-    visits: visitRows.length,
-    sales: saleTotal,
-    pcv: pcvRows.length,
-    saleRate: rate(saleTotal, leadTotal),
-    pcvRate: rate(pcvRows.length, leadTotal),
-    funnel: [
-      { label: "Leads", units: leadTotal },
-      { label: "Visitas", units: visitRows.length },
-      { label: "Ventas", units: saleTotal },
-      { label: "PCV", units: pcvRows.length },
-    ],
-    months: monthSeries,
-    byFuente,
-    byAsesor,
+    all: embudoFunnel("todos", "de todos los proyectos", deals),
+    projects: EMBUDO_PIPELINES
+      .filter((pipeline) => slugSet.has(pipeline.slug))
+      .map((pipeline) => embudoFunnel(
+        pipeline.slug,
+        pipeline.label,
+        deals.filter((deal) => deal.pipeline === pipeline.slug),
+      )),
   };
-}
-
-function passDeal(dealId: string | null, deals: Map<string, DealStamp>, filters: VistaFilters): boolean {
-  if (!filters.projectIds && !filters.asesorId) return true;
-  if (!dealId) return filters.projectIds === null && !filters.asesorId;
-  const deal = deals.get(dealId);
-  if (!deal) return false;
-  if (!projectOk(deal.projectId, filters)) return false;
-  if (filters.asesorId && deal.asesorId !== filters.asesorId) return false;
-  return true;
-}
-
-async function dealStamps(client: Db, ids: string[]): Promise<Map<string, DealStamp>> {
-  const stamps = new Map<string, DealStamp>();
-  for (let index = 0; index < ids.length && index < CAP; index += 200) {
-    const chunk = ids.slice(index, index + 200);
-    if (chunk.length === 0) break;
-    const { data, error } = await client.from("dim_deal").select("id,project_id,asesor_id,fuente_id").in("id", chunk);
-    if (error) throw new Error(error.message);
-    for (const row of data ?? []) {
-      stamps.set(String(row.id), {
-        projectId: String(row.project_id),
-        asesorId: String(row.asesor_id),
-        fuenteId: String(row.fuente_id),
-      });
-    }
-  }
-  return stamps;
-}
-
-function uniqueIds(...groups: (Record<string, unknown>[] | string)[]): string[] {
-  const ids = new Set<string>();
-  for (let index = 0; index < groups.length; index += 2) {
-    const rows = groups[index] as Record<string, unknown>[];
-    const key = groups[index + 1] as string;
-    for (const row of rows) if (row[key]) ids.add(String(row[key]));
-  }
-  return [...ids];
-}
-
-function rateRows(
-  ids: string[],
-  labelOf: (id: string) => string,
-  leads: Record<string, unknown>[],
-  visits: Record<string, unknown>[],
-  sales: Record<string, unknown>[],
-  pcvs: Record<string, unknown>[],
-  deals: Map<string, DealStamp>,
-  key: "fuente_id" | "asesor_id",
-): RateRow[] {
-  return ids
-    .map((id) => {
-      const leadCount = leads.filter((row) => String(row[key]) === id).length;
-      const visitCount = visits.filter((row) => stampKey(row, deals, key) === id).length;
-      const saleCount = sales.filter((row) => String(row[key]) === id).length;
-      const pcvCount = pcvs.filter((row) => stampKey(row, deals, key) === id).length;
-      return { id, label: labelOf(id), leads: leadCount, visits: visitCount, sales: saleCount, pcv: pcvCount, saleRate: rate(saleCount, leadCount) };
-    })
-    .filter((row) => row.leads + row.visits + row.sales + row.pcv > 0)
-    .sort((a, b) => b.sales - a.sales || b.leads - a.leads || a.label.localeCompare(b.label, "es"))
-    .slice(0, 20);
-}
-
-function stampKey(row: Record<string, unknown>, deals: Map<string, DealStamp>, key: "fuente_id" | "asesor_id"): string {
-  if (row[key]) return String(row[key]);
-  const dealId = row.deal_id ? String(row.deal_id) : "";
-  const deal = deals.get(dealId);
-  if (!deal) return "";
-  return key === "fuente_id" ? deal.fuenteId : deal.asesorId;
 }
 
 export type UnitDetalle = {

@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import type { AnalisisVista, ConversionVista, InventarioVista, ValorVista, VentasVista } from "@/lib/ventas/vista-types";
 import { isDisplayProject } from "@/lib/projects";
+import { TasaBand } from "./lower-bands";
 
 type StockBar = {
   periodo: string;
@@ -211,61 +212,7 @@ function Valor({ vista, onProject }: { vista: ValorVista; onProject: (id: string
 }
 
 function Conversion({ vista }: { vista: ConversionVista }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <div className="op-kpis">
-        <Kpi label="Lead a venta" value={pct(vista.saleRate)} detail={`${count(vista.sales)} ventas`} />
-        <Kpi label="Lead a PCV" value={pct(vista.pcvRate)} detail={`${count(vista.pcv)} PCV`} />
-        <Kpi label="Leads" value={count(vista.leads)} detail={`${count(vista.visits)} visitas`} />
-        <Kpi label="Ventas" value={count(vista.sales)} detail="en el periodo" />
-      </div>
-      <section className="op-hero op-hero-budget" aria-label="Embudo">
-        <header className="op-head">
-          <div><h2>Leads, visitas, ventas y PCV</h2><p className="op-note">{vista.caption}</p></div>
-          <button type="button" className="op-text" onClick={() => setOpen(true)}>Por fuente y asesor</button>
-        </header>
-        <Horizontal rows={vista.funnel} nameKey="label" valueKey="units" />
-      </section>
-      <section className="op-hero" aria-label="Tasa mensual" style={{ flex: 1 }}>
-        <header className="op-head"><div><h2>Tasa lead a venta</h2></div></header>
-        <div className="op-chart">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={vista.months} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-              <CartesianGrid stroke="#e2e8f0" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={(value) => pct(tipNumber(value))} tick={{ fontSize: 11, fill: "#64748b" }} width={40} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(value, name) => [name === "Tasa" ? pct(tipNumber(value)) : count(tipNumber(value)), String(name)]} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line type="monotone" dataKey="rate" name="Tasa" stroke="#0d2041" strokeWidth={2} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-      {open ? (
-        <Overlay title="Por fuente y por asesor" onClose={() => setOpen(false)}>
-          <RateTable title="Fuente" rows={vista.byFuente} />
-          <RateTable title="Asesor" rows={vista.byAsesor} />
-        </Overlay>
-      ) : null}
-    </>
-  );
-}
-
-function RateTable({ title, rows }: { title: string; rows: ConversionVista["byFuente"] }) {
-  return (
-    <>
-      <h3 style={{ margin: "8px 0 0", color: "#0d2041", fontSize: 14 }}>{title}</h3>
-      <table>
-        <thead><tr><th>{title}</th><th>Leads</th><th>Visitas</th><th>Ventas</th><th>PCV</th><th>Tasa</th></tr></thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}><td>{row.label}</td><td>{count(row.leads)}</td><td>{count(row.visits)}</td><td>{count(row.sales)}</td><td>{count(row.pcv)}</td><td>{pct(row.saleRate)}</td></tr>
-          ))}
-        </tbody>
-      </table>
-    </>
-  );
+  return <TasaBand vista={vista} pending={null} />;
 }
 
 function Horizontal<T extends Record<string, string | number | null>>({

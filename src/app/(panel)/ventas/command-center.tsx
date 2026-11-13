@@ -43,6 +43,7 @@ const SECTIONS: VistaSection[] = [
   "status-de-ventas",
   "inventario-general",
   "ventas-por-canales",
+  "tasa-de-conversion",
   "analisis-de-inventario",
   "valor-del-proyecto",
   "desistimientos",
@@ -349,6 +350,7 @@ export default function CommandCenter() {
   const objetivos = vistaOf(vistas, "objetivos-de-ventas");
   const status = vistaOf(vistas, "status-de-ventas");
   const inventario = vistaOf(vistas, "inventario-general");
+  const tasa = vistaOf(vistas, "tasa-de-conversion");
 
   const loadedProjects = useMemo(
     () => sortByProjectLabel(mergeChoices([totales?.projects ?? [], objetivos?.projects ?? [], inventario?.projects ?? []])),
@@ -364,8 +366,13 @@ export default function CommandCenter() {
     [projectOptions],
   );
   const asesores = useMemo(
-    () => mergeChoices([totales?.choices.asesor ?? [], objetivos?.choices.asesor ?? [], status?.choices.asesor ?? []]),
-    [totales, objetivos, status],
+    () => mergeChoices([
+      totales?.choices.asesor ?? [],
+      objetivos?.choices.asesor ?? [],
+      status?.choices.asesor ?? [],
+      tasa?.choices.asesor ?? [],
+    ]),
+    [totales, objetivos, status, tasa],
   );
   const projectName = useMemo(() => {
     const map = new Map<string, string>();
@@ -486,9 +493,8 @@ export default function CommandCenter() {
       <hr className="op-filter-rule vc-band-rule" />
 
       <TasaBand
-        funnel={totales ? totales.funnel : null}
-        pending={<StatusLine section="ventas-totales" errors={errors} busy={busy} />}
-        onStage={(id, label) => toggleFocus({ kind: "etapa", id, label })}
+        vista={tasa}
+        pending={<StatusLine section="tasa-de-conversion" errors={errors} busy={busy} />}
       />
       <hr className="op-filter-rule vc-band-rule" />
 

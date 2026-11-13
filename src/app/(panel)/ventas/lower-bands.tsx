@@ -17,9 +17,9 @@ import { UNIT_STATUS_COLORS } from "@/lib/reservas/constants";
 import type {
   AnalisisVista,
   CasoVista,
+  ConversionVista,
   DescuentoVista,
   DesistenciaVista,
-  FunnelStage,
   InventarioVista,
   NamedBar,
   PrecioVista,
@@ -219,12 +219,6 @@ function dollars(value: number): string {
 
 function count(value: number): string {
   return countFormat.format(value);
-}
-
-function pct(value: number): string {
-  const n = value * 100;
-  const digits = Math.abs(n) >= 10 || n === 0 ? 0 : 1;
-  return `${new Intl.NumberFormat("es-GT", { maximumFractionDigits: digits }).format(n)}%`;
 }
 
 function hueKey(label: string): string {
@@ -684,10 +678,6 @@ function stockSegments(counts: Record<StockKey, number>): StackSegment[] {
   }));
 }
 
-function isStageId(value: string): value is FunnelStage["id"] {
-  return value === "reservas" || value === "promesas" || value === "recibos" || value === "netas";
-}
-
 function MarkColumns({
   rows,
   format,
@@ -745,28 +735,99 @@ function MarkColumns({
   );
 }
 
-export function TasaBand({
-  funnel,
-  pending,
-  onStage,
+function funnelPct(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  if (value === 0) return "0%";
+  const rounded = Math.round(value * 1000) / 10;
+  const digits = Number.isInteger(rounded) ? 0 : 1;
+  return `${new Intl.NumberFormat("es-GT", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(rounded)}%`;
+}
+
+function funnelScale(peak: number): { scale: number; marks: number[] } {
+  if (!(peak > 0)) return { scale: 1, marks: [0] };
+  const marks = [0, 0.25, 0.5, 0.75, 1].map((part) => Math.round(peak * part));
+  return { scale: peak, marks: [...new Set(marks)] };
+}
+
+function EmbudoChart({
+  bars,
+  winRate,
+  weight,
+  hue,
 }: {
-  funnel: FunnelStage[] | null;
-  pending: ReactNode;
-  onStage: (id: FunnelStage["id"], label: string) => void;
+  bars: ConversionVista["all"]["bars"];
+  winRate: number | null;
+  weight: Weight;
+  hue?: string;
 }) {
-  const rows: Mark[] = (funnel ?? []).map((stage) => ({
-    id: stage.id,
-    label: stage.label,
-    value: stage.count,
-    tone: "navy",
-    aside: stage.conversion == null ? null : pct(stage.conversion),
-  }));
+  const peak = bars.reduce((max, bar) => Math.max(max, bar.count), 0);
+  const { scale, marks } = funnelScale(peak);
+  const plot = weight === "project" ? styles.plotProject : styles.plotRow;
+  const gutter = 72;
   return (
-    <section className={styles.band} aria-labelledby="vt-tasa-title">
+    <div>
+      <p className={styles.win}>Tasa de ganados {funnelPct(winRate)}</p>
+      <div className={styles.frameEmbudo}>
+        <Scale marks={marks} scale={scale} span={bars.length} gutter={gutter} />
+        {bars.map((bar, index) => {
+          const width = scale > 0 ? Math.min(100, Math.max(0, (bar.count / scale) * 100)) : 0;
+          const shown = count(bar.count);
+          const aside = bar.hasNext ? funnelPct(bar.nextRate) : null;
+          return (
+            <div key={bar.label} className={styles.row} style={{ gridRow: index + 1 }} aria-label={aside ? `${bar.label}: ${shown}, ${aside}` : `${bar.label}: ${shown}`}>
+              <span className={styles.name}>{bar.label}</span>
+              <div className={`${styles.plot} ${plot}`}>
+                <div className={styles.field} style={{ right: gutter }}>
+                  {bar.count <= 0 ? <span className={styles.zeroTick} data-project={hue} aria-hidden="true" /> : (
+                    <span
+                      className={styles.bar}
+                      data-project={hue}
+                      data-tone={hue ? undefined : "navy"}
+                      style={{ width: `${width}%` }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className={styles.count} style={{ left: bar.count <= 0 ? 8 : `calc(${width}% + 6px)` }}>
+                    {shown}
+                  </span>
+                </div>
+              </div>
+              <span className={styles.aside}>
+                {aside ? <span className={styles.pill}>{aside}</span> : null}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function TasaBand({
+  vista,
+  pending,
+}: {
+  vista: ConversionVista | null;
+  pending: ReactNode;
+}) {
+  return (
+    <section className={styles.bandPlain} aria-labelledby="vt-tasa-title">
       <h2 id="vt-tasa-title" className={styles.title}>Tasa de conversión</h2>
-      {funnel == null ? pending : rows.length === 0 ? emptyNote(null) : clickableChart(rows, count, "project", 64, (id, label) => {
-        if (isStageId(id)) onStage(id, label);
-      })}
+      {vista == null ? pending : (
+        <>
+          <h3 className={styles.subTitle}>de todos los proyectos</h3>
+          <EmbudoChart bars={vista.all.bars} winRate={vista.all.winRate} weight="project" />
+          <h3 className={styles.subTitle}>por proyecto</h3>
+          <div className={styles.projectFunnels}>
+            {vista.projects.map((funnel) => (
+              <article key={funnel.slug} className={styles.projectFunnel} aria-label={funnel.label}>
+                <h4 className={styles.projectName}>{funnel.label}</h4>
+                <EmbudoChart bars={funnel.bars} winRate={funnel.winRate} weight="row" hue={funnel.slug} />
+              </article>
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }

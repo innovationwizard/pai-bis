@@ -49,7 +49,7 @@ const QUESTIONS: Record<VistaSection, string> = {
   "analisis-de-inventario": "¿Qué modelos se están vendiendo y cuáles siguen en inventario?",
   "inventario-general": "¿Cuánto inventario está vendido, congelado y disponible?",
   "valor-del-proyecto": "¿Cuánto vale el proyecto hoy, y cuánto valor salió por desistimientos?",
-  "tasa-de-conversion": "De los leads del periodo, ¿cuántos llegan a visita, a venta y a PCV?",
+  "tasa-de-conversion": "Tasa de conversión",
   desistimientos: "¿Cuánto se desistió, y qué valor sale del proyecto?",
   descuentos: "¿Cuánto descuento se está otorgando, y quién lo concentra?",
   "subidas-de-precios": "¿Cuánto subió el precio de lista, y en qué proyectos?",

@@ -18,6 +18,50 @@
   font-variant-numeric: tabular-nums;
 }
 
+.bandPlain {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.win {
+  margin: 0 0 4px;
+  color: #0d2041;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.projectFunnels {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.projectFunnel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(13, 32, 65, 0.18);
+}
+
+.projectName {
+  margin: 0;
+  color: #0d2041;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .title {
   margin: 0;
   color: rgba(13, 32, 65, 0.75);
@@ -98,6 +142,14 @@
   grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) 72px;
 }
 
+.frameEmbudo {
+  display: grid;
+  column-gap: 12px;
+  row-gap: 2px;
+  min-width: 0;
+  grid-template-columns: 176px minmax(0, 1fr) 76px;
+}
+
 .scale {
   grid-column: 2;
   position: relative;
@@ -175,6 +227,10 @@
 .bar[data-project="boulevard-5"] { background: #3d6f8f; }
 .bar[data-project="bosque-las-tapias"] { background: #0573b0; }
 .bar[data-project="santa-elena"] { background: #1a4a68; }
+.zeroTick[data-project="benestare"] { background: #0d2041; }
+.zeroTick[data-project="boulevard-5"] { background: #3d6f8f; }
+.zeroTick[data-project="bosque-las-tapias"] { background: #0573b0; }
+.zeroTick[data-project="santa-elena"] { background: #1a4a68; }
 .bar[data-tone="red"] { background: #b91c1c; }
 .bar[data-tone="amber"] { background: #b45309; }
 .bar[data-tone="blue"] { background: #0573b0; }
@@ -548,7 +604,8 @@ button.col { cursor: pointer; }
 
 @media (max-width: 640px) {
   .frame,
-  .frameAside {
+  .frameAside,
+  .frameEmbudo {
     display: flex;
     flex-direction: column;
     gap: 2px;

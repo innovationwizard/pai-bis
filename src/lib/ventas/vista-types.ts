@@ -341,28 +341,24 @@ export type ValorVista = VistaBase & {
   traces: { unit: string; project: string; tower: string; saleOn: string | null; lostOn: string; gtq: number | null; status: string }[];
 };
 
-export type RateRow = {
-  id: string;
+export type EmbudoBar = {
   label: string;
-  leads: number;
-  visits: number;
-  sales: number;
-  pcv: number;
-  saleRate: number | null;
+  count: number;
+  hasNext: boolean;
+  nextRate: number | null;
+};
+
+export type EmbudoFunnel = {
+  slug: string;
+  label: string;
+  winRate: number | null;
+  bars: EmbudoBar[];
 };
 
 export type ConversionVista = VistaBase & {
   section: "tasa-de-conversion";
-  leads: number;
-  visits: number;
-  sales: number;
-  pcv: number;
-  saleRate: number | null;
-  pcvRate: number | null;
-  funnel: { label: string; units: number }[];
-  months: { label: string; leads: number; sales: number; rate: number | null }[];
-  byFuente: RateRow[];
-  byAsesor: RateRow[];
+  all: EmbudoFunnel;
+  projects: EmbudoFunnel[];
 };
 
 export type NamedBar = { id: string; label: string; units: number; gtq: number | null };
