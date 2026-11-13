@@ -71,7 +71,110 @@ const STOCK: { key: StockKey; label: string; color: string }[] = [
   { key: "vendido", label: "Vendido", color: UNIT_STATUS_COLORS.SOLD },
 ];
 
-const OTROS_MODELO = "Otros / sin clasificar";
+const SALE_SLUGS: { slug: string; name: string }[] = [
+  { slug: "boulevard-5", name: "BOULEVARD 5" },
+  { slug: "benestare", name: "BENESTARE" },
+  { slug: "bosque-las-tapias", name: "BOSQUE LAS TAPIAS" },
+  { slug: "santa-elena", name: "SANTA ELENA" },
+];
+
+function saleTowerOptions(rows: AnalisisVista["modelSales"]): { id: string; label: string }[] {
+  const seen = new Map<string, { name: string; slug: string }>();
+  for (const row of rows) {
+    if (!row.towerId || !(row.sold > 0) || isMissingLabel(row.towerName)) continue;
+    if (!seen.has(row.towerId)) seen.set(row.towerId, { name: row.towerName, slug: row.projectSlug });
+  }
+  const nameCount = new Map<string, number>();
+  for (const info of seen.values()) nameCount.set(info.name, (nameCount.get(info.name) ?? 0) + 1);
+  return [...seen.entries()]
+    .map(([id, info]) => {
+      const project = SALE_SLUGS.find((item) => item.slug === info.slug)?.name;
+      const shared = (nameCount.get(info.name) ?? 0) > 1;
+      const label = shared && project ? `${titleLabel(project)} · ${info.name}` : info.name;
+      return { id, label };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, "es"));
+}
+
+function saleModelOptions(rows: AnalisisVista["modelSales"]): string[] {
+  return [...new Set(rows.filter((row) => row.sold > 0 && !isMissingLabel(row.model)).map((row) => row.model))]
+    .sort((a, b) => a.localeCompare(b, "es"));
+}
+
+function saleGroups(rows: AnalisisVista["modelSales"]): ColumnGroup[] {
+  const byProject = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    if (!(row.sold > 0) || isMissingLabel(row.model)) continue;
+    const models = byProject.get(row.projectSlug) ?? new Map<string, number>();
+    models.set(row.model, (models.get(row.model) ?? 0) + row.sold);
+    byProject.set(row.projectSlug, models);
+  }
+  const groups: ColumnGroup[] = [];
+  for (const item of SALE_SLUGS) {
+    const models = byProject.get(item.slug);
+    if (!models || models.size === 0) continue;
+    const label = titleLabel(item.name);
+    groups.push({
+      key: item.slug,
+      label,
+      rows: [...models.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], "es"))
+        .map(([model, sold]) => ({
+          key: `${item.slug}:${model}`,
+          id: item.slug,
+          label: model,
+          axis: model,
+          segments: [{ key: "ventas", label: "Ventas", value: sold, color: NAVY }],
+        })),
+    });
+  }
+  return groups;
+}
+
+function ModeloChart({ vista }: { vista: AnalisisVista }) {
+  const [tower, setTower] = useState("");
+  const [modelo, setModelo] = useState("");
+  const sales = vista.modelSales;
+  const towers = saleTowerOptions(sales);
+  const towerActive = towers.some((choice) => choice.id === tower) ? tower : "";
+  const inTower = sales.filter((row) => !towerActive || row.towerId === towerActive);
+  const models = saleModelOptions(inTower);
+  const modeloActive = models.includes(modelo) ? modelo : "";
+  const shown = inTower.filter((row) => !modeloActive || row.model === modeloActive);
+  const groups = saleGroups(shown);
+
+  function chooseTower(value: string) {
+    setTower(value);
+    const next = saleModelOptions(sales.filter((row) => !value || row.towerId === value));
+    setModelo((current) => (current && next.includes(current) ? current : ""));
+  }
+
+  return (
+    <>
+      <div className={styles.localFilters}>
+        <label>
+          Torre
+          <select value={towerActive} onChange={(event) => chooseTower(event.target.value)}>
+            <option value="">Todas</option>
+            {towers.map((choice) => (
+              <option key={choice.id} value={choice.id}>{choice.label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Modelo
+          <select value={modeloActive} onChange={(event) => setModelo(event.target.value)}>
+            <option value="">Todos</option>
+            {models.map((label) => (
+              <option key={label} value={label}>{label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {groups.length === 0 ? emptyNote(null) : <SmallMultiples groups={groups} legend={false} />}
+    </>
+  );
+}
 
 function money(value: number): string {
   return moneyFormat.format(value);
@@ -416,7 +519,7 @@ function StackColumn({
 
 type ColumnGroup = { key: string; label: string | null; rows: readonly StackRow[] };
 
-function SmallMultiples({ groups }: { groups: readonly ColumnGroup[] }) {
+function SmallMultiples({ groups, legend = true }: { groups: readonly ColumnGroup[]; legend?: boolean }) {
   const plot = TOWER_PLOT;
   const peak = groups.reduce((max, group) => {
     return group.rows.reduce((rowMax, row) => {
@@ -427,14 +530,16 @@ function SmallMultiples({ groups }: { groups: readonly ColumnGroup[] }) {
   const { scale, marks } = columnScale(peak);
   return (
     <>
-      <ul className={styles.legend}>
-        {STOCK.map((item) => (
-          <li key={item.key}>
-            <span className={styles.swatch} style={{ background: item.color }} aria-hidden="true" />
-            {item.label}
-          </li>
-        ))}
-      </ul>
+      {legend ? (
+        <ul className={styles.legend}>
+          {STOCK.map((item) => (
+            <li key={item.key}>
+              <span className={styles.swatch} style={{ background: item.color }} aria-hidden="true" />
+              {item.label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className={styles.multiples}>
         <div className={styles.yAxis} style={{ height: plot }} aria-hidden="true">
           {marks.map((mark) => (
@@ -732,134 +837,6 @@ function projectSlots(
   for (const project of vista.byProject) nameOf.set(project.id, project.label);
   for (const [id, label] of projectName) if (!nameOf.has(id)) nameOf.set(id, label);
   return orderedProjects(roster, vista.byProject).map((slot) => ({ id: slot.id, label: slot.label, nameOf }));
-}
-
-function isPollutedModelLabel(label: string): boolean {
-  const text = label.trim();
-  if (text.length === 0) return true;
-  if (text.includes("$")) return true;
-  if (/(?:^|[^a-z])m\s*[²2](?:[^a-z0-9]|$)/i.test(text)) return true;
-  const compact = text.replace(/[\s,]/g, "");
-  if (/\d+\.\d{3,}/.test(compact)) return true;
-  if (/^\d{5,}(?:\.\d+)?$/.test(compact)) return true;
-  if (/^\d{4,}\.\d+$/.test(compact)) return true;
-  const stripped = compact.replace(/gtq|usd|q\.?/gi, "");
-  if (stripped !== compact && /^\d{4,}(?:\.\d+)?$/.test(stripped)) return true;
-  return false;
-}
-
-function modelSales(vista: AnalisisVista, towerId: string): { label: string; sold: number }[] {
-  if (!towerId) return vista.models.map((row) => ({ label: row.label, sold: row.sold }));
-  const sold = new Map<string, number>();
-  for (const row of vista.byTower) {
-    if (row.towerId !== towerId) continue;
-    sold.set(row.modelId, (sold.get(row.modelId) ?? 0) + row.sold);
-  }
-  return vista.models.map((row) => ({ label: row.label, sold: sold.get(row.id) ?? 0 }));
-}
-
-function modeloOptions(rows: readonly { label: string; sold: number }[]): string[] {
-  const labels = new Set<string>();
-  let otros = false;
-  for (const row of rows) {
-    if (!(row.sold > 0)) continue;
-    const label = row.label.trim();
-    if (isPollutedModelLabel(label)) otros = true;
-    else labels.add(label);
-  }
-  const list = [...labels].sort((a, b) => a.localeCompare(b, "es"));
-  if (otros) list.push(OTROS_MODELO);
-  return list;
-}
-
-function torreOptions(vista: AnalisisVista): { id: string; label: string }[] {
-  const seen = new Map<string, { name: string; projectId: string }>();
-  for (const row of vista.byTower) {
-    if (!(row.sold > 0) || row.towerId === "") continue;
-    if (!seen.has(row.towerId)) seen.set(row.towerId, { name: row.tower, projectId: row.projectId });
-  }
-  const nameCount = new Map<string, number>();
-  for (const info of seen.values()) nameCount.set(info.name, (nameCount.get(info.name) ?? 0) + 1);
-  const projects = new Map(vista.projects.map((project) => [project.id, project.label]));
-  return [...seen.entries()]
-    .map(([id, info]) => {
-      const project = projects.get(info.projectId);
-      const shared = (nameCount.get(info.name) ?? 0) > 1;
-      const label = shared && project ? `${project} · ${info.name}` : info.name;
-      return { id, label };
-    })
-    .sort((a, b) => a.label.localeCompare(b.label, "es"));
-}
-
-function presentModelMarks(rows: readonly { label: string; sold: number }[], modelo: string): Mark[] {
-  const canonical = new Map<string, number>();
-  let otros = 0;
-  for (const row of rows) {
-    if (!(row.sold > 0)) continue;
-    const label = row.label.trim();
-    if (isPollutedModelLabel(label)) {
-      otros += row.sold;
-      continue;
-    }
-    canonical.set(label, (canonical.get(label) ?? 0) + row.sold);
-  }
-  const marks: Mark[] = [];
-  if (modelo !== OTROS_MODELO) {
-    for (const [label, sold] of canonical) {
-      if (modelo && label !== modelo) continue;
-      marks.push({ id: label, label, value: sold, tone: "navy" });
-    }
-  }
-  if ((modelo === "" || modelo === OTROS_MODELO) && otros > 0) {
-    marks.push({ id: OTROS_MODELO, label: OTROS_MODELO, value: otros, tone: "navy" });
-  }
-  marks.sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "es"));
-  return marks;
-}
-
-function ModeloChart({ vista }: { vista: AnalisisVista }) {
-  const [tower, setTower] = useState("");
-  const [modelo, setModelo] = useState("");
-  const towers = torreOptions(vista);
-  const towerActive = towers.some((choice) => choice.id === tower) ? tower : "";
-  const sales = modelSales(vista, towerActive);
-  const models = modeloOptions(sales);
-  const modeloActive = models.includes(modelo) ? modelo : "";
-  const rows = presentModelMarks(sales, modeloActive);
-  const narrowed = towerActive !== "" || modeloActive !== "";
-
-  function chooseTower(value: string) {
-    setTower(value);
-    setModelo((current) => (current && modeloOptions(modelSales(vista, value)).includes(current) ? current : ""));
-  }
-
-  return (
-    <>
-      {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
-      <div className={styles.localFilters}>
-        <label>
-          Torre
-          <select value={towerActive} onChange={(event) => chooseTower(event.target.value)}>
-            <option value="">Todas</option>
-            {towers.map((choice) => (
-              <option key={choice.id} value={choice.id}>{choice.label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Modelo
-          <select value={modeloActive} onChange={(event) => setModelo(event.target.value)}>
-            <option value="">Todos</option>
-            {models.map((label) => (
-              <option key={label} value={label}>{label}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {rows.length === 0 && (narrowed || !vista.notice) ? emptyNote(null) : null}
-      {rows.length > 0 ? clickableChart(rows, count, "row", 64) : null}
-    </>
-  );
 }
 
 export function ModeloBand({

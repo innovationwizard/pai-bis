@@ -297,6 +297,7 @@ export type AnalisisVista = VistaBase & {
   available: number;
   models: ModelRow[];
   byTower: { modelId: string; towerId: string; projectId: string; tower: string; sold: number; available: number }[];
+  modelSales: { projectSlug: string; projectId: string; towerId: string; towerName: string; model: string; sold: number }[];
 };
 
 export type StockProject = {

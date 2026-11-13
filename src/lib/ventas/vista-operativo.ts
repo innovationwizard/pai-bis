@@ -382,6 +382,7 @@ async function buildAnalisis(
   choices.habitaciones = countChoices(sold.rows.map((row) => String(row.habitaciones_id)), dims.habitaciones);
   const leader = models.find((model) => model.sold > 0) ?? null;
   const available = models.reduce((sum, model) => sum + model.available, 0);
+  const modelSales = saleRowsFromUnits(await loadRvUnits(), filters, dims);
   const notice = sold.capped
     ? "La consulta del periodo llegó a 5.000 filas. Afina proyecto o periodo."
     : stock.length === 0 && totalSold === 0
@@ -405,6 +406,7 @@ async function buildAnalisis(
     available,
     models,
     byTower,
+    modelSales,
   };
 }
 
@@ -413,6 +415,9 @@ type AvailabilityUnit = {
   unitType: string;
   areaTotal: number | null;
   status: string;
+  towerId: string;
+  towerName: string;
+  towerIsDefault: boolean;
 };
 
 type ModelCount = keyof Pick<InventarioVista["byModel"][number], "vendido" | "reservado" | "congelado" | "disponible">;
@@ -430,7 +435,7 @@ async function loadRvUnits(): Promise<AvailabilityUnit[]> {
   for (let offset = 0; offset < CAP; offset += PAGE) {
     const { data, error } = await client
       .from("v_rv_units_full")
-      .select("project_slug, unit_type, area_total, status")
+      .select("project_slug, unit_type, area_total, status, tower_id, tower_name, tower_is_default")
       .range(offset, offset + PAGE - 1);
     if (error) throw new Error(error.message);
     const batch = (data ?? []) as unknown as Record<string, unknown>[];
@@ -441,6 +446,9 @@ async function loadRvUnits(): Promise<AvailabilityUnit[]> {
         unitType: String(row.unit_type ?? ""),
         areaTotal: area != null && Number.isFinite(area) ? area : null,
         status: String(row.status ?? ""),
+        towerId: String(row.tower_id ?? ""),
+        towerName: String(row.tower_name ?? ""),
+        towerIsDefault: row.tower_is_default === true,
       });
     }
     if (batch.length < PAGE) return units;
@@ -551,6 +559,41 @@ function modelRowsFromUnits(units: readonly AvailabilityUnit[], filters: VistaFi
       disponible: 0,
     };
     current[kind] += 1;
+    groups.set(key, current);
+  }
+  return [...groups.values()];
+}
+
+function hiddenSaleTower(unit: AvailabilityUnit): boolean {
+  if (unit.projectSlug !== "santa-elena") return false;
+  const name = unit.towerName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return unit.towerIsDefault || name === "principal" || name === "sin torre" || name === "sin dato" || name === "";
+}
+
+function saleRowsFromUnits(units: readonly AvailabilityUnit[], filters: VistaFilters, dims: Dims): AnalisisVista["modelSales"] {
+  const allowed = allowedSlugs(filters, dims);
+  const groups = new Map<string, AnalisisVista["modelSales"][number]>();
+  for (const unit of units) {
+    if (allowed && !allowed.has(unit.projectSlug)) continue;
+    if (unit.status !== "RESERVED" && unit.status !== "SOLD") continue;
+    const label = modelCategory(unit);
+    if (!label) continue;
+    const towerId = hiddenSaleTower(unit) ? "" : unit.towerId;
+    const key = `${unit.projectSlug}|${towerId}|${label}`;
+    const current = groups.get(key) ?? {
+      projectSlug: unit.projectSlug,
+      projectId: ventasProjectId(dims, unit.projectSlug),
+      towerId,
+      towerName: towerId ? unit.towerName : "",
+      model: label,
+      sold: 0,
+    };
+    current.sold += 1;
     groups.set(key, current);
   }
   return [...groups.values()];
