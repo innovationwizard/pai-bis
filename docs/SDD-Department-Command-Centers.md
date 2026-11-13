@@ -41,6 +41,7 @@ Take what the CEO and Managers already have in mind and are already familiar wit
 10. **Freshness.** Freshness stamp is always visible, placed per the General Rules (same line as period description, same font weight, not bold, not its own row).
 11. **Growth.** All design must support company growth without breaking. Example targets: 2× simultaneous projects, 10× sales reps.
 12. **Project order.** Canonical project display order is BOULEVARD 5, BENESTARE, BOSQUE LAS TAPIAS, SANTA ELENA (by date of birth). It is defined in the shared constant `src/lib/projects.ts` so reordering is a config change.
+13. **Audience chart preference.** Horizontal bars are among the least preferred types of charts by the audience (CEO and Managers). Prefer vertical bars, bullets, funnels, composed charts, or other forms whenever they can communicate the same information with equal or better density and clarity. Use horizontal bars only when they are the clearest option for the data (for example, long category labels or stacked status mixes) and always apply the visual-density continuity rules so they do not appear thin or sparse.
 
 ### Inventory status colours
 
