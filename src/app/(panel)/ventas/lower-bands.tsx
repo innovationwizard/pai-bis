@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useState, type KeyboardEvent, type ReactNode } from "react";
 import {
   CartesianGrid,
   LabelList,
@@ -52,7 +52,7 @@ type Mark = {
   text?: string;
 };
 
-type StackSegment = { key: string; label: string; value: number; color: string };
+type StackSegment = { key: string; label: string; value: number; color: string; text?: string };
 type StockKey = "disponible" | "reservado" | "congelado" | "vendido";
 
 type StackRow = {
@@ -70,6 +70,13 @@ const STOCK: { key: StockKey; label: string; color: string }[] = [
   { key: "congelado", label: "Congelado", color: UNIT_STATUS_COLORS.FROZEN },
   { key: "vendido", label: "Vendido", color: UNIT_STATUS_COLORS.SOLD },
 ];
+
+const PROJECT_BLUE: Record<string, string> = {
+  "boulevard-5": "#3d6f8f",
+  benestare: "#0d2041",
+  "bosque-las-tapias": "#0573b0",
+  "santa-elena": "#1a4a68",
+};
 
 const SALE_SLUGS: { slug: string; name: string }[] = [
   { slug: "boulevard-5", name: "BOULEVARD 5" },
@@ -101,11 +108,24 @@ function saleModelOptions(rows: AnalisisVista["modelSales"]): string[] {
     .sort((a, b) => a.localeCompare(b, "es"));
 }
 
+function projectFill(label: string): string | null {
+  const key = projectKey(label);
+  if (key === projectKey("BOULEVARD 5")) return PROJECT_BLUE["boulevard-5"];
+  if (key === projectKey("BENESTARE")) return PROJECT_BLUE.benestare;
+  if (key === projectKey("BOSQUE LAS TAPIAS")) return PROJECT_BLUE["bosque-las-tapias"];
+  if (key === projectKey("SANTA ELENA")) return PROJECT_BLUE["santa-elena"];
+  return null;
+}
+
 function projectBarColor(slug: string): string {
-  if (slug === "boulevard-5") return "#3d6f8f";
-  if (slug === "bosque-las-tapias") return "#0573b0";
-  if (slug === "santa-elena") return "#1a4a68";
-  return "#0d2041";
+  return PROJECT_BLUE[slug] ?? NAVY;
+}
+
+function markFill(mark: Mark): string {
+  if (mark.tone === "red") return "#b91c1c";
+  if (mark.tone === "amber") return AMBER;
+  if (mark.tone === "blue") return BLUE;
+  return projectFill(mark.label) ?? NAVY;
 }
 
 function saleGroups(rows: AnalisisVista["modelSales"], includeSantaElena: boolean): ColumnGroup[] {
@@ -278,8 +298,10 @@ function tipNumber(value: unknown): number | null {
   return null;
 }
 
-function emptyNote(notice: string | null | undefined): ReactNode {
-  return <p className="op-note">{notice ?? "Nada que graficar en este periodo."}</p>;
+function emptyNote(_notice: string | null | undefined): ReactNode {
+  void _notice;
+  // return <p className="op-note">{_notice ?? "Nada que graficar en este periodo."}</p>;
+  return null;
 }
 
 function press(event: KeyboardEvent<HTMLDivElement>, action: () => void) {
@@ -443,38 +465,48 @@ function ColumnName({ label, wrap }: { label: string; wrap: boolean }) {
   return <span className={`${styles.colName} ${styles.colNameClamp}`} title={label}>{label}</span>;
 }
 
+function shownValue(segment: StackSegment, format: (value: number) => string): string {
+  return segment.text ?? format(segment.value);
+}
+
 function StackColumn({
   row,
   scale,
   plot,
   wrap,
+  format = count,
 }: {
   row: StackRow;
   scale: number;
   plot: number;
   wrap: boolean;
+  format?: (value: number) => string;
 }) {
   const values = row.segments.map((segment) => segment.value);
   const total = values.reduce((sum, value) => sum + value, 0);
   const slices = columnSlices(values, scale, plot);
-  const spoken = row.segments.map((segment) => `${count(segment.value)} ${segment.label.toLowerCase()}`).join(", ");
+  const spoken = row.segments.map((segment) => `${shownValue(segment, format)} ${segment.label.toLowerCase()}`).join(", ");
   const spokenLabel = `${row.label}: ${spoken}`;
   const drawn = slices.flatMap((slice, index) => (slice.height > 0 ? [index] : []));
   const bottomIndex = drawn[0] ?? -1;
   const topIndex = drawn[drawn.length - 1] ?? -1;
+  const single = row.segments.length === 1 ? row.segments[0] : null;
+  const zeroInk = single?.color ?? NAVY;
   const chart = (
     <>
       <div className={styles.colField} style={{ height: plot }}>
         {total <= 0 ? (
-          <span className={styles.colZero}>
-            0
-            <span className={styles.colZeroTick} aria-hidden="true" />
+          <span className={styles.colZero} style={{ color: zeroInk }}>
+            {single?.text ?? format(0)}
+            <span className={styles.colZeroTick} style={{ background: zeroInk }} aria-hidden="true" />
           </span>
         ) : (
           <div className={styles.colStack} style={{ height: slices.reduce((sum, slice) => sum + slice.height, 0) }}>
             {row.segments.map((segment, index) => {
               const slice = slices[index];
+              const shown = shownValue(segment, format);
               if (!slice || slice.height <= 0) return null;
+              const placeInside = slice.inside && shown.length <= 9;
               return (
                 <span
                   key={segment.key}
@@ -489,13 +521,14 @@ function StackColumn({
                     borderTopRightRadius: index === topIndex ? 2 : 0,
                   }}
                 >
-                  {slice.inside ? count(segment.value) : null}
+                  {placeInside ? shown : null}
                 </span>
               );
             })}
             {row.segments.map((segment, index) => {
               const slice = slices[index];
-              if (!slice || slice.height <= 0 || slice.inside) return null;
+              const shown = shownValue(segment, format);
+              if (!slice || slice.height <= 0 || (slice.inside && shown.length <= 9)) return null;
               return (
                 <span
                   key={`${segment.key}:n`}
@@ -506,7 +539,7 @@ function StackColumn({
                     color: segmentInk(segment.color),
                   }}
                 >
-                  {count(segment.value)}
+                  {shown}
                 </span>
               );
             })}
@@ -562,22 +595,25 @@ function SmallMultiples({ groups, legend = true, fit = false }: { groups: readon
           ))}
         </div>
         <div className={styles.miniTrack}>
-          {groups.map((group) => (
-            <section key={group.key} className={styles.mini} style={{ flex: `${Math.max(group.rows.length, 1)} 1 0` }} aria-label={group.label ?? undefined}>
-              <h3 className={styles.miniTitle}>{group.label}</h3>
-              <div className={styles.miniStage}>
-                <div className={styles.miniGrid} style={{ height: plot }} aria-hidden="true">
-                  {marks.map((mark) => mark <= 0 ? null : (
-                    <span key={mark} className={styles.colGridLine} style={{ bottom: `${(mark / scale) * 100}%` }} />
-                  ))}
+          {groups.map((group, index) => (
+            <Fragment key={group.key}>
+              {index > 0 ? <span className={fit ? `${styles.miniRule} ${styles.miniRuleFit}` : styles.miniRule} aria-hidden="true" /> : null}
+              <section className={styles.mini} style={{ flex: fit ? "1 1 0" : `${Math.max(group.rows.length, 1)} 1 0` }} aria-label={group.label ?? undefined}>
+                <h3 className={styles.miniTitle}>{group.label}</h3>
+                <div className={styles.miniStage}>
+                  <div className={styles.miniGrid} style={{ height: plot }} aria-hidden="true">
+                    {marks.map((mark) => mark <= 0 ? null : (
+                      <span key={mark} className={styles.colGridLine} style={{ bottom: `${(mark / scale) * 100}%` }} />
+                    ))}
+                  </div>
+                  <div className={styles.colRow} style={{ gap: COLUMN_GAP }}>
+                    {group.rows.map((row) => (
+                      <StackColumn key={row.key} row={row} scale={scale} plot={plot} wrap />
+                    ))}
+                  </div>
                 </div>
-                <div className={styles.colRow} style={{ gap: COLUMN_GAP }}>
-                  {group.rows.map((row) => (
-                    <StackColumn key={row.key} row={row} scale={scale} plot={plot} wrap />
-                  ))}
-                </div>
-              </div>
-            </section>
+              </section>
+            </Fragment>
           ))}
         </div>
       </div>
@@ -652,6 +688,63 @@ function isStageId(value: string): value is FunnelStage["id"] {
   return value === "reservas" || value === "promesas" || value === "recibos" || value === "netas";
 }
 
+function MarkColumns({
+  rows,
+  format,
+  onPick,
+  axis = "count",
+}: {
+  rows: readonly Mark[];
+  format: (value: number) => string;
+  onPick?: (id: string, label: string) => void;
+  axis?: "count" | "money";
+}) {
+  const visible = rows.filter((row) => !isMissingLabel(row.label));
+  if (visible.length === 0) return null;
+  const plot = TOWER_PLOT;
+  const peak = visible.reduce((max, row) => Math.max(max, row.value), 0);
+  const { scale, marks } = columnScale(peak);
+  const axisFormat = axis === "money" ? format : count;
+  return (
+    <div className={styles.colChart} data-weight="project" data-axis={axis}>
+      <div className={styles.yAxis} style={{ height: plot }} aria-hidden="true">
+        {marks.map((mark) => (
+          <span key={mark} className={styles.yTick} style={{ bottom: tickBottom(mark, scale) }}>
+            {axisFormat(mark)}
+          </span>
+        ))}
+      </div>
+      <div className={styles.colClip}>
+        <div className={styles.colBody}>
+          <div className={styles.colGrid} style={{ height: plot }} aria-hidden="true">
+            {marks.map((mark) => mark <= 0 ? null : (
+              <span key={mark} className={styles.colGridLine} style={{ bottom: `${(mark / scale) * 100}%` }} />
+            ))}
+          </div>
+          <div className={styles.colRow} style={{ gap: COLUMN_GAP }}>
+            {visible.map((row, index) => (
+              <StackColumn
+                key={row.id || `${row.label}:${index}`}
+                row={{
+                  key: row.id || `${row.label}:${index}`,
+                  id: row.id,
+                  label: row.label,
+                  segments: [{ key: "valor", label: row.label, value: row.value, color: markFill(row), text: row.text }],
+                  onOpen: onPick && row.id !== "" ? () => onPick(row.id, row.label) : undefined,
+                }}
+                scale={scale}
+                plot={plot}
+                wrap
+                format={format}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TasaBand({
   funnel,
   pending,
@@ -695,16 +788,16 @@ export function InventarioBands({
   onProject: (id: string, label: string) => void;
   onTower: (projectId: string, tower: string, label: string) => void;
 }) {
+  void asesorNote;
   if (!vista) {
     return (
       <section className={styles.band} aria-labelledby="vt-inventario-title">
         <h2 id="vt-inventario-title" className={styles.title}>Inventario general</h2>
-        {asesorNote ? <p className="op-note">{asesorNote}</p> : null}
+        {/* {asesorNote ? <p className="op-note">{asesorNote}</p> : null} */}
         {pending}
       </section>
     );
   }
-  const notice = vista.notice && !vista.notice.includes("otro estado") ? vista.notice : null;
   const projects = orderedProjects(roster, vista.byProject).map((item) => {
     const row = item.row;
     const id = item.id;
@@ -727,8 +820,8 @@ export function InventarioBands({
     <div className={styles.pair}>
       <section className={styles.band} aria-labelledby="vt-inventario-todos-title">
         <h2 id="vt-inventario-todos-title" className={styles.title}>Inventario de todos los proyectos</h2>
-        {notice ? <p className="op-note">{notice}</p> : null}
-        {asesorNote ? <p className="op-note">{asesorNote}</p> : null}
+        {/* {vista.notice && !vista.notice.includes("otro estado") ? <p className="op-note">{vista.notice}</p> : null} */}
+        {/* {asesorNote ? <p className="op-note">{asesorNote}</p> : null} */}
         {projects.length === 0 ? emptyNote(null) : <StackChart groups={[{ key: "proyectos", label: null, rows: projects }]} weight="project" />}
       </section>
       <section className={styles.band} aria-labelledby="vt-inventario-por-proyecto-title">
@@ -996,7 +1089,7 @@ function PriceBody({ vista }: { vista: PrecioVista }) {
   const showUsd = usd;
   return (
     <>
-      {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
+      {/* {vista.notice ? <p className="op-note">{vista.notice}</p> : null} */}
       {showGtq ? <CurrencyLine points={vista.months} dataKey="gtq" name="Quetzales" stroke={NAVY} format={money} /> : null}
       {showUsd ? <CurrencyLine points={vista.months} dataKey="usd" name="Dólares" stroke={BLUE} format={dollars} /> : null}
     </>
@@ -1011,8 +1104,8 @@ function DiscountBody({ vista }: { vista: DescuentoVista }) {
   ];
   return (
     <>
-      {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
-      {clickableChart(rows, money, "project", 136)}
+      {/* {vista.notice ? <p className="op-note">{vista.notice}</p> : null} */}
+      <MarkColumns rows={rows} format={money} axis="money" />
     </>
   );
 }
@@ -1038,12 +1131,11 @@ export function DesistimientosBands({
   }
   const moneyMode = vista.motivos.some((row) => row.gtq != null) || vista.byProject.some((row) => row.gtq != null);
   const format = moneyMode ? (value: number) => money(value) : count;
-  const gutter = moneyMode ? 136 : 64;
   const motivos: Mark[] = vista.motivos.map((row) => ({
     id: row.id,
     label: row.label,
     value: moneyMode ? row.gtq ?? 0 : row.units,
-    tone: "red",
+    tone: "red" as const,
   }));
   const projects: Mark[] = orderedProjects(roster, vista.byProject).map((item) => ({
     id: item.id,
@@ -1055,12 +1147,12 @@ export function DesistimientosBands({
     <div className={styles.pair}>
       <section className={styles.band} aria-labelledby="vt-desist-motivo-title">
         <h2 id="vt-desist-motivo-title" className={styles.title}>Desistimientos por motivo</h2>
-        {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
-        {motivos.length === 0 ? emptyNote(null) : clickableChart(motivos, format, "row", gutter)}
+        {/* {vista.notice ? <p className="op-note">{vista.notice}</p> : null} */}
+        {motivos.length === 0 ? emptyNote(null) : <MarkColumns rows={motivos} format={format} axis={moneyMode ? "money" : "count"} />}
       </section>
       <section className={styles.band} aria-labelledby="vt-desist-proyecto-title">
         <h2 id="vt-desist-proyecto-title" className={styles.title}>Desistimientos por proyecto</h2>
-        {projects.length === 0 ? emptyNote(null) : clickableChart(projects, format, "project", gutter, onProject)}
+        {projects.length === 0 ? emptyNote(null) : <MarkColumns rows={projects} format={format} axis={moneyMode ? "money" : "count"} onPick={onProject} />}
       </section>
     </div>
   );
@@ -1104,7 +1196,6 @@ function AmountCard({
   notice,
   rows,
   tone,
-  weight,
 }: {
   title: string;
   id: string;
@@ -1112,18 +1203,19 @@ function AmountCard({
   notice: string | null;
   rows: readonly NamedBar[] | null;
   tone: Tone;
-  weight: Weight;
 }) {
   const built = rows ? amountRows(rows, tone) : null;
-  const gutter = built?.moneyMode ? 136 : 64;
   const format = built?.moneyMode ? money : count;
+  void notice;
   return (
     <section className={styles.band} aria-labelledby={id}>
       <h2 id={id} className={styles.title}>{title}</h2>
       {pending}
-      {notice ? <p className="op-note">{notice}</p> : null}
-      {built && built.marks.length === 0 && !notice ? emptyNote(null) : null}
-      {built && built.marks.length > 0 ? clickableChart(built.marks, format, weight, gutter) : null}
+      {/* {notice ? <p className="op-note">{notice}</p> : null} */}
+      {built && built.marks.length === 0 ? emptyNote(null) : null}
+      {built && built.marks.length > 0 ? (
+        <MarkColumns rows={built.marks} format={format} axis={built.moneyMode ? "money" : "count"} />
+      ) : null}
     </section>
   );
 }
@@ -1151,9 +1243,11 @@ export function ControlesGrid({
 }) {
   const gtqLive = (precios?.byProject ?? []).some((row) => (row.gtq ?? 0) !== 0);
   const usdLive = (precios?.byProject ?? []).some((row) => (row.usd ?? 0) !== 0);
-  const showGtq = precios != null && (gtqLive || !usdLive);
-  const showUsd = precios != null && usdLive;
-  const priceProjects = precios ? orderedProjects(roster, precios.byProject) : [];
+  const pricesUnloaded = precios != null && precios.gtq == null && precios.usd == null && precios.byProject.length === 0;
+  const showGtq = precios != null && !pricesUnloaded && (gtqLive || !usdLive);
+  const showUsd = precios != null && !pricesUnloaded && usdLive;
+  const priceProjects = precios && !pricesUnloaded ? orderedProjects(roster, precios.byProject) : [];
+  const casoChart = casos ? casoMarks(casos) : null;
   return (
     <section className="vc-grid-2" aria-label="Controles">
       <AmountCard
@@ -1163,44 +1257,41 @@ export function ControlesGrid({
         notice={descuentos?.notice ?? null}
         rows={descuentos ? descuentos.tipos : null}
         tone="amber"
-        weight="row"
       />
       <section className={styles.band} aria-labelledby="vt-subidas-title">
         <h2 id="vt-subidas-title" className={styles.title}>Subidas de precios</h2>
         {!precios ? preciosPending : (
           <>
-            {precios.notice ? <p className="op-note">{precios.notice}</p> : null}
-            {priceProjects.length === 0 && !precios.notice ? emptyNote(null) : null}
+            {/* {precios.notice ? <p className="op-note">{precios.notice}</p> : null} */}
+            {priceProjects.length === 0 ? emptyNote(null) : null}
             {priceProjects.length > 0 && showGtq ? (
               <>
                 {showUsd ? <h3 className={styles.subTitle}>Quetzales</h3> : null}
-                {clickableChart(
-                  priceProjects.map((item) => ({
+                <MarkColumns
+                  rows={priceProjects.map((item) => ({
                     id: item.id || item.label,
                     label: item.label,
                     value: item.row?.gtq ?? 0,
                     hue: hueKey(item.label),
-                  })),
-                  money,
-                  "project",
-                  136,
-                )}
+                  }))}
+                  format={money}
+                  axis="money"
+                />
               </>
             ) : null}
             {priceProjects.length > 0 && showUsd ? (
               <>
                 {showGtq ? <h3 className={styles.subTitle}>Dólares</h3> : null}
-                {clickableChart(
-                  priceProjects.map((item) => ({
+                <MarkColumns
+                  rows={priceProjects.map((item) => ({
                     id: `${item.id || item.label}:usd`,
                     label: item.label,
                     value: item.row?.usd ?? 0,
                     hue: hueKey(item.label),
-                  })),
-                  dollars,
-                  "project",
-                  136,
-                )}
+                  }))}
+                  format={dollars}
+                  axis="money"
+                />
               </>
             ) : null}
           </>
@@ -1210,19 +1301,10 @@ export function ControlesGrid({
         <h2 id="vt-casos-title" className={styles.title}>F&amp;F y casos especiales</h2>
         {!casos ? casosPending : (
           <>
-            {casos.notice ? <p className="op-note">{casos.notice}</p> : null}
-            {casos.tipos.length === 0 && !casos.notice ? emptyNote(null) : null}
-            {casos.tipos.length > 0 ? clickableChart(
-              casoAmounts(casos).map((row) => ({
-                id: row.id,
-                label: row.label,
-                value: row.units,
-                tone: "navy" as const,
-                text: row.gtq != null ? `${count(row.units)} · ${money(row.gtq)}` : undefined,
-              })),
-              count,
-              "row",
-              casoAmounts(casos).some((row) => row.gtq != null) ? 168 : 64,
+            {/* {casos.notice ? <p className="op-note">{casos.notice}</p> : null} */}
+            {casoChart && casoChart.rows.length === 0 ? emptyNote(null) : null}
+            {casoChart && casoChart.rows.length > 0 ? (
+              <MarkColumns rows={casoChart.rows} format={casoChart.moneyMode ? money : count} axis={casoChart.moneyMode ? "money" : "count"} />
             ) : null}
           </>
         )}
@@ -1234,10 +1316,27 @@ export function ControlesGrid({
         notice={promos?.notice ?? null}
         rows={promos ? promos.tipos : null}
         tone="navy"
-        weight="row"
       />
     </section>
   );
+}
+
+function casoMarks(vista: CasoVista): { rows: Mark[]; moneyMode: boolean } {
+  const marked = vista.marked != null && vista.marked > 0;
+  const source = casoAmounts(vista)
+    .filter((row) => marked || row.id !== "resto")
+    .filter((row) => !isMissingLabel(row.label));
+  const moneyMode = source.length > 0 && source.every((row) => row.gtq != null);
+  return {
+    moneyMode,
+    rows: source.map((row) => ({
+      id: row.id,
+      label: row.label,
+      value: moneyMode ? row.gtq ?? 0 : row.units,
+      tone: "navy" as const,
+      text: !moneyMode && row.gtq != null ? `${count(row.units)} · ${money(row.gtq)}` : undefined,
+    })),
+  };
 }
 
 export function ReferidosBand({
@@ -1260,30 +1359,32 @@ function ReferidosBody({ vista }: { vista: ReferidosVista }) {
   const names = vista.nombres.length > 0;
   if (vista.scopedDeals === 0) return null;
   if (vista.si == null && !names) {
-    return <p className="op-note">Estos tratos no traen referido, tipo de referido ni nombre de referidor.</p>;
+    // return <p className="op-note">Estos tratos no traen referido, tipo de referido ni nombre de referidor.</p>;
+    return null;
   }
-  const rows: Mark[] = vista.byTipo.length > 0
-    ? vista.byTipo.map((row) => ({ id: row.id, label: row.label, value: row.units, tone: "navy" as const }))
+  const typed = vista.byTipo
+    .filter((row) => !isMissingLabel(row.label))
+    .map((row) => ({ id: row.id, label: row.label, value: row.units, tone: "navy" as const }));
+  const rows: Mark[] = typed.length > 0
+    ? typed
     : marked && vista.si != null
       ? [{ id: "referidos", label: "Referidos", value: vista.si, tone: "navy" as const }]
       : [];
   return (
     <>
-      {vista.notice ? <p className="op-note">{vista.notice}</p> : null}
-      {vista.si === 0 ? <p className="op-note">Ningún trato está marcado como referido.</p> : null}
-      {rows.length > 0 ? clickableChart(rows, count, "project", 64) : null}
-      {vista.sinTipo != null && vista.sinTipo > 0 ? (
-        <p className="op-note">{count(vista.sinTipo)} sin tipo de referido.</p>
-      ) : null}
+      {/* {vista.notice ? <p className="op-note">{vista.notice}</p> : null} */}
+      {/* {vista.si === 0 ? <p className="op-note">Ningún trato está marcado como referido.</p> : null} */}
+      {/* {vista.sinTipo != null && vista.sinTipo > 0 ? <p className="op-note">{count(vista.sinTipo)} sin tipo de referido.</p> : null} */}
+      {rows.length > 0 ? <MarkColumns rows={rows} format={count} /> : null}
       {names ? (
         <>
           <h3 className={styles.subTitle}>Referidores</h3>
           <ul className={styles.names}>
             {vista.nombres.map((name, index) => <li key={`${name}:${index}`}>{name}</li>)}
           </ul>
-          {vista.nombresTotal != null && vista.nombresTotal > vista.nombres.length ? (
+          {/* {vista.nombresTotal != null && vista.nombresTotal > vista.nombres.length ? (
             <p className="op-note">La lista trae {vista.nombres.length} de {vista.nombresTotal}.</p>
-          ) : null}
+          ) : null} */}
         </>
       ) : null}
     </>

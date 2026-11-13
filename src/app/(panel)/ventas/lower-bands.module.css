@@ -454,15 +454,21 @@ button.col { cursor: pointer; }
 
 .miniTrack {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   width: 100%;
   min-width: 0;
 }
 
-.mini + .mini {
-  margin-left: 14px;
-  padding-left: 14px;
-  border-left: 3px solid #0d2041;
+.miniRule {
+  flex: 0 0 3px;
+  align-self: stretch;
+  width: 3px;
+  margin: 0 14px;
+  background: #0d2041;
+}
+
+.miniRuleFit {
+  margin: 0 8px;
 }
 
 .mini {
@@ -502,9 +508,12 @@ button.col { cursor: pointer; }
 .mini .colStack,
 .mini .colZero { width: 84%; }
 
-.multiplesFit .mini + .mini {
-  margin-left: 8px;
-  padding-left: 8px;
+.colChart[data-axis="money"] {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+
+.colChart[data-axis="money"] .yTick {
+  font-size: 10px;
 }
 
 .multiplesFit .col,
