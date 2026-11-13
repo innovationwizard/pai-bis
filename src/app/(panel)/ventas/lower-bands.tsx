@@ -238,13 +238,168 @@ function clickableChart(
   );
 }
 
+const PROJECT_PLOT = 300;
+const TOWER_PLOT = 252;
+const SEGMENT_LABEL = 16;
+const TOWER_COLUMN = 152;
+const COLUMN_GAP = 4;
+
+function segmentInk(color: string): string {
+  return color === UNIT_STATUS_COLORS.AVAILABLE ? NAVY : "#fff";
+}
+
+function columnSlices(values: readonly number[], scale: number, plot: number): { height: number; labelY: number; inside: boolean }[] {
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const columnPx = total > 0 && scale > 0 ? Math.min(plot, (total / scale) * plot) : 0;
+  let cursor = 0;
+  const slices = values.map((value) => {
+    const height = value > 0 && total > 0 ? (value / total) * columnPx : 0;
+    const labelY = cursor + height / 2;
+    cursor += height;
+    return { height, labelY, inside: height >= SEGMENT_LABEL };
+  });
+  const outside = slices.flatMap((slice, index) => (slice.height > 0 && !slice.inside ? [index] : []));
+  for (let index = 1; index < outside.length; index += 1) {
+    const previous = slices[outside[index - 1]].labelY;
+    if (slices[outside[index]].labelY - previous < SEGMENT_LABEL) {
+      slices[outside[index]].labelY = previous + SEGMENT_LABEL;
+    }
+  }
+  if (outside.length > 0) {
+    const lastIndex = outside[outside.length - 1];
+    const last = slices[lastIndex].labelY;
+    if (last > plot - 8) {
+      const shift = last - (plot - 8);
+      for (const index of outside) slices[index].labelY -= shift;
+    }
+    const first = slices[outside[0]].labelY;
+    if (first < 8) {
+      const shift = 8 - first;
+      for (const index of outside) slices[index].labelY += shift;
+    }
+  }
+  return slices;
+}
+
+function tickBottom(mark: number, scale: number): string {
+  if (!(scale > 0)) return "0px";
+  const pct = (mark / scale) * 100;
+  if (pct <= 0) return "0px";
+  if (pct >= 100) return "calc(100% - 14px)";
+  return `calc(${pct}% - 7px)`;
+}
+
+function ColumnName({ label, wrap }: { label: string; wrap: boolean }) {
+  if (!wrap) return <span className={styles.colName}>{label}</span>;
+  const splitAt = label.indexOf(" · ");
+  if (splitAt < 0) return <span className={styles.colName}>{label}</span>;
+  return (
+    <span className={styles.colName}>
+      <span>{label.slice(0, splitAt)}</span>
+      <span>{label.slice(splitAt + 3)}</span>
+    </span>
+  );
+}
+
+function StackColumn({
+  row,
+  scale,
+  plot,
+  wrap,
+  tower,
+}: {
+  row: StackRow;
+  scale: number;
+  plot: number;
+  wrap: boolean;
+  tower: boolean;
+}) {
+  const values = row.segments.map((segment) => segment.value);
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const slices = columnSlices(values, scale, plot);
+  const spoken = row.segments.map((segment) => `${count(segment.value)} ${segment.label.toLowerCase()}`).join(", ");
+  const spokenLabel = `${row.label}: ${spoken}`;
+  const towerStyle = tower ? { flex: `1 0 ${TOWER_COLUMN}px`, minWidth: TOWER_COLUMN } : undefined;
+  const drawn = slices.flatMap((slice, index) => (slice.height > 0 ? [index] : []));
+  const bottomIndex = drawn[0] ?? -1;
+  const topIndex = drawn[drawn.length - 1] ?? -1;
+  const chart = (
+    <>
+      <div className={styles.colField} style={{ height: plot }}>
+        {total <= 0 ? (
+          <span className={styles.colZero}>
+            0
+            <span className={styles.colZeroTick} aria-hidden="true" />
+          </span>
+        ) : (
+          <div className={styles.colStack} style={{ height: slices.reduce((sum, slice) => sum + slice.height, 0) }}>
+            {row.segments.map((segment, index) => {
+              const slice = slices[index];
+              if (!slice || slice.height <= 0) return null;
+              return (
+                <span
+                  key={segment.key}
+                  className={styles.vseg}
+                  style={{
+                    height: slice.height,
+                    background: segment.color,
+                    color: segmentInk(segment.color),
+                    borderBottomLeftRadius: index === bottomIndex ? 2 : 0,
+                    borderBottomRightRadius: index === bottomIndex ? 2 : 0,
+                    borderTopLeftRadius: index === topIndex ? 2 : 0,
+                    borderTopRightRadius: index === topIndex ? 2 : 0,
+                  }}
+                >
+                  {slice.inside ? count(segment.value) : null}
+                </span>
+              );
+            })}
+            {row.segments.map((segment, index) => {
+              const slice = slices[index];
+              if (!slice || slice.height <= 0 || slice.inside) return null;
+              return (
+                <span
+                  key={`${segment.key}:n`}
+                  className={styles.colTag}
+                  style={{
+                    bottom: slice.labelY,
+                    background: segment.color,
+                    color: segmentInk(segment.color),
+                  }}
+                >
+                  {count(segment.value)}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <ColumnName label={row.label} wrap={wrap} />
+    </>
+  );
+  if (!row.onOpen) {
+    return (
+      <div className={styles.col} style={towerStyle} role="group" aria-label={spokenLabel}>
+        {chart}
+      </div>
+    );
+  }
+  return (
+    <button type="button" className={styles.col} style={towerStyle} aria-label={spokenLabel} onClick={row.onOpen}>
+      {chart}
+    </button>
+  );
+}
+
 function StackChart({ rows, weight }: { rows: readonly StackRow[]; weight: Weight }) {
+  const plot = weight === "project" ? PROJECT_PLOT : TOWER_PLOT;
+  const tower = weight === "row";
   const peak = rows.reduce((max, row) => {
     const total = row.segments.reduce((sum, segment) => sum + segment.value, 0);
     return Math.max(max, total);
   }, 0);
   const { scale, marks } = niceScale(peak);
-  const plot = weight === "project" ? styles.plotProject : styles.plotRow;
+  const track = rows.length * TOWER_COLUMN + Math.max(0, rows.length - 1) * COLUMN_GAP;
   return (
     <>
       <ul className={styles.legend}>
@@ -255,58 +410,28 @@ function StackChart({ rows, weight }: { rows: readonly StackRow[]; weight: Weigh
           </li>
         ))}
       </ul>
-      <div className={styles.frameFigures}>
-        <Scale marks={marks} scale={scale} span={rows.length} gutter={0} />
-        {rows.map((row, index) => {
-          const total = row.segments.reduce((sum, segment) => sum + segment.value, 0);
-          const pct = scale > 0 ? Math.min(100, (total / scale) * 100) : 0;
-          const spoken = row.segments.map((segment) => `${count(segment.value)} ${segment.label.toLowerCase()}`).join(", ");
-          return (
-            <div
-              key={row.key}
-              className={styles.row}
-              style={{ gridRow: index + 1 }}
-              role={row.onOpen ? "button" : undefined}
-              tabIndex={row.onOpen ? 0 : undefined}
-              aria-label={`${row.label}: ${spoken}`}
-              onClick={row.onOpen}
-              onKeyDown={row.onOpen ? (event) => press(event, () => row.onOpen?.()) : undefined}
-            >
-              <span className={styles.name}>{row.label}</span>
-              <div className={`${styles.plot} ${plot}`}>
-                <div className={styles.field}>
-                  {total <= 0 ? (
-                    <>
-                      <span className={styles.zeroTick} aria-hidden="true" />
-                      <span className={styles.count} style={{ left: 8 }}>0</span>
-                    </>
-                  ) : (
-                    <span className={styles.stack} style={{ width: `${pct}%` }}>
-                      {row.segments.map((segment) => segment.value <= 0 ? null : (
-                        <span
-                          key={segment.key}
-                          className={styles.seg}
-                          style={{
-                            flexGrow: segment.value,
-                            background: segment.color,
-                            color: segment.color === UNIT_STATUS_COLORS.AVAILABLE ? NAVY : "#fff",
-                          }}
-                        >
-                          {segment.value / scale >= 0.14 ? count(segment.value) : ""}
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <span className={styles.figures}>
-                {total <= 0 ? null : row.segments.filter((segment) => segment.value / scale < 0.14).map((segment) => (
-                  <span key={segment.key} style={{ color: segment.color }}>{count(segment.value)}</span>
-                ))}
-              </span>
+      <div className={styles.colChart} data-weight={weight}>
+        <div className={styles.yAxis} style={{ height: plot }} aria-hidden="true">
+          {marks.map((mark) => (
+            <span key={mark} className={styles.yTick} style={{ bottom: tickBottom(mark, scale) }}>
+              {count(mark)}
+            </span>
+          ))}
+        </div>
+        <div className={tower ? styles.colScroll : styles.colClip}>
+          <div className={styles.colBody} style={tower ? { minWidth: track } : undefined}>
+            <div className={styles.colGrid} style={{ height: plot }} aria-hidden="true">
+              {marks.map((mark) => mark <= 0 ? null : (
+                <span key={mark} className={styles.colGridLine} style={{ bottom: `${(mark / scale) * 100}%` }} />
+              ))}
             </div>
-          );
-        })}
+            <div className={styles.colRow} style={{ gap: COLUMN_GAP }}>
+              {rows.map((row) => (
+                <StackColumn key={row.key} row={row} scale={scale} plot={plot} wrap={tower} tower={tower} />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </>
   );

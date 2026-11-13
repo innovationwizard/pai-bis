@@ -102,7 +102,7 @@ All 14 Operativo checklist items are 0-click.
 | 1 | Ventas totales | Hero units (reservas) + project bars |
 | 2 | Ventas versus objetivos de proyectos - totales y por asesor | Compact bullet charts or overlapping bars, one set per proyecto + ranked asesor view |
 | 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por asesor | Pace or bullet against expected trajectory, color-coded for deficit/surplus, by proyecto and by asesor |
-| 6 | Inventario general: Vendido, congelado, disponible | Stacked horizontal bars by proyecto/torre. Status colors on the stacked bars match the availability-grid palette (Disponible #22c55e, Congelado #a855f7, Vendido #6b7280). |
+| 6 | Inventario general: Vendido, congelado, disponible | Vertical stacked columns by proyecto and by torre. Status colors match the availability-grid palette (Disponible #22c55e, Congelado #a855f7, Vendido #6b7280). Numeric labels on every segment. Thick columns and tight gaps to satisfy visual-density continuity. For the torre chart, wrap labels onto two lines rather than rotating them. |
 | 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
 
 Santa Elena sales are paused for strategic reasons. Its meta for the current period is zero. It has no asesores assigned. Do not display “Sin meta”, “Sin asesor”, “Asesor pending”, or any equivalent placeholder text.

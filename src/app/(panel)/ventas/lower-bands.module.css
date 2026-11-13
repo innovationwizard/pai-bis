@@ -83,8 +83,7 @@
 }
 
 .frame,
-.frameAside,
-.frameFigures {
+.frameAside {
   display: grid;
   column-gap: 12px;
   row-gap: 2px;
@@ -97,10 +96,6 @@
 
 .frameAside {
   grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) 72px;
-}
-
-.frameFigures {
-  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr) 112px;
 }
 
 .scale {
@@ -159,8 +154,7 @@
   inset: 0;
 }
 
-.bar,
-.stack {
+.bar {
   position: absolute;
   top: 50%;
   left: 0;
@@ -168,11 +162,9 @@
   transform: translateY(-50%);
 }
 
-.plotProject .bar,
-.plotProject .stack { height: 44px; }
+.plotProject .bar { height: 44px; }
 
-.plotRow .bar,
-.plotRow .stack { height: 26px; }
+.plotRow .bar { height: 26px; }
 
 .bar {
   min-width: 2px;
@@ -187,24 +179,6 @@
 .bar[data-tone="amber"] { background: #b45309; }
 .bar[data-tone="blue"] { background: #0573b0; }
 .bar[data-tone="navy"] { background: #0d2041; }
-
-.stack {
-  display: flex;
-  min-width: 2px;
-  overflow: hidden;
-}
-
-.seg {
-  display: flex;
-  flex: 1 1 0;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  height: 100%;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-}
 
 .count {
   position: absolute;
@@ -247,14 +221,180 @@
   white-space: nowrap;
 }
 
-.figures {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+.colChart {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
   min-width: 0;
+}
+
+.yAxis {
+  position: relative;
+}
+
+.yTick {
+  position: absolute;
+  right: 0;
+  color: rgba(13, 32, 65, 0.62);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.colClip,
+.colScroll {
+  min-width: 0;
+}
+
+.colScroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+}
+
+.colBody {
+  position: relative;
+  width: 100%;
+}
+
+.colGrid {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.45);
+  pointer-events: none;
+}
+
+.colGridLine {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(148, 163, 184, 0.28);
+}
+
+.colRow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+}
+
+.col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+}
+
+button.col { cursor: pointer; }
+
+.col:focus-visible {
+  outline: 2px solid #0573b0;
+  outline-offset: -2px;
+}
+
+.colField {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.colStack {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column-reverse;
+}
+
+.colChart[data-weight="project"] .colStack,
+.colChart[data-weight="project"] .colZero { width: 90%; }
+
+.colChart[data-weight="row"] .colStack,
+.colChart[data-weight="row"] .colZero { width: 86%; }
+
+.vseg {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  overflow: visible;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.colTag {
+  position: absolute;
+  left: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translate(-50%, 50%);
+}
+
+.colZero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  color: #0d2041;
   font-size: 13px;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 16px;
+}
+
+.colZeroTick {
+  width: 100%;
+  height: 2px;
+  background: #0d2041;
+}
+
+.colName {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-top: 6px;
+  color: #0d2041;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.colName > span {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .plotLine {
@@ -281,8 +421,7 @@
 
 @media (max-width: 640px) {
   .frame,
-  .frameAside,
-  .frameFigures {
+  .frameAside {
     display: flex;
     flex-direction: column;
     gap: 2px;
