@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { projectKey } from "@/lib/projects";
 import { monthEnd, monthStart, monthsTouched, resolveRange, windowLabel, guatemalaToday, type DateWindow } from "./period";
 import type { VistaFilters } from "./vista";
 import type {
@@ -282,7 +283,10 @@ export async function buildStockVista(section: StockSection, filters: VistaFilte
   const [stock, unitIds] = await Promise.all([stockAt(client, range.to), searchUnits(client, filters.buscar)]);
   const rows = filterStock(stock, filters, unitIds);
   if (section === "analisis-de-inventario") return buildAnalisis(client, filters, range, dims, rows);
-  if (section === "inventario-general") return buildGeneral(range, dims, rows, stock.length === 0);
+  if (section === "inventario-general") {
+    const units = await loadRvUnits();
+    return buildGeneral(range, dims, rows, stock.length === 0, units, filters);
+  }
   return buildValor(client, filters, range, dims, rows, stock.length === 0);
 }
 
@@ -404,7 +408,162 @@ async function buildAnalisis(
   };
 }
 
-function buildGeneral(range: DateWindow, dims: Dims, stock: StockRow[], empty: boolean): InventarioVista {
+type AvailabilityUnit = {
+  projectSlug: string;
+  unitType: string;
+  areaTotal: number | null;
+  status: string;
+};
+
+type ModelCount = keyof Pick<InventarioVista["byModel"][number], "vendido" | "reservado" | "congelado" | "disponible">;
+
+const AVAILABILITY_SLUGS: { slug: string; name: string }[] = [
+  { slug: "boulevard-5", name: "BOULEVARD 5" },
+  { slug: "benestare", name: "BENESTARE" },
+  { slug: "bosque-las-tapias", name: "BOSQUE LAS TAPIAS" },
+  { slug: "santa-elena", name: "SANTA ELENA" },
+];
+
+async function loadRvUnits(): Promise<AvailabilityUnit[]> {
+  const client = createAdminClient();
+  const units: AvailabilityUnit[] = [];
+  for (let offset = 0; offset < CAP; offset += PAGE) {
+    const { data, error } = await client
+      .from("v_rv_units_full")
+      .select("project_slug, unit_type, area_total, status")
+      .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as unknown as Record<string, unknown>[];
+    for (const row of batch) {
+      const area = row.area_total == null || row.area_total === "" ? null : Number(row.area_total);
+      units.push({
+        projectSlug: String(row.project_slug ?? ""),
+        unitType: String(row.unit_type ?? ""),
+        areaTotal: area != null && Number.isFinite(area) ? area : null,
+        status: String(row.status ?? ""),
+      });
+    }
+    if (batch.length < PAGE) return units;
+  }
+  throw new Error("v_rv_units_full excedió el límite de lectura.");
+}
+
+function slugForName(name: string): string | null {
+  const key = projectKey(name);
+  return AVAILABILITY_SLUGS.find((item) => projectKey(item.name) === key)?.slug ?? null;
+}
+
+function ventasProjectId(dims: Dims, slug: string): string {
+  const name = AVAILABILITY_SLUGS.find((item) => item.slug === slug)?.name;
+  if (!name) return "";
+  const key = projectKey(name);
+  return dims.projects.find((project) => projectKey(project.name) === key)?.id ?? "";
+}
+
+function allowedSlugs(filters: VistaFilters, dims: Dims): Set<string> | null {
+  if (filters.projectIds === null) return null;
+  const slugs = new Set<string>();
+  for (const id of filters.projectIds) {
+    const project = dims.projects.find((item) => item.id === id);
+    const slug = project ? slugForName(project.name) : null;
+    if (slug) slugs.add(slug);
+  }
+  return slugs;
+}
+
+function availabilityStatus(status: string): ModelCount | null {
+  if (status === "AVAILABLE") return "disponible";
+  if (status === "RESERVED") return "reservado";
+  if (status === "FROZEN") return "congelado";
+  if (status === "SOLD") return "vendido";
+  return null;
+}
+
+function isCanonicalUnitType(value: string): boolean {
+  const text = value.trim();
+  if (!text) return false;
+  const folded = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  if (
+    folded === "sin dato" ||
+    folded === "sin modelo" ||
+    folded === "sin torre" ||
+    folded === "cantidad" ||
+    folded === "modelo" ||
+    folded === "tipo" ||
+    folded === "unit type" ||
+    folded === "unit_type" ||
+    folded === "tipologia" ||
+    folded === "precio" ||
+    folded === "price" ||
+    folded === "header"
+  ) {
+    return false;
+  }
+  if (text.includes("$") || /\$s/i.test(text)) return false;
+  if (/(?:^|[^a-z])m\s*[²2](?:[^a-z0-9]|$)/i.test(text)) return false;
+  const compact = text.replace(/[\s,]/g, "");
+  if (/\d+\.\d{3,}/.test(compact)) return false;
+  if (/^\d{5,}(?:\.\d+)?$/.test(compact)) return false;
+  if (/^\d{4,}\.\d+$/.test(compact)) return false;
+  const stripped = compact.replace(/gtq|usd|q\.?/gi, "");
+  if (stripped !== compact && /^\d{4,}(?:\.\d+)?$/.test(stripped)) return false;
+  return true;
+}
+
+function santaElenaSize(area: number | null): string | null {
+  if (area == null) return null;
+  if (Math.abs(area - 491.91) <= 0.05) return "491.91 m²";
+  if (Math.abs(area - 581) <= 0.05) return "581 m²";
+  return null;
+}
+
+function modelCategory(unit: AvailabilityUnit): string | null {
+  if (!isCanonicalUnitType(unit.unitType)) return null;
+  if (unit.projectSlug === "boulevard-5") {
+    const letter = unit.unitType.trim().charAt(0).toUpperCase();
+    return letter === "A" || letter === "B" || letter === "C" || letter === "D" || letter === "E" ? letter : null;
+  }
+  if (unit.projectSlug === "santa-elena") return santaElenaSize(unit.areaTotal);
+  return unit.unitType.trim();
+}
+
+function modelRowsFromUnits(units: readonly AvailabilityUnit[], filters: VistaFilters, dims: Dims): InventarioVista["byModel"] {
+  const allowed = allowedSlugs(filters, dims);
+  const groups = new Map<string, InventarioVista["byModel"][number]>();
+  for (const unit of units) {
+    if (allowed && !allowed.has(unit.projectSlug)) continue;
+    const label = modelCategory(unit);
+    const kind = availabilityStatus(unit.status);
+    if (!label || !kind) continue;
+    const key = `${unit.projectSlug}|${label}`;
+    const current = groups.get(key) ?? {
+      projectId: ventasProjectId(dims, unit.projectSlug),
+      projectSlug: unit.projectSlug,
+      model: label,
+      vendido: 0,
+      reservado: 0,
+      congelado: 0,
+      disponible: 0,
+    };
+    current[kind] += 1;
+    groups.set(key, current);
+  }
+  return [...groups.values()];
+}
+
+function buildGeneral(
+  range: DateWindow,
+  dims: Dims,
+  stock: StockRow[],
+  empty: boolean,
+  units: readonly AvailabilityUnit[],
+  filters: VistaFilters,
+): InventarioVista {
   const groups = {
     vendido: stock.filter((row) => bucket(row.pageStatus) === "vendido"),
     congelado: stock.filter((row) => bucket(row.pageStatus) === "congelado"),
@@ -447,21 +606,7 @@ function buildGeneral(range: DateWindow, dims: Dims, stock: StockRow[], empty: b
     if (kind !== "otro") current[kind] += 1;
     towers.set(key, current);
   }
-  const models = new Map<string, InventarioVista["byModel"][number]>();
-  for (const row of stock) {
-    const key = `${row.projectId}|${row.modelId}`;
-    const current = models.get(key) ?? {
-      projectId: row.projectId,
-      model: dims.models.get(row.modelId) ?? "Sin dato",
-      vendido: 0,
-      reservado: 0,
-      congelado: 0,
-      disponible: 0,
-    };
-    const kind = bucket(row.pageStatus);
-    if (kind !== "otro") current[kind] += 1;
-    models.set(key, current);
-  }
+  const byModel = modelRowsFromUnits(units, filters, dims);
   const vendidoPrice = prices(groups.vendido);
   const congeladoPrice = prices(groups.congelado);
   const disponiblePrice = prices(groups.disponible);
@@ -495,7 +640,7 @@ function buildGeneral(range: DateWindow, dims: Dims, stock: StockRow[], empty: b
     otros,
     byProject,
     byTower: [...towers.values()],
-    byModel: [...models.values()],
+    byModel,
   };
 }
 

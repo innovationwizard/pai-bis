@@ -326,7 +326,7 @@ export type InventarioVista = VistaBase & {
   otros: number;
   byProject: StockProject[];
   byTower: { projectId: string; tower: string; vendido: number; reservado: number; congelado: number; disponible: number }[];
-  byModel: { projectId: string; model: string; vendido: number; reservado: number; congelado: number; disponible: number }[];
+  byModel: { projectId: string; projectSlug: string; model: string; vendido: number; reservado: number; congelado: number; disponible: number }[];
 };
 
 export type ValorVista = VistaBase & {

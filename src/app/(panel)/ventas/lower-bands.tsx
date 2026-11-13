@@ -673,6 +673,23 @@ function towerGroups(
   return groups;
 }
 
+const MODEL_SLUGS: { slug: string; name: string }[] = [
+  { slug: "boulevard-5", name: "BOULEVARD 5" },
+  { slug: "benestare", name: "BENESTARE" },
+  { slug: "bosque-las-tapias", name: "BOSQUE LAS TAPIAS" },
+  { slug: "santa-elena", name: "SANTA ELENA" },
+];
+
+function modelInProject(
+  model: InventarioVista["byModel"][number],
+  slotLabel: string,
+  nameOf: ReadonlyMap<string, string>,
+): boolean {
+  const named = MODEL_SLUGS.find((item) => item.slug === model.projectSlug);
+  if (named) return projectKey(named.name) === projectKey(slotLabel);
+  return projectKey(nameOf.get(model.projectId) ?? "") === projectKey(slotLabel);
+}
+
 function modelGroups(
   vista: InventarioVista,
   roster: readonly ProjectSlot[],
@@ -681,7 +698,7 @@ function modelGroups(
   const groups: ColumnGroup[] = [];
   for (const slot of projectSlots(vista, roster, projectName)) {
     const models = vista.byModel
-      .filter((model) => projectKey(slot.nameOf.get(model.projectId) ?? "") === projectKey(slot.label))
+      .filter((model) => modelInProject(model, slot.label, slot.nameOf))
       .filter((model) => model.vendido + model.reservado + model.congelado + model.disponible > 0)
       .filter((model) => !isMissingLabel(model.model))
       .sort((a, b) => a.model.localeCompare(b.model, "es"));
@@ -689,8 +706,8 @@ function modelGroups(
     groups.push({
       key: slot.id || slot.label,
       label: slot.label,
-      rows: models.map((model, index) => ({
-        key: `${model.projectId}:${index}:${model.model}`,
+      rows: models.map((model) => ({
+        key: `${model.projectSlug}:${model.model}`,
         id: model.projectId,
         label: `${slot.label} · ${model.model}`,
         axis: model.model,
