@@ -59,7 +59,6 @@ type BarState = {
   hasta: string;
   proyectos: string[] | null;
   asesor: string;
-  torre: string;
 };
 
 const INITIAL: BarState = {
@@ -68,7 +67,6 @@ const INITIAL: BarState = {
   hasta: "",
   proyectos: null,
   asesor: "",
-  torre: "",
 };
 
 type Focus =
@@ -240,7 +238,6 @@ function buildParams(bar: BarState): URLSearchParams {
     for (const id of bar.proyectos) params.append("proyecto", id);
   }
   if (bar.asesor) params.set("asesor", bar.asesor);
-  if (bar.torre) params.set("torre", bar.torre);
   return params;
 }
 
@@ -369,10 +366,6 @@ export default function CommandCenter() {
     () => mergeChoices([totales?.choices.asesor ?? [], objetivos?.choices.asesor ?? [], status?.choices.asesor ?? []]),
     [totales, objetivos, status],
   );
-  const torres = useMemo(
-    () => mergeChoices([totales?.choices.torre ?? [], inventario?.choices.torre ?? []]),
-    [totales, inventario],
-  );
   const projectName = useMemo(() => {
     const map = new Map<string, string>();
     for (const project of projects) map.set(project.id, project.label);
@@ -427,15 +420,6 @@ export default function CommandCenter() {
               ))}
             </select>
           </label>
-          <label>
-            Torre
-            <select value={bar.torre} onChange={(event) => update({ torre: event.target.value })}>
-              <option value="">Todas</option>
-              {withCurrent(torres, bar.torre).map((choice) => (
-                <option key={choice.id} value={choice.id}>{choice.label}</option>
-              ))}
-            </select>
-          </label>
           <button type="button" className="op-text" onClick={() => { setFocus(null); setBar(INITIAL); }}>
             Restablecer
           </button>
@@ -457,7 +441,7 @@ export default function CommandCenter() {
       </header>
 
       <VentasTotalesBlock
-        key={`${bar.periodo}|${bar.desde}|${bar.hasta}|${bar.proyectos === null ? "todos" : bar.proyectos.join(",")}|${bar.asesor}|${bar.torre}`}
+        key={`${bar.periodo}|${bar.desde}|${bar.hasta}|${bar.proyectos === null ? "todos" : bar.proyectos.join(",")}|${bar.asesor}`}
         totales={totales}
         objetivos={objetivos}
         totalesError={errors["ventas-totales"] ?? null}

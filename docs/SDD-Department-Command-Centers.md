@@ -42,6 +42,10 @@ Take what the CEO and Managers already have in mind and are already familiar wit
 11. **Growth.** All design must support company growth without breaking. Example targets: 2× simultaneous projects, 10× sales reps.
 12. **Project order.** Canonical project display order is BOULEVARD 5, BENESTARE, BOSQUE LAS TAPIAS, SANTA ELENA (by date of birth). It is defined in the shared constant `src/lib/projects.ts` so reordering is a config change.
 
+### Inventory status colours
+
+Status colours for inventory (Disponible, Congelado, Reservado, Vendido, etc.) must be identical to those already used on the unit availability grid (/disponibilidad). Do not introduce a new palette on the command centre. Source of truth: UNIT_STATUS_COLORS in src/lib/reservas/constants.ts (Disponible #22c55e, En revisión #f59e0b, Reservado #3b82f6, Congelado #a855f7, Vendido #6b7280).
+
 ### Visual density continuity
 
 On every Command Center (Mercadeo, Ventas, Cobros, Créditos, Entregas) and inside every sub-section, adjacent bands must not produce an abrupt drop in visual density.
@@ -76,11 +80,11 @@ Each department page is a vertical stack of visual bands. Exact content varies b
 - **Band B — Analytical and control graphics (0 clicks):** Remaining checklist items as charts, small multiples, or compact visual summaries. Still fully visible without navigation.
 - **Band C — Operative detail (optional filter target):** Tables or lists that can be filtered by clicking a chart element above. Not required for checklist coverage.
 
-Optional lightweight filters (Periodo, Proyecto, Asesor, Torre) sit in a compact header. Default state already shows the useful view (current month / all projects). Freshness stamp is always visible, on the same line as the period description.
+Optional lightweight filters (Periodo, Proyecto, Asesor) sit in a compact header. Default state already shows the useful view (current month / all projects). Freshness stamp is always visible, on the same line as the period description.
 
 After the filter controls and the period + freshness line, mark the transition into page content with a line break and an elegant horizontal separator.
 
-On single long-scroll Command Center pages the entire filter battery (project pills + Periodo / Asesor / Torre / Restablecer) must remain sticky at full height directly under the top navigation. No collapse or compact mode. Implemented first on Mercadeo and Ventas.
+On single long-scroll Command Center pages the entire filter battery (project pills + Periodo / Asesor / Restablecer) must remain sticky at full height directly under the top navigation. No collapse or compact mode. Implemented first on Mercadeo and Ventas.
 
 ---
 
@@ -97,7 +101,7 @@ All 14 Operativo checklist items are 0-click.
 | 1 | Ventas totales | Hero units (reservas) + project bars |
 | 2 | Ventas versus objetivos de proyectos - totales y por asesor | Compact bullet charts or overlapping bars, one set per proyecto + ranked asesor view |
 | 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por asesor | Pace or bullet against expected trajectory, color-coded for deficit/surplus, by proyecto and by asesor |
-| 6 | Inventario general: Vendido, congelado, disponible | Stacked horizontal bars by proyecto/torre |
+| 6 | Inventario general: Vendido, congelado, disponible | Stacked horizontal bars by proyecto/torre. Status colors on the stacked bars match the availability-grid palette (Disponible #22c55e, Congelado #a855f7, Vendido #6b7280). |
 | 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
 
 Santa Elena sales are paused for strategic reasons. Its meta for the current period is zero. It has no asesores assigned. Do not display “Sin meta”, “Sin asesor”, “Asesor pending”, or any equivalent placeholder text.
@@ -107,7 +111,7 @@ Santa Elena sales are paused for strategic reasons. Its meta for the current per
 | # | Checklist item | Visualization |
 |---|----------------|---------------|
 | 4 | Ventas por canales | Ranked horizontal bars or small multiples by Fuente |
-| 5 | Análisis de inventario: Split de ventas por modelo | Horizontal bars or treemap by modelo/tipología |
+| 5 | Análisis de inventario: Split de ventas por modelo | Horizontal bars (or small multiples) of ventas by modelo. Local filters that affect ONLY this band: Torre and Modelo. Default = all towers, all models. Zero-value or polluted model rows are suppressed or grouped as “Otros / sin clasificar” until the source field is cleaned (data-cleaning is out of scope for the current turn). Any status colors that appear must match the availability-grid palette (Disponible #22c55e, Congelado #a855f7, Vendido #6b7280, etc.). |
 | 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Composed chart or small multiples showing price trajectory and discount impact |
 | 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Bars or small multiples for financial impact (reembolso / retención) |
 | 10 | Control de descuentos | Compact visual summary (indicators or bars) with amounts shown |
@@ -189,7 +193,7 @@ Checklist pending. Will follow the same 0-click single-page pattern once receive
 - Same page for executive and operative roles.
 - Freshness stamp per General Rules.
 - Filter battery ends with a line break and elegant horizontal separator before content.
-- On single long-scroll Command Center pages the entire filter battery (project pills + Periodo / Asesor / Torre / Restablecer) must remain sticky at full height directly under the top navigation. No collapse or compact mode. Implemented first on Mercadeo and Ventas.
+- On single long-scroll Command Center pages the entire filter battery (project pills + Periodo / Asesor / Restablecer) must remain sticky at full height directly under the top navigation. No collapse or compact mode. Implemented first on Mercadeo and Ventas.
 
 ---
 

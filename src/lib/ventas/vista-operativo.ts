@@ -361,7 +361,14 @@ async function buildAnalisis(
       towers.set(row.towerId, current);
     }
     for (const [towerId, value] of towers) {
-      byTower.push({ modelId: model.id, tower: dims.torres.get(towerId) ?? "Sin dato", sold: value.sold, available: value.available });
+      byTower.push({
+        modelId: model.id,
+        towerId,
+        projectId: dims.towerProjects.get(towerId) ?? "",
+        tower: dims.torres.get(towerId) ?? "Sin dato",
+        sold: value.sold,
+        available: value.available,
+      });
     }
   }
   const choices = emptyChoices();
