@@ -455,9 +455,14 @@ button.col { cursor: pointer; }
 .miniTrack {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
   width: 100%;
   min-width: 0;
+}
+
+.mini + .mini {
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 3px solid #0d2041;
 }
 
 .mini {

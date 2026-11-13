@@ -101,30 +101,43 @@ function saleModelOptions(rows: AnalisisVista["modelSales"]): string[] {
     .sort((a, b) => a.localeCompare(b, "es"));
 }
 
-function saleGroups(rows: AnalisisVista["modelSales"]): ColumnGroup[] {
+function projectBarColor(slug: string): string {
+  if (slug === "boulevard-5") return "#3d6f8f";
+  if (slug === "bosque-las-tapias") return "#0573b0";
+  if (slug === "santa-elena") return "#1a4a68";
+  return "#0d2041";
+}
+
+function saleGroups(rows: AnalisisVista["modelSales"], includeSantaElena: boolean): ColumnGroup[] {
   const byProject = new Map<string, Map<string, number>>();
   for (const row of rows) {
-    if (!(row.sold > 0) || isMissingLabel(row.model)) continue;
+    if (isMissingLabel(row.model)) continue;
     const models = byProject.get(row.projectSlug) ?? new Map<string, number>();
     models.set(row.model, (models.get(row.model) ?? 0) + row.sold);
     byProject.set(row.projectSlug, models);
   }
   const groups: ColumnGroup[] = [];
   for (const item of SALE_SLUGS) {
-    const models = byProject.get(item.slug);
-    if (!models || models.size === 0) continue;
+    const models = byProject.get(item.slug) ?? new Map<string, number>();
+    if (item.slug === "santa-elena" && includeSantaElena) {
+      if (!models.has("491.91 m²")) models.set("491.91 m²", 0);
+      if (!models.has("581 m²")) models.set("581 m²", 0);
+    }
+    const kept = [...models.entries()].filter((entry) => item.slug === "santa-elena" || entry[1] > 0);
+    if (kept.length === 0) continue;
     const label = titleLabel(item.name);
+    const color = projectBarColor(item.slug);
     groups.push({
       key: item.slug,
       label,
-      rows: [...models.entries()]
+      rows: kept
         .sort((a, b) => a[0].localeCompare(b[0], "es"))
         .map(([model, sold]) => ({
           key: `${item.slug}:${model}`,
           id: item.slug,
           label: model,
           axis: model,
-          segments: [{ key: "ventas", label: "Ventas", value: sold, color: NAVY }],
+          segments: [{ key: "ventas", label: "Ventas", value: sold, color }],
         })),
     });
   }
@@ -141,7 +154,7 @@ function ModeloChart({ vista }: { vista: AnalisisVista }) {
   const models = saleModelOptions(inTower);
   const modeloActive = models.includes(modelo) ? modelo : "";
   const shown = inTower.filter((row) => !modeloActive || row.model === modeloActive);
-  const groups = saleGroups(shown);
+  const groups = saleGroups(shown, towerActive === "" && modeloActive === "");
 
   function chooseTower(value: string) {
     setTower(value);
@@ -708,7 +721,7 @@ export function InventarioBands({
       onOpen: id ? () => onProject(id, item.label) : undefined,
     } satisfies StackRow;
   });
-  const towers = towerGroups(vista, roster, projectName, onTower);
+  const towers = towerGroups(vista, roster, projectName, onTower, onProject);
   const models = modelGroups(vista, roster, projectName);
   return (
     <div className={styles.pair}>
@@ -740,24 +753,60 @@ function isMissingLabel(label: string): boolean {
   return key === "sin dato" || key === "sin torre" || key === "sin modelo" || key === "sin asesor" || key === "asesor pending" || key === "meta pending";
 }
 
+function isPrincipalTower(label: string): boolean {
+  return label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim() === "principal";
+}
+
 function towerGroups(
   vista: InventarioVista,
   roster: readonly ProjectSlot[],
   projectName: ReadonlyMap<string, string>,
   onTower: (projectId: string, tower: string, label: string) => void,
+  onProject: (id: string, label: string) => void,
 ): ColumnGroup[] {
   const groups: ColumnGroup[] = [];
   for (const slot of projectSlots(vista, roster, projectName)) {
-    if (projectKey(slot.label) === projectKey("SANTA ELENA")) continue;
     const towers = vista.byTower
       .filter((tower) => projectKey(slot.nameOf.get(tower.projectId) ?? "") === projectKey(slot.label))
-      .filter((tower) => !isMissingLabel(tower.tower))
       .sort((a, b) => a.tower.localeCompare(b.tower, "es"));
-    if (towers.length === 0) continue;
+    if (projectKey(slot.label) === projectKey("SANTA ELENA")) {
+      const fromProject = vista.byProject.find((project) => projectKey(project.label) === projectKey(slot.label));
+      const summed = towers.reduce((sum, tower) => ({
+        vendido: sum.vendido + tower.vendido,
+        reservado: sum.reservado + tower.reservado,
+        congelado: sum.congelado + tower.congelado,
+        disponible: sum.disponible + tower.disponible,
+      }), {
+        vendido: fromProject && towers.length === 0 ? fromProject.vendido : 0,
+        reservado: fromProject && towers.length === 0 ? fromProject.reservado : 0,
+        congelado: fromProject && towers.length === 0 ? fromProject.congelado : 0,
+        disponible: fromProject && towers.length === 0 ? fromProject.disponible : 0,
+      });
+      groups.push({
+        key: slot.id || slot.label,
+        label: slot.label,
+        rows: [{
+          key: `${slot.id || slot.label}:casas`,
+          id: slot.id,
+          label: slot.label,
+          axis: "Casas",
+          segments: stockSegments(summed),
+          onOpen: slot.id ? () => onProject(slot.id, slot.label) : undefined,
+        }],
+      });
+      continue;
+    }
+    const named = towers.filter((tower) => !isMissingLabel(tower.tower) && !isPrincipalTower(tower.tower));
+    if (named.length === 0) continue;
     groups.push({
       key: slot.id || slot.label,
       label: slot.label,
-      rows: towers.map((tower, index) => {
+      rows: named.map((tower, index) => {
         const label = `${slot.label} · ${tower.tower}`;
         return {
           key: `${tower.projectId}:${index}:${tower.tower}`,
@@ -807,11 +856,22 @@ function modelGroups(
       .filter((model) => model.vendido + model.reservado + model.congelado + model.disponible > 0)
       .filter((model) => !isMissingLabel(model.model))
       .sort((a, b) => a.model.localeCompare(b.model, "es"));
-    if (models.length === 0) continue;
+    const rows = projectKey(slot.label) === projectKey("SANTA ELENA")
+      ? [...models, ...["491.91 m²", "581 m²"].filter((size) => !models.some((model) => model.model === size)).map((size) => ({
+        projectId: slot.id,
+        projectSlug: "santa-elena",
+        model: size,
+        vendido: 0,
+        reservado: 0,
+        congelado: 0,
+        disponible: 0,
+      }))].sort((a, b) => a.model.localeCompare(b.model, "es"))
+      : models;
+    if (rows.length === 0) continue;
     groups.push({
       key: slot.id || slot.label,
       label: slot.label,
-      rows: models.map((model) => ({
+      rows: rows.map((model) => ({
         key: `${model.projectSlug}:${model.model}`,
         id: model.projectId,
         label: `${slot.label} · ${model.model}`,

@@ -523,11 +523,13 @@ function isCanonicalUnitType(value: string): boolean {
   return true;
 }
 
-function santaElenaSize(area: number | null): string | null {
-  if (area == null) return null;
+function santaElenaSize(area: number | null): string {
+  if (area == null) return "Casas";
   if (Math.abs(area - 491.91) <= 0.05) return "491.91 m²";
   if (Math.abs(area - 581) <= 0.05) return "581 m²";
-  return null;
+  const rounded = Math.round(area * 100) / 100;
+  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, "");
+  return `${text} m²`;
 }
 
 function modelCategory(unit: AvailabilityUnit): string | null {
