@@ -62,6 +62,7 @@ Research on dashboard density and visual hierarchy shows that a sudden change fr
 3. **Containment.** Each band that sits after a high-density section receives a subtle background tint or light card surface so it reads as a contained unit rather than floating elements in white space.
 4. **Shared scale.** When a grid is used, it must be a regular, self-explanatory scale (for example, unitary when the maximum is small). Arbitrary or sparse lines that do not correspond to round values are not permitted.
 5. **Growth.** These density rules apply regardless of the number of projects or asesores. Adding more rows must not re-introduce large empty fields or thin bars.
+6. **Vertical scale headroom.** When vertical columns or bars are used, the y-axis must include modest padding above the highest value (approximately 10–15 %) so the chart does not look cramped, but must not leave large empty regions above the columns. The bars, not the empty scale, must dominate the visual weight.
 
 These rules apply to every department Command Center and to every sub-section within them.
 
@@ -102,7 +103,7 @@ All 14 Operativo checklist items are 0-click.
 | 1 | Ventas totales | Hero units (reservas) + project bars |
 | 2 | Ventas versus objetivos de proyectos - totales y por asesor | Compact bullet charts or overlapping bars, one set per proyecto + ranked asesor view |
 | 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por asesor | Pace or bullet against expected trajectory, color-coded for deficit/surplus, by proyecto and by asesor |
-| 6 | Inventario general: Vendido, congelado, disponible | Vertical stacked columns by proyecto and by torre. Status colors match the availability-grid palette (Disponible #22c55e, Congelado #a855f7, Vendido #6b7280). Numeric labels on every segment. Thick columns and tight gaps to satisfy visual-density continuity. For the torre chart, wrap labels onto two lines rather than rotating them. |
+| 6 | Inventario general: Vendido, congelado, disponible | Vertical stacked columns by proyecto and by torre. Status colors match the availability-grid palette (Disponible #22c55e, Reservado #3b82f6, Congelado #a855f7, Vendido #6b7280). En revisión is omitted. Numeric labels on every segment. Thick columns and tight gaps to satisfy visual-density continuity. Y-axis scale includes modest headroom (approximately 10–15 % above the maximum value) so the tallest column does not touch the top of the plot and large empty space above the columns is avoided. For the torre chart, wrap labels onto two lines rather than rotating them. |
 | 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
 
 Santa Elena sales are paused for strategic reasons. Its meta for the current period is zero. It has no asesores assigned. Do not display “Sin meta”, “Sin asesor”, “Asesor pending”, or any equivalent placeholder text.

@@ -128,8 +128,9 @@ function projectsOf(dims: Dims): Choice[] {
     .sort((a, b) => a.label.localeCompare(b.label, "es"));
 }
 
-function bucket(status: string): "vendido" | "congelado" | "disponible" | "otro" {
+function bucket(status: string): "vendido" | "reservado" | "congelado" | "disponible" | "otro" {
   if (status === "Vendido") return "vendido";
+  if (status === "Reservado") return "reservado";
   if (status === "Congelado") return "congelado";
   if (status === "Disponible") return "disponible";
   return "otro";
@@ -423,6 +424,7 @@ function buildGeneral(range: DateWindow, dims: Dims, stock: StockRow[], empty: b
         id,
         label: dims.projects.find((project) => project.id === id)?.name ?? "Sin dato",
         vendido: mine.filter((row) => bucket(row.pageStatus) === "vendido").length,
+        reservado: mine.filter((row) => bucket(row.pageStatus) === "reservado").length,
         congelado: mine.filter((row) => bucket(row.pageStatus) === "congelado").length,
         disponible: disponible.length,
         disponibleGtq: list.gtq,
@@ -437,6 +439,7 @@ function buildGeneral(range: DateWindow, dims: Dims, stock: StockRow[], empty: b
       projectId: row.projectId,
       tower: dims.torres.get(row.towerId) ?? "Sin dato",
       vendido: 0,
+      reservado: 0,
       congelado: 0,
       disponible: 0,
     };
@@ -465,6 +468,7 @@ function buildGeneral(range: DateWindow, dims: Dims, stock: StockRow[], empty: b
     section: "inventario-general",
     asOf: range.to,
     vendido: groups.vendido.length,
+    reservado: stock.filter((row) => bucket(row.pageStatus) === "reservado").length,
     congelado: groups.congelado.length,
     disponible: groups.disponible.length,
     vendidoGtq: vendidoPrice.gtq,

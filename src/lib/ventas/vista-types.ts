@@ -303,6 +303,7 @@ export type StockProject = {
   id: string;
   label: string;
   vendido: number;
+  reservado: number;
   congelado: number;
   disponible: number;
   disponibleGtq: number | null;
@@ -313,6 +314,7 @@ export type InventarioVista = VistaBase & {
   section: "inventario-general";
   asOf: string;
   vendido: number;
+  reservado: number;
   congelado: number;
   disponible: number;
   vendidoGtq: number | null;
@@ -323,7 +325,7 @@ export type InventarioVista = VistaBase & {
   disponibleUsd: number | null;
   otros: number;
   byProject: StockProject[];
-  byTower: { projectId: string; tower: string; vendido: number; congelado: number; disponible: number }[];
+  byTower: { projectId: string; tower: string; vendido: number; reservado: number; congelado: number; disponible: number }[];
 };
 
 export type ValorVista = VistaBase & {

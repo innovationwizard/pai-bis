@@ -53,6 +53,7 @@ type Mark = {
 };
 
 type StackSegment = { key: string; label: string; value: number; color: string };
+type StockKey = "disponible" | "reservado" | "congelado" | "vendido";
 
 type StackRow = {
   key: string;
@@ -62,8 +63,9 @@ type StackRow = {
   onOpen?: () => void;
 };
 
-const STOCK: { key: string; label: string; color: string }[] = [
+const STOCK: { key: StockKey; label: string; color: string }[] = [
   { key: "disponible", label: "Disponible", color: UNIT_STATUS_COLORS.AVAILABLE },
+  { key: "reservado", label: "Reservado", color: UNIT_STATUS_COLORS.RESERVED },
   { key: "congelado", label: "Congelado", color: UNIT_STATUS_COLORS.FROZEN },
   { key: "vendido", label: "Vendido", color: UNIT_STATUS_COLORS.SOLD },
 ];
@@ -120,6 +122,37 @@ function niceScale(peak: number): { scale: number; marks: number[] } {
   const scale = nice * base;
   const step = scale / 4;
   return { scale, marks: [0, 1, 2, 3, 4].map((index) => step * index) };
+}
+
+function columnScale(peak: number): { scale: number; marks: number[] } {
+  if (!(peak > 0)) return { scale: 1, marks: [0, 1] };
+  const scale = peak * 1.12;
+  if (scale <= 16) {
+    const marks: number[] = [];
+    for (let mark = 0; mark <= scale + 1e-9; mark += 1) marks.push(mark);
+    return { scale, marks };
+  }
+  const step = columnStep(scale);
+  const count = Math.floor(scale / step + 1e-9);
+  const marks = Array.from({ length: count + 1 }, (_, index) => {
+    const value = index * step;
+    return Math.round(value * 1000) / 1000;
+  });
+  return { scale, marks };
+}
+
+function columnStep(scale: number): number {
+  const exp = Math.floor(Math.log10(Math.max(scale / 4, 1e-9)));
+  const base = 10 ** exp;
+  const candidates = [1, 2, 2.5, 5, 10].map((factor) => factor * base);
+  const ranked = candidates
+    .map((step) => ({ step, intervals: scale / step }))
+    .filter((item) => item.intervals >= 3 && item.intervals <= 6);
+  if (ranked.length === 0) {
+    return candidates.reduce((best, step) => (Math.abs(scale / step - 4) < Math.abs(scale / best - 4) ? step : best));
+  }
+  ranked.sort((a, b) => Math.abs(a.intervals - 4) - Math.abs(b.intervals - 4));
+  return ranked[0].step;
 }
 
 function tipNumber(value: unknown): number | null {
@@ -285,7 +318,7 @@ function tickBottom(mark: number, scale: number): string {
   if (!(scale > 0)) return "0px";
   const pct = (mark / scale) * 100;
   if (pct <= 0) return "0px";
-  if (pct >= 100) return "calc(100% - 14px)";
+  if (pct >= 97) return "calc(100% - 14px)";
   return `calc(${pct}% - 7px)`;
 }
 
@@ -398,7 +431,7 @@ function StackChart({ rows, weight }: { rows: readonly StackRow[]; weight: Weigh
     const total = row.segments.reduce((sum, segment) => sum + segment.value, 0);
     return Math.max(max, total);
   }, 0);
-  const { scale, marks } = niceScale(peak);
+  const { scale, marks } = columnScale(peak);
   const track = rows.length * TOWER_COLUMN + Math.max(0, rows.length - 1) * COLUMN_GAP;
   return (
     <>
@@ -437,12 +470,12 @@ function StackChart({ rows, weight }: { rows: readonly StackRow[]; weight: Weigh
   );
 }
 
-function stockSegments(vendido: number, congelado: number, disponible: number): StackSegment[] {
+function stockSegments(counts: Record<StockKey, number>): StackSegment[] {
   return STOCK.map((item) => ({
     key: item.key,
     label: item.label,
     color: item.color,
-    value: item.key === "vendido" ? vendido : item.key === "congelado" ? congelado : disponible,
+    value: counts[item.key],
   }));
 }
 
@@ -510,7 +543,12 @@ export function InventarioBands({
       key: id || item.label,
       id,
       label: item.label,
-      segments: stockSegments(row?.vendido ?? 0, row?.congelado ?? 0, row?.disponible ?? 0),
+      segments: stockSegments({
+        vendido: row?.vendido ?? 0,
+        reservado: row?.reservado ?? 0,
+        congelado: row?.congelado ?? 0,
+        disponible: row?.disponible ?? 0,
+      }),
       onOpen: id ? () => onProject(id, item.label) : undefined,
     } satisfies StackRow;
   });
@@ -555,7 +593,12 @@ function towerRows(
         key: `${tower.projectId}:${tower.tower}`,
         id: tower.projectId,
         label,
-        segments: stockSegments(tower.vendido, tower.congelado, tower.disponible),
+        segments: stockSegments({
+          vendido: tower.vendido,
+          reservado: tower.reservado,
+          congelado: tower.congelado,
+          disponible: tower.disponible,
+        }),
         onOpen: () => onTower(tower.projectId, tower.tower, label),
       });
     }
