@@ -743,10 +743,58 @@ function funnelPct(value: number | null): string {
   return `${new Intl.NumberFormat("es-GT", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(rounded)}%`;
 }
 
-function funnelScale(peak: number): { scale: number; marks: number[] } {
-  if (!(peak > 0)) return { scale: 1, marks: [0] };
-  const marks = [0, 0.25, 0.5, 0.75, 1].map((part) => Math.round(peak * part));
-  return { scale: peak, marks: [...new Set(marks)] };
+const FUNNEL_PROJECT_PLOT = 220;
+
+function stageLines(label: string): readonly [string, string] {
+  const split = label.lastIndexOf(" ");
+  if (split <= 0) return [label, "\u00a0"];
+  return [label.slice(0, split), label.slice(split + 1)];
+}
+
+function FunnelColumn({
+  bar,
+  scale,
+  plot,
+  ink,
+}: {
+  bar: ConversionVista["all"]["bars"][number];
+  scale: number;
+  plot: number;
+  ink: string;
+}) {
+  const shown = count(bar.count);
+  const raw = bar.count > 0 && scale > 0 ? (bar.count / scale) * plot : 0;
+  const height = raw <= 0 ? 0 : Math.min(plot, Math.max(raw, 2));
+  const inside = height >= 20 && shown.length <= 6;
+  const rate = bar.hasNext ? funnelPct(bar.nextRate) : null;
+  const [first, second] = stageLines(bar.label);
+  const spoken = rate ? `${bar.label}: ${shown}, ${rate}` : `${bar.label}: ${shown}`;
+  return (
+    <div className={styles.col} role="group" aria-label={spoken}>
+      <div className={`${styles.colField} ${styles.funnelField}`} style={{ height: plot }}>
+        {bar.count <= 0 ? (
+          <span className={styles.colZero} style={{ color: ink }}>
+            {shown}
+            <span className={styles.colZeroTick} style={{ background: ink }} aria-hidden="true" />
+          </span>
+        ) : (
+          <div className={`${styles.colStack} ${styles.funnelBar}`} style={{ height, background: ink }}>
+            {inside ? <span>{shown}</span> : null}
+          </div>
+        )}
+        {bar.count > 0 && !inside ? (
+          <span className={styles.funnelAbove} style={{ bottom: height + 4, color: ink }}>
+            {shown}
+          </span>
+        ) : null}
+      </div>
+      <span className={styles.funnelStage}>
+        <span>{first}</span>
+        <span>{second}</span>
+      </span>
+      <span className={styles.funnelRate}>{rate ?? "\u00a0"}</span>
+    </div>
+  );
 }
 
 function EmbudoChart({
@@ -761,43 +809,34 @@ function EmbudoChart({
   hue?: string;
 }) {
   const peak = bars.reduce((max, bar) => Math.max(max, bar.count), 0);
-  const { scale, marks } = funnelScale(peak);
-  const plot = weight === "project" ? styles.plotProject : styles.plotRow;
-  const gutter = 72;
+  const { scale, marks } = columnScale(peak);
+  const plot = weight === "project" ? PROJECT_PLOT : FUNNEL_PROJECT_PLOT;
+  const ink = hue ? projectBarColor(hue) : NAVY;
   return (
     <div>
       <p className={styles.win}>Tasa de ganados {funnelPct(winRate)}</p>
-      <div className={styles.frameEmbudo}>
-        <Scale marks={marks} scale={scale} span={bars.length} gutter={gutter} />
-        {bars.map((bar, index) => {
-          const width = scale > 0 ? Math.min(100, Math.max(0, (bar.count / scale) * 100)) : 0;
-          const shown = count(bar.count);
-          const aside = bar.hasNext ? funnelPct(bar.nextRate) : null;
-          return (
-            <div key={bar.label} className={styles.row} style={{ gridRow: index + 1 }} aria-label={aside ? `${bar.label}: ${shown}, ${aside}` : `${bar.label}: ${shown}`}>
-              <span className={styles.name}>{bar.label}</span>
-              <div className={`${styles.plot} ${plot}`}>
-                <div className={styles.field} style={{ right: gutter }}>
-                  {bar.count <= 0 ? <span className={styles.zeroTick} data-project={hue} aria-hidden="true" /> : (
-                    <span
-                      className={styles.bar}
-                      data-project={hue}
-                      data-tone={hue ? undefined : "navy"}
-                      style={{ width: `${width}%` }}
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span className={styles.count} style={{ left: bar.count <= 0 ? 8 : `calc(${width}% + 6px)` }}>
-                    {shown}
-                  </span>
-                </div>
-              </div>
-              <span className={styles.aside}>
-                {aside ? <span className={styles.pill}>{aside}</span> : null}
-              </span>
+      <div className={`${styles.colChart} ${styles.funnelChart}`} data-weight={weight}>
+        <div className={styles.yAxis} style={{ height: plot }} aria-hidden="true">
+          {marks.map((mark) => (
+            <span key={mark} className={styles.yTick} style={{ bottom: tickBottom(mark, scale) }}>
+              {count(mark)}
+            </span>
+          ))}
+        </div>
+        <div className={styles.colClip}>
+          <div className={styles.colBody}>
+            <div className={styles.colGrid} style={{ height: plot }} aria-hidden="true">
+              {marks.map((mark) => mark <= 0 ? null : (
+                <span key={mark} className={styles.colGridLine} style={{ bottom: `${(mark / scale) * 100}%` }} />
+              ))}
             </div>
-          );
-        })}
+            <div className={styles.colRow} style={{ gap: 8 }}>
+              {bars.map((bar) => (
+                <FunnelColumn key={bar.label} bar={bar} scale={scale} plot={plot} ink={ink} />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

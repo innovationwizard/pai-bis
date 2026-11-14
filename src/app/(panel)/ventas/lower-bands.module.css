@@ -142,12 +142,87 @@
   grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) 72px;
 }
 
-.frameEmbudo {
-  display: grid;
-  column-gap: 12px;
-  row-gap: 2px;
-  min-width: 0;
-  grid-template-columns: 176px minmax(0, 1fr) 76px;
+.funnelChart.colChart {
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+
+.funnelChart .colClip {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.funnelChart .colRow {
+  width: max-content;
+  min-width: 100%;
+}
+
+.funnelChart .col {
+  min-width: 104px;
+}
+
+.funnelChart.colChart[data-weight="project"] .colStack,
+.funnelChart.colChart[data-weight="project"] .colZero {
+  width: 94%;
+}
+
+.funnelChart.colChart[data-weight="row"] .colStack,
+.funnelChart.colChart[data-weight="row"] .colZero {
+  width: 90%;
+}
+
+.funnelField {
+  position: relative;
+}
+
+.funnelBar {
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.funnelAbove {
+  position: absolute;
+  left: 50%;
+  z-index: 2;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.funnelStage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 32px;
+  margin-top: 6px;
+  color: #0d2041;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.funnelStage span {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.funnelRate {
+  min-height: 18px;
+  margin-top: 2px;
+  color: #0d2041;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .scale {
@@ -604,8 +679,7 @@ button.col { cursor: pointer; }
 
 @media (max-width: 640px) {
   .frame,
-  .frameAside,
-  .frameEmbudo {
+  .frameAside {
     display: flex;
     flex-direction: column;
     gap: 2px;
