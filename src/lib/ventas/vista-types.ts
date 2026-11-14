@@ -358,7 +358,7 @@ export type EmbudoFunnel = {
 export type ConversionVista = VistaBase & {
   section: "tasa-de-conversion";
   all: EmbudoFunnel;
-  projects: EmbudoFunnel[];
+  funnels: EmbudoFunnel[];
 };
 
 export type NamedBar = { id: string; label: string; units: number; gtq: number | null };

@@ -916,7 +916,7 @@ async function buildConversion(client: Db, filters: VistaFilters, range: DateWin
     ...base("Tasa de conversión", range, "", null, dims, choices),
     section: "tasa-de-conversion",
     all: embudoFunnel("todos", "de todos los proyectos", deals),
-    projects: EMBUDO_PIPELINES
+    funnels: EMBUDO_PIPELINES
       .filter((pipeline) => slugSet.has(pipeline.slug))
       .map((pipeline) => embudoFunnel(
         pipeline.slug,

@@ -819,7 +819,7 @@ export function TasaBand({
           <EmbudoChart bars={vista.all.bars} winRate={vista.all.winRate} weight="project" />
           <h3 className={styles.subTitle}>por proyecto</h3>
           <div className={styles.projectFunnels}>
-            {vista.projects.map((funnel) => (
+            {vista.funnels.map((funnel) => (
               <article key={funnel.slug} className={styles.projectFunnel} aria-label={funnel.label}>
                 <h4 className={styles.projectName}>{funnel.label}</h4>
                 <EmbudoChart bars={funnel.bars} winRate={funnel.winRate} weight="row" hue={funnel.slug} />
