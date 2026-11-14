@@ -11,6 +11,9 @@ inventory workbook rows. Does not seed discount types or case types.
 When a deal has several envio_de_documentacion activities, the earliest
 marked_as_done_time is the clock. The documents do not choose among them.
 The two issuance recordings are not averaged.
+
+fact_comprobante.asesor_id is the Pipedrive owner of the reserva activity.
+Apply scripts/migrations/093_ventas_reserva_asesor.sql before this load.
 """
 
 from __future__ import annotations
@@ -665,6 +668,7 @@ def main() -> None:
     skipped_activity_no_deal = 0
     skipped_activity_no_asesor = 0
     skipped_activity_no_project = 0
+    asesores_written = len(new_asesores)
     with open(os.path.join(PIPEDRIVE, "activities.csv"), newline="", encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
             due = as_date(row.get("due_date"))
@@ -703,11 +707,13 @@ def main() -> None:
                 continue
             deal_uuid = deal_ids.get(source_deal) if source_deal else None
             if activity_type == "reserva" and stamp:
+                owner_source = (row.get("owner_id") or "").strip()
                 comprobantes.append(
                     {
                         "id": uuid7(),
                         "pipedrive_activity_id": row["id"],
                         "deal_id": deal_uuid,
+                        "asesor_id": ensure_asesor(owner_source) if owner_source else None,
                         "marked_as_done_time": stamp,
                         "due_on": as_date(row.get("due_date")),
                         "due_time": due_time_utc(row.get("due_time")),
@@ -786,6 +792,7 @@ def main() -> None:
         f"visits {len(visits)} pcv {len(pcv_rows)} skipped_activity_deals {skipped_activity_deals}",
         flush=True,
     )
+    api.upsert("dim_asesor", new_asesores[asesores_written:], "source_user_id")
     api.upsert("fact_comprobante", comprobantes, "pipedrive_activity_id")
     loaded_comprobante_ids = {
         str(row["pipedrive_activity_id"]) for row in comprobantes

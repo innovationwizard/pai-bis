@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { addDays } from "./pace";
 import { inclusiveDays, type DateWindow } from "./period";
+import { creditedAsesor, factComprobanteHasAsesor } from "./reserva-asesor";
 import type { BlockerRow, Freshness, FunnelStage, StageDeal } from "./vista-types";
 
 const PAGE = 1000;
@@ -52,7 +53,7 @@ type UnitInfo = {
   token2: string | null;
 };
 
-type Activity = { id: string; dealId: string | null; day: string };
+type Activity = { id: string; dealId: string | null; day: string; asesorId: string | null };
 type Reception = { dealId: string; day: string; at: string };
 
 type ReceiptRow = {
@@ -459,12 +460,16 @@ export async function loadTotalesBridge(input: {
   const spanFrom = input.prior && input.prior.from < input.range.from ? input.prior.from : input.range.from;
   const spanTo = input.range.to;
   const notices: string[] = [];
+  const hasAsesor = await factComprobanteHasAsesor(() =>
+    client.from("fact_comprobante").select("asesor_id").limit(1),
+  );
+  const comprobanteColumns = hasAsesor ? "id,deal_id,comprobante_on,asesor_id" : "id,deal_id,comprobante_on";
 
   const [comprobantes, receptionsInSpan, confirmadosInSpan] = await Promise.all([
     pages((from, to) =>
       client
         .from("fact_comprobante")
-        .select("id,deal_id,comprobante_on")
+        .select(comprobanteColumns)
         .gte("comprobante_on", spanFrom)
         .lte("comprobante_on", spanTo)
         .order("id")
@@ -500,7 +505,7 @@ export async function loadTotalesBridge(input: {
     const id = str(row, "id");
     const day = dayOf(str(row, "comprobante_on"));
     if (!id || !day) return [];
-    return [{ id, dealId: str(row, "deal_id"), day }];
+    return [{ id, dealId: str(row, "deal_id"), day, asesorId: hasAsesor ? str(row, "asesor_id") : null }];
   });
 
   const discovered = new Set<string>();
@@ -641,14 +646,14 @@ export async function loadTotalesBridge(input: {
   const reciboIds = new Set(recibosNow.map((gate) => gate.dealId));
   const soldIds = new Set(input.sales.map((sale) => sale.dealId));
 
-  const stageDeal = (deal: DealInfo, day: string | null, key: string): StageDeal => {
+  const stageDeal = (deal: DealInfo, day: string | null, key: string, asesorId = deal.asesorId): StageDeal => {
     const unit = deal.unitId ? units.get(deal.unitId) ?? null : null;
     return {
       key,
       unit: unitLabel(unit),
       deal: deal.pipedriveId ? `Trato ${deal.pipedriveId}` : "Sin trato",
       project: names.project(deal.projectId),
-      asesor: names.asesor(deal.asesorId),
+      asesor: names.asesor(asesorId),
       day,
       gtq: deal.valueGtq,
     };
@@ -669,7 +674,9 @@ export async function loadTotalesBridge(input: {
       }
       const deal = deals.get(activity.dealId);
       if (!deal) return null;
-      return stageDeal(deal, activity.day, `reserva:${activity.id}`);
+      const asesorId = creditedAsesor(deal.asesorId, activity.asesorId, scope.notRepIds);
+      if (asesorId === null) return null;
+      return stageDeal(deal, activity.day, `reserva:${activity.id}`, asesorId);
     })
     .filter((row): row is StageDeal => Boolean(row))
     .sort(byDay);
@@ -820,6 +827,7 @@ export async function loadTotalesBridge(input: {
     range: input.range,
     today: input.today,
     names,
+    notRepIds: scope.notRepIds,
   });
 
   return {
@@ -879,8 +887,13 @@ function activityInScope(activity: Activity, deals: Map<string, DealInfo>, units
   if (!activity.dealId) return orphanOk(scope);
   const deal = deals.get(activity.dealId);
   if (!deal) return false;
+  const asesorId = creditedAsesor(deal.asesorId, activity.asesorId, scope.notRepIds);
+  if (asesorId === null) return false;
   const unit = deal.unitId ? units.get(deal.unitId) ?? null : null;
-  return inScope(deal, unit, scope);
+  if (scope.projectIds && !scope.projectIds.includes(deal.projectId)) return false;
+  if (scope.asesorId && asesorId !== scope.asesorId) return false;
+  if (scope.torreId && unit?.towerId !== scope.torreId) return false;
+  return true;
 }
 
 function firstPublished(receipts: ReceiptRow[]): { dealId: string; unitId: string; day: string }[] {
@@ -939,6 +952,11 @@ async function unmatchedReceipts(
   };
 }
 
+function blockerAsesor(deal: DealInfo, activities: Activity[], notRepIds: ReadonlySet<string>): string {
+  const logged = activities.find((activity) => activity.dealId === deal.id)?.asesorId ?? null;
+  return creditedAsesor(deal.asesorId, logged, notRepIds) ?? deal.asesorId;
+}
+
 function buildBlockers(input: {
   reservasNow: Activity[];
   promesaIds: Set<string>;
@@ -951,6 +969,7 @@ function buildBlockers(input: {
   range: DateWindow;
   today: string;
   names: Names;
+  notRepIds: ReadonlySet<string>;
 }): BlockerRow[] {
   const rows: BlockerRow[] = [];
   const seen = new Set<string>();
@@ -999,7 +1018,7 @@ function buildBlockers(input: {
       unit: unitLabel(unit),
       deal: deal.pipedriveId ? `Trato ${deal.pipedriveId}` : "Sin trato",
       project: input.names.project(deal.projectId),
-      asesor: input.names.asesor(deal.asesorId),
+      asesor: input.names.asesor(blockerAsesor(deal, input.reservasNow, input.notRepIds)),
       stage: gap.stage,
       missing: gap.missing,
       severity: gap.severity,

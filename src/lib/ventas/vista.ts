@@ -14,6 +14,7 @@ import {
   type DateWindow,
   type PeriodPreset,
 } from "./period";
+import { creditedAsesor, factComprobanteHasAsesor } from "./reserva-asesor";
 import { loadTotalesBridge, type TotalesBridge } from "./totales-bridge";
 import {
   VENTA_DEFINITION,
@@ -246,12 +247,16 @@ async function loadReservas(
   dims: Dims,
 ): Promise<{ rows: Reserva[]; capped: boolean }> {
   if (filters.projectIds && filters.projectIds.length === 0) return { rows: [], capped: false };
-  const raw: { dealId: string | null; day: string }[] = [];
+  const hasAsesor = await factComprobanteHasAsesor(() =>
+    client.from("fact_comprobante").select("asesor_id").limit(1),
+  );
+  const columns = hasAsesor ? "id,deal_id,comprobante_on,asesor_id" : "id,deal_id,comprobante_on";
+  const raw: { dealId: string | null; day: string; activityAsesorId: string | null }[] = [];
   let capped = false;
   for (let offset = 0; offset < CAP; offset += PAGE) {
     const { data, error } = await client
       .from("fact_comprobante")
-      .select("id,deal_id,comprobante_on")
+      .select(columns)
       .gte("comprobante_on", window.from)
       .lte("comprobante_on", window.to)
       .order("id")
@@ -261,7 +266,12 @@ async function loadReservas(
     for (const row of batch) {
       const day = typeof row.comprobante_on === "string" ? row.comprobante_on.slice(0, 10) : "";
       if (!day) continue;
-      raw.push({ dealId: row.deal_id == null || row.deal_id === "" ? null : String(row.deal_id), day });
+      const activityAsesorId = hasAsesor && typeof row.asesor_id === "string" && row.asesor_id !== "" ? row.asesor_id : null;
+      raw.push({
+        dealId: row.deal_id == null || row.deal_id === "" ? null : String(row.deal_id),
+        day,
+        activityAsesorId,
+      });
     }
     if (batch.length < PAGE) break;
     if (offset + PAGE >= CAP) capped = true;
@@ -308,11 +318,12 @@ async function loadReservas(
     }
     const deal = deals.get(row.dealId);
     if (!deal) continue;
-    if (dims.notRepIds.has(deal.asesorId)) continue;
+    const asesorId = creditedAsesor(deal.asesorId, row.activityAsesorId, dims.notRepIds);
+    if (asesorId === null) continue;
     if (!projectOk(deal.projectId, filters)) continue;
-    if (filters.asesorId && deal.asesorId !== filters.asesorId) continue;
+    if (filters.asesorId && asesorId !== filters.asesorId) continue;
     if (filters.torreId && (deal.unitId ? towers.get(deal.unitId) ?? "" : "") !== filters.torreId) continue;
-    rows.push({ day: row.day, projectId: deal.projectId, asesorId: deal.asesorId, fuenteId: deal.fuenteId });
+    rows.push({ day: row.day, projectId: deal.projectId, asesorId, fuenteId: deal.fuenteId });
   }
   return { rows, capped };
 }
