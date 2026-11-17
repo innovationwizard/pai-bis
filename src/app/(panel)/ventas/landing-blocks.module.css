@@ -730,3 +730,217 @@ button.goalName {
   }
   .goalDelta { width: auto; }
 }
+
+.ogSection {
+  gap: 12px;
+  min-width: 0;
+}
+
+.ogBands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ogLead .kpi,
+.ogBand .kpi {
+  justify-content: center;
+  min-width: 0;
+}
+
+.ogLead .hero {
+  min-height: 240px;
+}
+
+.ogBand .hero {
+  height: 156px;
+  min-height: 156px;
+  max-height: 156px;
+  padding: 8px 10px;
+}
+
+.ogCard {
+  overflow: hidden;
+}
+
+.ogCard .ogCols {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ogFigure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ogActual {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ogFigure .kpiValue {
+  width: auto;
+  align-self: auto;
+  text-align: left;
+}
+
+.ogSlash {
+  color: var(--color-muted);
+  font-size: calc(28px * 0.75);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ogTarget {
+  color: var(--color-text-primary);
+  font-size: calc(36px * 0.75);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ogBand .kpiValue { font-size: calc(48px * 0.75); }
+.ogBand .ogTarget { font-size: calc(28px * 0.75); }
+.ogBand .ogSlash { font-size: calc(22px * 0.75); }
+
+.ogCols {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  gap: 8px;
+}
+
+.ogCols[data-level="asesor"] { gap: 2px; }
+
+.ogCol {
+  container-type: inline-size;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ogColBody {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+  gap: 2px;
+}
+
+.ogPlotWrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding-top: 14px;
+}
+
+.ogPlot {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  box-shadow: inset 0 -1px 0 rgba(13, 32, 65, 0.18);
+}
+
+.ogNum {
+  position: absolute;
+  left: 50%;
+  z-index: 3;
+  padding: 0 2px;
+  background: var(--color-card);
+  color: var(--color-text-primary);
+  font-size: min(13px, 18cqw);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.ogLine {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  height: 2px;
+  background: var(--color-text-primary);
+  transform: translateY(50%);
+  pointer-events: none;
+}
+
+.ogBar {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  z-index: 1;
+  width: 78%;
+  border-radius: 2px 2px 0 0;
+  background: var(--color-muted);
+  transform: translateX(-50%);
+}
+
+.ogCols[data-level="asesor"] .ogBar { width: 64%; }
+
+.ogBar[data-project="benestare"] { background: var(--project-benestare); }
+.ogBar[data-project="boulevard-5"] { background: var(--project-boulevard-5); }
+.ogBar[data-project="bosque-las-tapias"] { background: var(--project-bosque-las-tapias); }
+.ogBar[data-project="santa-elena"] { background: var(--project-santa-elena); }
+
+.ogDelta {
+  display: flex;
+  flex: 0 0 46%;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  align-self: center;
+  width: 46%;
+  min-width: 0;
+  gap: 1px;
+  font-size: min(11px, 12cqw);
+  font-weight: 700;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.ogDelta span {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.ogDelta[data-tone="up"] { color: var(--color-success); }
+.ogDelta[data-tone="down"] { color: var(--color-danger); }
+.ogDelta[data-tone="flat"] { color: var(--color-muted); }
+
+.ogName {
+  display: -webkit-box;
+  flex: none;
+  max-height: calc(1.15em * 2);
+  margin-top: 4px;
+  overflow: hidden;
+  font-size: min(12px, 20cqw);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}

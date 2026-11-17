@@ -13,7 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { compareProjectLabels, isDisplayProject, PROJECT_DISPLAY_ORDER, projectKey } from "@/lib/projects";
-import type { CanalesVista, FunnelStage, MeasureRow, ObjetivosVista, StatusVista, TotalesVista } from "@/lib/ventas/vista-types";
+import type { CanalesVista, FunnelStage, ObjetivosVista, StatusVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
 
 const TOTAL_PRIOR = "reservas del periodo anterior";
@@ -114,11 +114,6 @@ function metaProjects(objetivos: ObjetivosVista | null): MetaRow[] {
       targetUnits: projectKey(row.label) === projectKey("SANTA ELENA") ? (row.targetUnits ?? 0) : row.targetUnits,
     }))
     .sort((a, b) => compareProjectLabels(a.label, b.label));
-}
-
-function rosterAsesores(objetivos: ObjetivosVista): MeasureRow[] {
-  const allowed = new Set(objetivos.rosterAsesorIds);
-  return objetivos.byAsesor.filter((row) => allowed.has(row.id));
 }
 
 function Unplugged({ source }: { source: string }) {
@@ -570,19 +565,6 @@ function metaText(row: GoalRow, mode: GoalMode): string | null {
   return whole(row.target);
 }
 
-function MeasureToggle({ mode, onChange }: { mode: GoalMode; onChange: (mode: GoalMode) => void }) {
-  return (
-    <div className={`tier-switch tier-switch-compact ${styles.measure}`} role="group" aria-label="Unidades o porcentaje">
-      <button type="button" aria-pressed={mode === "u"} aria-label="Unidades" onClick={() => onChange("u")}>
-        U
-      </button>
-      <button type="button" aria-pressed={mode === "pct"} aria-label="Porcentaje" onClick={() => onChange("pct")}>
-        %
-      </button>
-    </div>
-  );
-}
-
 function GoalScale({ marks, scale, span }: { marks: readonly number[]; scale: number; span: number }) {
   if (marks.length === 0 || span <= 0) return null;
   return (
@@ -656,141 +638,199 @@ function GoalList({ rows, mode }: { rows: readonly GoalRow[]; mode: GoalMode }) 
   );
 }
 
-export function ReservasMetaBlock({
+const COLUMN_HEADROOM = 1.14;
+
+function signedPercent(gapValue: number, target: number): string | null {
+  if (target === 0) return gapValue === 0 ? "0%" : null;
+  const pct = Math.round((gapValue / target) * 100);
+  if (pct > 0) return `+${pct}%`;
+  return `${pct}%`;
+}
+
+function varianceOf(units: number, target: number | null): { units: string; pct: string | null; gap: number } | null {
+  if (target == null) return null;
+  const gapValue = units - target;
+  return {
+    units: signedWhole(gapValue),
+    pct: signedPercent(gapValue, target),
+    gap: gapValue,
+  };
+}
+
+function toneName(value: number): "up" | "down" | "flat" {
+  if (value > 0) return "up";
+  if (value < 0) return "down";
+  return "flat";
+}
+
+type ObjetivoColumn = {
+  key: string;
+  name: string;
+  units: number;
+  target: number | null;
+  hue: string;
+};
+
+function columnLabel(column: ObjetivoColumn): string {
+  const count = `${whole(column.units)} ${reservaWord(column.units)}`;
+  const variance = varianceOf(column.units, column.target);
+  if (column.target == null || !variance) return `${column.name}: ${count}.`;
+  const gapText = variance.pct ? `${variance.units} (${variance.pct})` : variance.units;
+  return `${column.name}: ${count} frente a objetivo ${whole(column.target)}, ${gapText}.`;
+}
+
+function ObjetivoFigure({ units, target }: { units: number; target: number | null }) {
+  const variance = varianceOf(units, target);
+  return (
+    <span className={styles.ogFigure}>
+      <span className={styles.ogActual}>
+        <span className={styles.kpiValue}>
+          {whole(units)}
+          <span className={styles.kpiUnit}>{reservaWord(units)}</span>
+        </span>
+        {target != null ? <span className={styles.ogSlash}>/</span> : null}
+        {target != null ? <span className={styles.ogTarget}>{whole(target)}</span> : null}
+      </span>
+      {variance ? (
+        <span className={toneClass(variance.gap)}>
+          {variance.pct ? `${variance.units} (${variance.pct})` : variance.units}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function ObjetivoCard({ name, units, target }: { name: string; units: number; target: number | null }) {
+  return (
+    <div className={styles.kpi}>
+      <span className={styles.kpiName}>{name}</span>
+      <ObjetivoFigure units={units} target={target} />
+    </div>
+  );
+}
+
+function ObjetivoColumns({
+  columns,
+  level,
+  label,
+}: {
+  columns: readonly ObjetivoColumn[];
+  level: "project" | "asesor";
+  label: string;
+}) {
+  const peak = columns.reduce((max, column) => Math.max(max, column.units, column.target ?? 0), 0);
+  const scale = peak <= 0 ? 1 : peak * COLUMN_HEADROOM;
+  const gutter = columns.some((column) => column.target != null);
+  return (
+    <div className={styles.ogCols} data-level={level} role="group" aria-label={label}>
+      {columns.map((column) => {
+        const variance = varianceOf(column.units, column.target);
+        const bar = (Math.max(0, column.units) / scale) * 100;
+        const line = column.target == null ? null : (Math.max(0, column.target) / scale) * 100;
+        return (
+          <div key={column.key} className={styles.ogCol} role="img" aria-label={columnLabel(column)}>
+            <div className={styles.ogColBody}>
+              <div className={styles.ogPlotWrap}>
+                <div className={styles.ogPlot}>
+                  <span className={styles.ogNum} style={{ bottom: `calc(${bar}% + 2px)` }}>{whole(column.units)}</span>
+                  {line != null ? <span className={styles.ogLine} style={{ bottom: `${line}%` }} aria-hidden="true" /> : null}
+                  <span
+                    className={styles.ogBar}
+                    data-project={column.hue || undefined}
+                    style={{ height: `${bar}%` }}
+                    aria-hidden="true"
+                  />
+                </div>
+              </div>
+              {gutter ? (
+                <span className={styles.ogDelta} data-tone={variance ? toneName(variance.gap) : undefined}>
+                  {variance ? (
+                    <>
+                      <span>{variance.units}</span>
+                      {variance.pct ? <span>{variance.pct}</span> : null}
+                    </>
+                  ) : null}
+                </span>
+              ) : null}
+            </div>
+            <span className={styles.ogName}>{column.name}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function projectAsesores(
+  objetivos: ObjetivosVista,
+  projectId: string,
+): { id: string; label: string; units: number; targetUnits: number | null }[] {
+  const groups = Array.isArray(objetivos.asesoresByProject) ? objetivos.asesoresByProject : [];
+  const found = groups.find((group) => group.projectId === projectId);
+  return [...(found?.asesores ?? [])].sort(
+    (a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"),
+  );
+}
+
+export function ObjetivosBlock({
   objetivos,
   objetivosError,
 }: {
   objetivos: ObjetivosVista | null;
   objetivosError: string | null;
 }) {
-  const [mode, setMode] = useState<GoalMode>("u");
-  const rows = metaProjects(objetivos).map((row) => ({
-    id: row.id,
-    name: row.label,
-    units: row.units,
-    target: row.targetUnits,
-    hue: hueKey(row.label),
-    lead: false,
-    solid: true,
-  }));
-  return (
-    <section className={`${styles.block} ${styles.metaBand}`} aria-labelledby="vt-meta-title">
-      <div className={styles.bandHead}>
-        <h2 id="vt-meta-title" className={styles.panelTitle}>Objetivos por proyecto</h2>
-        <MeasureToggle mode={mode} onChange={setMode} />
-      </div>
-      {!objetivos && objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
-      {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
-      {objetivos && rows.length === 0 ? <p className={styles.caption}>Sin proyectos en este periodo.</p> : null}
-      {rows.length > 0 ? <GoalList rows={rows} mode={mode} /> : null}
-    </section>
-  );
-}
-
-export function AsesoresBlock({ totales, objetivos, objetivosError }: Omit<Props, "totalesError">) {
-  const stage = reservaStage(totales);
-  const projects = chartProjects(objetivos);
-  return (
-    <section className={`${styles.block} ${styles.panel}`} aria-labelledby="vt-asesores-title">
-      <div className={styles.bandHead}>
-        <h2 id="vt-asesores-title" className={styles.panelTitle}>Objetivos por asesor</h2>
-      </div>
-      {!objetivos && objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
-      {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
-      {objetivos ? (
-        <>
-          {/* Restore if requested: “La meta de un mes abierto es la del mes completo…”.
-          {objetivos.caption && !objetivos.caption.includes("¿") ? <p className={styles.caption}>{objetivos.caption}</p> : null}
-          */}
-          <AsesorRows objetivos={objetivos} stage={stage} projects={projects} />
-        </>
-      ) : null}
-    </section>
-  );
-}
-
-type AdvisorPlace = { project: string; projectUnits: number };
-
-function rosterProject(
-  asesorId: string,
-  objetivos: ObjetivosVista,
-  projects: readonly ProjectBar[],
-): AdvisorPlace | null {
-  const byId = new Map(projects.map((project) => [project.id, project]));
-  const cells = objetivos.editor.cells
-    .filter((cell) => cell.asesorId === asesorId && byId.has(cell.projectId))
-    .sort((a, b) => {
-      const byMonth = b.month.localeCompare(a.month);
-      if (byMonth !== 0) return byMonth;
-      return compareProjectLabels(byId.get(a.projectId)?.label ?? "", byId.get(b.projectId)?.label ?? "");
-    });
-  const project = cells[0] ? byId.get(cells[0].projectId) : undefined;
-  if (!project) return null;
-  return { project: project.label, projectUnits: project.units };
-}
-
-function AsesorRows({
-  objetivos,
-  stage,
-  projects,
-}: {
-  objetivos: ObjetivosVista;
-  stage: FunnelStage | null;
-  projects: readonly ProjectBar[];
-}) {
-  const placed = rosterAsesores(objetivos).map((row) => ({
-    row,
-    place: rosterProject(row.id, objetivos, projects) ?? singleProject(row.label, row.units, stage, projects),
-  }));
-  const groups = new Map<string, typeof placed>();
-  for (const name of PROJECT_DISPLAY_ORDER) groups.set(projectKey(name), []);
-  const rest: typeof placed = [];
-  for (const item of placed) {
-    const key = item.place ? projectKey(item.place.project) : "";
-    const bucket = groups.get(key);
-    if (bucket) bucket.push(item);
-    else rest.push(item);
+  if (!objetivos) {
+    return (
+      <section className={styles.block} id="objetivos-de-ventas" aria-label="Objetivos de ventas">
+        {objetivosError ? <p className={styles.warn}>{objetivosError}</p> : <p className={styles.caption}>Cargando…</p>}
+      </section>
+    );
   }
-  const byUnits = (a: (typeof placed)[number], b: (typeof placed)[number]) =>
-    b.row.units - a.row.units || a.row.label.localeCompare(b.row.label, "es");
-  for (const bucket of groups.values()) bucket.sort(byUnits);
-  rest.sort(byUnits);
 
-  const toGoal = (item: (typeof placed)[number], lead: boolean): GoalRow => ({
-    id: item.row.id,
-    name: item.row.label,
-    units: item.row.units,
-    target: item.row.targetUnits,
-    hue: item.place ? hueKey(item.place.project) : "",
-    lead,
-    solid: true,
-  });
-  const grouped = PROJECT_DISPLAY_ORDER.map((name) => {
-    const items = groups.get(projectKey(name)) ?? [];
-    return { key: projectKey(name), rows: items.map((item, index) => toGoal(item, index === 0)) };
-  }).filter((group) => group.rows.length > 0);
-  const loose = rest.map((item) => toGoal(item, false));
-  const rows = [...grouped.flatMap((group) => group.rows), ...loose];
-  if (rows.length === 0) return null;
-  const axis = axisOf(rows, "u");
-  const marks = gridMarks(axis.scale);
-  const line = (row: GoalRow) => <GoalLine key={row.id} row={row} axis={axis} mode="u" />;
-  const bands = loose.length > 0 ? grouped.length + 1 : grouped.length;
+  const projects = metaProjects(objetivos);
+  const projectColumns: ObjetivoColumn[] = projects.map((project) => ({
+    key: project.id,
+    name: project.label,
+    units: project.units,
+    target: project.targetUnits,
+    hue: hueKey(project.label),
+  }));
 
   return (
-    <div className={`${styles.goalFrame} ${styles.goalFrameGrouped}`}>
-      <GoalScale marks={marks} scale={axis.scale} span={bands} />
-      {grouped.map((group, index) => (
-        <div key={group.key} className={styles.projectGroup} style={{ gridRow: index + 1 }}>
-          {group.rows.map(line)}
+    <section className={`${styles.block} ${styles.ogSection}`} id="objetivos-de-ventas" aria-label="Objetivos de ventas">
+      <div className={`${styles.top} ${styles.ogLead}`}>
+        <div className={styles.rail}>
+          <ObjetivoCard name="Todos los Proyectos" units={objetivos.units} target={objetivos.targetUnits} />
         </div>
-      ))}
-      {loose.length > 0 ? (
-        <div className={styles.projectGroup} style={{ gridRow: grouped.length + 1 }}>
-          {loose.map(line)}
+        <div className={`${styles.hero} ${styles.ogCard}`}>
+          {projectColumns.length > 0 ? <ObjetivoColumns columns={projectColumns} level="project" label="Proyectos" /> : null}
+        </div>
+      </div>
+      {projects.length > 0 ? (
+        <div className={styles.ogBands}>
+          {projects.map((project) => (
+            <div key={project.id} className={`${styles.top} ${styles.ogBand}`}>
+              <div className={styles.rail}>
+                <ObjetivoCard name={project.label} units={project.units} target={project.targetUnits} />
+              </div>
+              <div className={`${styles.hero} ${styles.ogCard}`}>
+                <ObjetivoColumns
+                  columns={projectAsesores(objetivos, project.id).map((asesor) => ({
+                    key: `${project.id}:${asesor.id}`,
+                    name: asesor.label,
+                    units: asesor.units,
+                    target: asesor.targetUnits,
+                    hue: hueKey(project.label),
+                  }))}
+                  level="asesor"
+                  label={`Asesores de ${project.label}`}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 

@@ -24,7 +24,7 @@ import {
 } from "@/lib/ventas/vista-types";
 import { ProjectPillRow } from "@/components/project-pill-row";
 import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
-import { AsesoresBlock, CanalesBlock, ReservasMetaBlock, StatusAsesorBlock, StatusCierreChart, StatusProyectoBlock, VentasTotalesBlock } from "./landing-blocks";
+import { CanalesBlock, ObjetivosBlock, StatusAsesorBlock, StatusCierreChart, StatusProyectoBlock, VentasTotalesBlock } from "./landing-blocks";
 import { ControlesGrid, DesistimientosBands, InventarioBands, ModeloBand, ReferidosBand, TasaBand, ValorBand } from "./lower-bands";
 
 const NAVY = "#0d2041";
@@ -456,12 +456,7 @@ export default function CommandCenter() {
         objetivosError={errors["objetivos-de-ventas"] ?? null}
       />
       <hr className="op-filter-rule vc-band-rule" />
-      <ReservasMetaBlock
-        objetivos={objetivos}
-        objetivosError={errors["objetivos-de-ventas"] ?? null}
-      />
-      <AsesoresBlock
-        totales={totales}
+      <ObjetivosBlock
         objetivos={objetivos}
         objetivosError={errors["objetivos-de-ventas"] ?? null}
       />

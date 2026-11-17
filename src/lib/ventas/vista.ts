@@ -844,6 +844,68 @@ function measureRows(
     });
 }
 
+function asesorLabel(dims: Dims, asesorId: string): string | null {
+  if (!asesorId || dims.notRepIds.has(asesorId)) return null;
+  const named = dims.asesores.get(asesorId);
+  if (!named || named.sin) return null;
+  const label = named.name.trim();
+  if (!label) return null;
+  const key = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (key === "sin dato" || key === "sin asesor") return null;
+  return label;
+}
+
+function asesoresByProject(
+  projectIds: readonly string[],
+  reservas: readonly Reserva[],
+  cells: readonly TargetCell[],
+  dims: Dims,
+): ObjetivosVista["asesoresByProject"] {
+  const actual = new Map<string, Map<string, number>>();
+  const targets = new Map<string, Map<string, number[]>>();
+  for (const row of reservas) {
+    if (!row.projectId || !row.asesorId || dims.notRepIds.has(row.asesorId)) continue;
+    let byAsesor = actual.get(row.projectId);
+    if (!byAsesor) {
+      byAsesor = new Map();
+      actual.set(row.projectId, byAsesor);
+    }
+    byAsesor.set(row.asesorId, (byAsesor.get(row.asesorId) ?? 0) + 1);
+  }
+  for (const cell of cells) {
+    if (!cell.projectId || !cell.asesorId || dims.notRepIds.has(cell.asesorId)) continue;
+    let byAsesor = targets.get(cell.projectId);
+    if (!byAsesor) {
+      byAsesor = new Map();
+      targets.set(cell.projectId, byAsesor);
+    }
+    const list = byAsesor.get(cell.asesorId) ?? [];
+    if (cell.units != null) list.push(cell.units);
+    byAsesor.set(cell.asesorId, list);
+  }
+  return projectIds.map((projectId) => {
+    const ids = new Set<string>([
+      ...(actual.get(projectId)?.keys() ?? []),
+      ...(targets.get(projectId)?.keys() ?? []),
+    ]);
+    const asesores = [...ids].flatMap((asesorId) => {
+      const label = asesorLabel(dims, asesorId);
+      if (!label) return [];
+      const units = actual.get(projectId)?.get(asesorId) ?? 0;
+      const targetUnits = sumNullable(targets.get(projectId)?.get(asesorId) ?? []);
+      return [{
+        id: asesorId,
+        label,
+        units,
+        targetUnits,
+        gapUnits: gap(units, targetUnits),
+      }];
+    });
+    asesores.sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
+    return { projectId, asesores };
+  });
+}
+
 function buildObjetivos(
   filters: Filters,
   range: DateWindow,
@@ -905,6 +967,7 @@ function buildObjetivos(
       (row) => row.asesorId,
       (cell) => cell.asesorId,
     ),
+    asesoresByProject: asesoresByProject(projectIds, reservas, cells, dims),
     rosterAsesorIds: [...new Set(scopedCells(book.roster, filters, months).map((cell) => cell.asesorId))],
     nonSalesReps: [...dims.notRepIds].flatMap((id) => {
       const name = dims.asesores.get(id)?.name.trim();

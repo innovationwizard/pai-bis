@@ -218,6 +218,14 @@ export type MeasureRow = {
   gapGtq: number | null;
 };
 
+export type ObjetivoAsesor = {
+  id: string;
+  label: string;
+  units: number;
+  targetUnits: number | null;
+  gapUnits: number | null;
+};
+
 export type ObjetivosVista = VistaBase & {
   section: "objetivos-de-ventas";
   units: number;
@@ -228,6 +236,7 @@ export type ObjetivosVista = VistaBase & {
   gapUnits: number | null;
   byProject: MeasureRow[];
   byAsesor: MeasureRow[];
+  asesoresByProject: { projectId: string; asesores: ObjetivoAsesor[] }[];
   rosterAsesorIds: string[];
   nonSalesReps: string[];
   editor: TargetEditor;
