@@ -871,24 +871,16 @@ button.goalName {
 .ogBar[data-project="santa-elena"] { background: var(--project-santa-elena); }
 
 .ogDelta {
-  display: flex;
-  flex: 0 0 46%;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  align-self: center;
-  width: 46%;
-  min-width: 0;
-  gap: 1px;
-  font-size: min(11px, 12cqw);
-  font-weight: 700;
-  line-height: 1.05;
-  white-space: nowrap;
-}
-
-.ogDelta span {
   display: block;
-  max-width: 100%;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  margin-top: 1px;
+  overflow: hidden;
+  font-size: min(11px, 18cqw);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
   white-space: nowrap;
 }
 

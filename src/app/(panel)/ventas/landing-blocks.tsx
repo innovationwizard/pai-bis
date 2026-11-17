@@ -691,13 +691,13 @@ function ObjetivoColumns({
 }) {
   const peak = columns.reduce((max, column) => Math.max(max, column.units, column.target ?? 0), 0);
   const scale = peak <= 0 ? 1 : peak * COLUMN_HEADROOM;
-  const gutter = columns.some((column) => column.target != null);
   return (
     <div className={styles.ogCols} data-level={level} role="group" aria-label={label}>
       {columns.map((column) => {
         const variance = varianceOf(column.units, column.target);
         const bar = (Math.max(0, column.units) / scale) * 100;
         const line = column.target == null ? null : (Math.max(0, column.target) / scale) * 100;
+        const gapText = variance ? (variance.pct ? `${variance.units} (${variance.pct})` : variance.units) : "";
         return (
           <div key={column.key} className={styles.ogCol} role="img" aria-label={columnLabel(column)}>
             <div className={styles.ogColBody}>
@@ -713,18 +713,11 @@ function ObjetivoColumns({
                   />
                 </div>
               </div>
-              {gutter ? (
-                <span className={styles.ogDelta} data-tone={variance ? toneName(variance.gap) : undefined}>
-                  {variance ? (
-                    <>
-                      <span>{variance.units}</span>
-                      {variance.pct ? <span>{variance.pct}</span> : null}
-                    </>
-                  ) : null}
-                </span>
-              ) : null}
             </div>
             <span className={styles.ogName}>{column.name}</span>
+            <span className={styles.ogDelta} data-tone={variance ? toneName(variance.gap) : undefined}>
+              {gapText || "\u00a0"}
+            </span>
           </div>
         );
       })}
