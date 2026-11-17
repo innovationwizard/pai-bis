@@ -359,32 +359,6 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
           <h2 id="vt-bar-title" className={styles.srOnly}>
             Barras por proyecto. Al elegir un proyecto, sus asesores.
           </h2>
-          <nav className={styles.crumbs} aria-label="Total, proyecto y asesor">
-            <button type="button" className={styles.crumb} aria-current={selected ? undefined : "page"} onClick={zoomOut}>
-              Total
-            </button>
-            <span className={styles.crumbSep} aria-hidden="true">›</span>
-            {selected ? (
-              <button
-                type="button"
-                className={styles.crumb}
-                aria-current={advisorShown ? undefined : "page"}
-                onClick={() => setAdvisorName(null)}
-              >
-                {selected.label}
-              </button>
-            ) : (
-              <span className={styles.crumbMuted}>Proyecto</span>
-            )}
-            <span className={styles.crumbSep} aria-hidden="true">›</span>
-            {selected && advisorShown ? (
-              <button type="button" className={styles.crumb} aria-current="page" onClick={() => setAdvisorName(advisorShown)}>
-                {advisorShown}
-              </button>
-            ) : (
-              <span className={styles.crumbMuted}>Asesor</span>
-            )}
-          </nav>
           <div className={styles.heroChart}>
             {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
             {!objetivos && objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}

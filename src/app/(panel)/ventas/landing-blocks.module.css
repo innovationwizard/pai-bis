@@ -52,14 +52,12 @@
 }
 
 .kpi,
-.crumb,
 .vcol {
   font: inherit;
   color: var(--color-text-primary);
 }
 
 button.kpi,
-.crumb,
 button.vcol {
   cursor: pointer;
 }
@@ -101,8 +99,6 @@ button.vcol {
 }
 
 .caption,
-.crumbMuted,
-.crumbSep,
 .rowProject {
   color: var(--color-muted);
 }
@@ -217,27 +213,6 @@ button.vcol {
   align-items: stretch;
   min-height: 200px;
 }
-
-.crumbs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.crumb {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.crumb[aria-current="page"] { color: var(--color-primary); }
-
-.crumbMuted,
-.crumbSep { font-size: 11px; }
 
 .srOnly {
   position: absolute;
