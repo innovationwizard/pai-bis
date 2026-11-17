@@ -242,8 +242,6 @@ export type ObjetivosVista = VistaBase & {
   editor: TargetEditor;
 };
 
-export type RhythmPoint = { label: string; real: number | null; ritmo: number | null };
-
 export type StatusRow = {
   id: string;
   label: string;
@@ -257,23 +255,38 @@ export type StatusRow = {
   gapGtq: number | null;
 };
 
+export type StatusPoint = {
+  day: string;
+  reservas: number | null;
+  pcv: number | null;
+  esperado: number;
+  labelReservas: boolean;
+  labelPcv: boolean;
+  labelEsperado: boolean;
+  axisLabel: string;
+};
+
+export type StatusBand = {
+  id: string;
+  label: string;
+  kind: "proyecto" | "torre";
+  congelado: boolean;
+  frozenDetail: string | null;
+  units: number;
+  reservas: number;
+  pcv: number;
+  esperado: number;
+  gap: number;
+  startOn: string;
+  closeOn: string;
+  points: StatusPoint[];
+};
+
 export type StatusVista = VistaBase & {
   section: "status-de-ventas";
-  tone: "deficit" | "excedente" | "en-linea" | "sin-meta";
-  units: number;
-  paceUnits: number | null;
-  targetUnits: number | null;
-  gapUnits: number | null;
-  gtq: number | null;
-  paceGtq: number | null;
-  targetGtq: number | null;
-  gapGtq: number | null;
-  closeOn: string;
-  dayLabel: string;
-  rhythm: RhythmPoint[];
-  byProject: StatusRow[];
-  byAsesor: StatusRow[];
-  editor: TargetEditor;
+  asOf: string;
+  byProject: StatusBand[];
+  byTower: StatusBand[];
 };
 
 export type CanalesVista = VistaBase & {

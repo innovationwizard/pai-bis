@@ -15,7 +15,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Choice, StatusVista, TargetEditor, VentasVista, VistaSection } from "@/lib/ventas/vista-types";
+import type { Choice, TargetEditor, VentasVista, VistaSection } from "@/lib/ventas/vista-types";
+import { StatusLifetime } from "./status-bands";
 import { isDisplayProject } from "@/lib/projects";
 import { isControlVista, ControlScreens } from "./glance-control";
 import { isStockVista, StockScreens } from "./glance-stock";
@@ -71,7 +72,7 @@ const INITIAL: BarState = {
 const SPECIFIC: Record<VistaSection, FilterKey[]> = {
   "ventas-totales": ["asesor", "torre"],
   "objetivos-de-ventas": ["asesor"],
-  "status-de-ventas": ["asesor"],
+  "status-de-ventas": [],
   "ventas-por-canales": ["fuente", "asesor"],
   "analisis-de-inventario": ["torre", "modelo", "habitaciones"],
   "inventario-general": ["torre", "estadoUnidad", "buscar"],
@@ -146,20 +147,6 @@ function gapColor(value: number | null): string {
   if (value < 0) return "#b91c1c";
   if (value > 0) return "#0573b0";
   return "#0d2041";
-}
-
-function toneColor(tone: StatusVista["tone"]): string {
-  if (tone === "deficit") return "#b91c1c";
-  if (tone === "excedente") return "#0573b0";
-  if (tone === "en-linea") return "#0d2041";
-  return "#64748b";
-}
-
-function toneWord(tone: StatusVista["tone"]): string {
-  if (tone === "deficit") return "Déficit";
-  if (tone === "excedente") return "Excedente";
-  if (tone === "en-linea") return "En la meta";
-  return "Sin meta";
 }
 
 function readBar(raw: string): BarState {
@@ -448,13 +435,7 @@ export default function GlanceView({ section }: { section: VistaSection }) {
           onAsesor={(id, label) => setDrill({ kind: "asesor", id, label })}
         />
       ) : null}
-      {show?.section === "status-de-ventas" ? (
-        <Status
-          vista={show}
-          onProject={(id, label) => setDrill({ kind: "project", id, label })}
-          onAsesor={(id, label) => setDrill({ kind: "asesor", id, label })}
-        />
-      ) : null}
+      {show?.section === "status-de-ventas" ? <StatusLifetime vista={show} pending={null} /> : null}
       {show?.section === "ventas-por-canales" ? <Canales vista={show} onFuente={(id, label) => setDrill({ kind: "fuente", id, label })} /> : null}
       {show && isStockVista(show) ? <StockScreens vista={show} bar={bar} /> : null}
       {show && isControlVista(show) ? <ControlScreens vista={show} /> : null}
@@ -528,82 +509,6 @@ function Objetivos({
           onPick={(row) => onAsesor(row.id, row.label)}
         />
       </section>
-    </>
-  );
-}
-
-function Status({
-  vista,
-  onProject,
-  onAsesor,
-}: {
-  vista: Extract<VentasVista, { section: "status-de-ventas" }>;
-  onProject: (id: string, label: string) => void;
-  onAsesor: (id: string, label: string) => void;
-}) {
-  const asesorRows = asesorChart(vista.byAsesor);
-  return (
-    <>
-      <div className="op-kpis">
-        <Kpi label={toneWord(vista.tone)} value={signed(vista.gapUnits)} detail="unidades contra el ritmo" color={toneColor(vista.tone)} />
-        <Kpi label="Quetzales" value={signed(vista.gapGtq)} detail={`Real ${money(vista.gtq)}`} color={toneColor(vista.tone)} />
-        <Kpi label="Ritmo" value={count(vista.paceUnits)} detail={`Meta ${count(vista.targetUnits)}`} />
-        <Kpi label="Fecha de cierre" value={dotted(vista.closeOn)} detail={vista.dayLabel} />
-      </div>
-      <section className="op-hero op-hero-budget" aria-label="Ritmo hacia la fecha de cierre">
-        <header className="op-head">
-          <div>
-            <h2>Ritmo hacia la fecha de cierre</h2>
-            <p className="op-note">Reservas</p>
-            <p className="op-note">{vista.caption}</p>
-          </div>
-        </header>
-        <div className="op-chart">
-          {vista.rhythm.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={vista.rhythm} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                <CartesianGrid stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={32} />
-                <Tooltip formatter={(value, name) => [count(tipNumber(value)), String(name)]} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="real" name="Real" stroke="#0d2041" strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
-                <Line type="monotone" dataKey="ritmo" name="Ritmo" stroke="#0573b0" strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls={false} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </section>
-      <div className="op-mid">
-        <section className="op-hero" aria-label="Ritmo por proyecto">
-          <header className="op-head"><div><h2>Por proyecto</h2><p className="op-note">Reservas</p></div></header>
-          <Grouped
-            rows={vista.byProject.filter((row) => isDisplayProject(row.label))}
-            bars={[
-              { key: "units", name: "Real", fill: "#0d2041" },
-              { key: "paceUnits", name: "Ritmo", fill: "#0573b0" },
-              { key: "targetUnits", name: "Meta", fill: "#94a3b8" },
-            ]}
-            onPick={(row) => onProject(row.id, row.label)}
-          />
-        </section>
-        <section className="op-hero" aria-label="Brecha por asesor">
-          <header className="op-head">
-            <div>
-              <h2>Reservas</h2>
-              <p className="op-note">{asesorRows.note}</p>
-            </div>
-          </header>
-          <Bars
-            rows={asesorRows.rows}
-            nameKey="label"
-            valueKey={asesorRows.mode}
-            format={(value) => (asesorRows.mode === "gap" ? signed(value) : count(value))}
-            colorOf={(row) => (asesorRows.mode === "gap" ? gapColor(row.gap) : "#0d2041")}
-            onPick={(row) => onAsesor(row.id, row.label)}
-          />
-        </section>
-      </div>
     </>
   );
 }

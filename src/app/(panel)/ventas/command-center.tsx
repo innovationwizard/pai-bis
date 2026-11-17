@@ -24,7 +24,8 @@ import {
 } from "@/lib/ventas/vista-types";
 import { ProjectPillRow } from "@/components/project-pill-row";
 import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
-import { CanalesBlock, ObjetivosBlock, StatusAsesorBlock, StatusCierreChart, StatusProyectoBlock, VentasTotalesBlock } from "./landing-blocks";
+import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
+import { StatusLifetime } from "./status-bands";
 import { ControlesGrid, DesistimientosBands, InventarioBands, ModeloBand, ReferidosBand, TasaBand, ValorBand } from "./lower-bands";
 
 const NAVY = "#0d2041";
@@ -462,20 +463,12 @@ export default function CommandCenter() {
       />
       <hr className="op-filter-rule vc-band-rule" />
 
-      <section aria-label="Status de todos los proyectos">
+      <section id="status-de-ventas" aria-label="Status de ventas">
         <article className="vc-card">
-          <StatusCierreChart
+          <StatusLifetime
             vista={status}
             pending={<StatusLine section="status-de-ventas" errors={errors} busy={busy} />}
           />
-          {status ? (
-            <>
-              {status.notice ? <p className="op-note">{status.notice}</p> : null}
-              {totales?.targetNote ? <p className="op-note">{totales.targetNote}</p> : null}
-              <StatusProyectoBlock status={status} />
-              <StatusAsesorBlock status={status} totales={totales} />
-            </>
-          ) : null}
         </article>
       </section>
       <hr className="op-filter-rule vc-band-rule" />

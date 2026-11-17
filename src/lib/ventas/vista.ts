@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { eachDay, mergeWindows, monthFactor, round1, sumNullable } from "./pace";
+import { eachDay, mergeWindows, round1, sumNullable } from "./pace";
 import {
   guatemalaToday,
   inclusiveDays,
@@ -23,16 +23,14 @@ import {
   type DailyPoint,
   type MeasureRow,
   type ObjetivosVista,
-  type RhythmPoint,
   type SaleLine,
-  type StatusRow,
-  type StatusVista,
   type TargetCell,
   type TargetEditor,
   type TotalesVista,
   type VentasVista,
   type VistaSection,
 } from "./vista-types";
+import { buildStatusLifetime } from "./status-lifetime";
 import { buildControlVista, isControlSection } from "./vista-operativo";
 import { buildStockVista, isStockSection } from "./vista-operativo";
 
@@ -45,7 +43,7 @@ const NO_SALES = "Este periodo todavía no tiene ventas.";
 const QUESTIONS: Record<VistaSection, string> = {
   "ventas-totales": VENTA_DEFINITION,
   "objetivos-de-ventas": "¿El periodo va sobre la meta, por proyecto y por asesor?",
-  "status-de-ventas": "A la fecha de cierre, ¿hay déficit o excedente, por proyecto y por asesor?",
+  "status-de-ventas": "Déficit o excedente contra el cierre temporal, por proyecto y por torre.",
   "ventas-por-canales": "¿Qué canales están produciendo las ventas del periodo?",
   "analisis-de-inventario": "¿Qué modelos se están vendiendo y cuáles siguen en inventario?",
   "inventario-general": "¿Cuánto inventario está vendido, congelado y disponible?",
@@ -977,205 +975,6 @@ function buildObjetivos(
   };
 }
 
-function paceValue(value: number | null, factor: number): number | null {
-  if (value == null) return null;
-  return value * factor;
-}
-
-function statusRows(
-  ids: string[],
-  labelOf: (id: string) => string,
-  sales: Sale[],
-  reservas: Reserva[],
-  cells: TargetCell[],
-  keyOfSale: (sale: Sale) => string,
-  keyOfReserva: (row: Reserva) => string,
-  keyOfCell: (cell: TargetCell) => string,
-  range: DateWindow,
-  today: string,
-): StatusRow[] {
-  return ids
-    .map((id) => {
-      const money = moneyOf(sales.filter((sale) => keyOfSale(sale) === id));
-      const units = reservas.filter((row) => keyOfReserva(row) === id).length;
-      const mine = cells.filter((cell) => keyOfCell(cell) === id);
-      const targetUnits = sumNullable(mine.map((cell) => cell.units));
-      const targetGtq = sumNullable(mine.map((cell) => cell.gtq));
-      const paceUnits = sumNullable(mine.map((cell) => paceValue(cell.units, monthFactor(cell.month, range, today))));
-      const paceGtq = sumNullable(mine.map((cell) => paceValue(cell.gtq, monthFactor(cell.month, range, today))));
-      return {
-        id,
-        label: labelOf(id),
-        units,
-        paceUnits: paceUnits == null ? null : round1(paceUnits),
-        targetUnits,
-        gapUnits: gap(units, paceUnits),
-        gtq: money.gtq,
-        paceGtq: paceGtq == null ? null : round1(paceGtq),
-        targetGtq,
-        gapGtq: money.gtq == null || paceGtq == null ? null : round1(money.gtq - paceGtq),
-      };
-    })
-    .sort((a, b) => {
-      if (a.gapUnits == null && b.gapUnits == null) return b.units - a.units;
-      if (a.gapUnits == null) return 1;
-      if (b.gapUnits == null) return -1;
-      return a.gapUnits - b.gapUnits;
-    });
-}
-
-function toneOf(gapUnits: number | null): StatusVista["tone"] {
-  if (gapUnits == null) return "sin-meta";
-  if (gapUnits < -0.05) return "deficit";
-  if (gapUnits > 0.05) return "excedente";
-  return "en-linea";
-}
-
-function reservasByDay(reservas: Reserva[]): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const row of reservas) counts.set(row.day, (counts.get(row.day) ?? 0) + 1);
-  return counts;
-}
-
-function buildRhythm(range: DateWindow, reservas: Reserva[], cells: TargetCell[], today: string): RhythmPoint[] {
-  const months = monthsTouched(range.from, range.to);
-  const hasUnits = cells.some((cell) => cell.units != null);
-  if (months.length === 1 && inclusiveDays(range.from, range.to) <= 45) {
-    const aligned = range.from === monthStart(range.from);
-    const start = range.from;
-    const end = aligned ? monthEnd(range.from) : range.to;
-    const target = sumNullable(cells.map((cell) => cell.units));
-    const pace = sumNullable(cells.map((cell) => paceValue(cell.units, monthFactor(cell.month, range, today))));
-    const monthDays = inclusiveDays(monthStart(range.from), monthEnd(range.from));
-    const domain = eachDay(start, end);
-    const byDay = reservasByDay(reservas);
-    let real = 0;
-    return domain.map((day, index) => {
-      if (day >= range.from && day <= range.to && day <= today) real += byDay.get(day) ?? 0;
-      let ritmo: number | null = null;
-      if (hasUnits && aligned && target != null && monthDays > 0) {
-        ritmo = round1((target * inclusiveDays(monthStart(range.from), day)) / monthDays);
-      } else if (hasUnits && pace != null && domain.length > 0) {
-        ritmo = round1((pace * (index + 1)) / domain.length);
-      }
-      return {
-        label: String(Number(day.slice(8, 10))),
-        real: day <= today && day <= range.to ? real : null,
-        ritmo,
-      };
-    });
-  }
-  let real = 0;
-  let ritmo = 0;
-  const points: RhythmPoint[] = [];
-  for (const month of months) {
-    const end = monthEnd(month);
-    const sliceTo = range.to < end ? range.to : end;
-    real += reservas.filter((row) => row.day >= month && row.day <= sliceTo).length;
-    const monthTarget = sumNullable(cells.filter((cell) => cell.month === month).map((cell) => cell.units));
-    if (monthTarget != null) ritmo += monthTarget * monthFactor(month, range, today);
-    points.push({
-      label: shortMonth(month),
-      real: month <= today ? real : null,
-      ritmo: hasUnits ? round1(ritmo) : null,
-    });
-  }
-  const full = sumNullable(cells.map((cell) => cell.units));
-  const lastFactor = monthFactor(months[months.length - 1], range, today);
-  if (full != null && lastFactor < 0.999) points.push({ label: "Cierre", real: null, ritmo: round1(full) });
-  return points;
-}
-
-function dayLabel(range: DateWindow, today: string): { closeOn: string; dayLabel: string } {
-  const closeOn = monthEnd(range.to);
-  if (today >= closeOn) return { closeOn, dayLabel: "Mes cerrado" };
-  const start = monthStart(today);
-  const elapsed = inclusiveDays(start, today);
-  const total = inclusiveDays(start, closeOn);
-  const left = inclusiveDays(today, closeOn) - 1;
-  return { closeOn, dayLabel: `Día ${elapsed} de ${total} · faltan ${left}` };
-}
-
-function buildStatus(
-  filters: Filters,
-  range: DateWindow,
-  today: string,
-  dims: Dims,
-  sales: Sale[],
-  reservas: Reserva[],
-  book: TargetBook,
-  capped: boolean,
-  choices: VentasVista["choices"],
-): StatusVista {
-  const months = monthsTouched(range.from, range.to);
-  const cells = scopedCells(book.cells, filters, months);
-  const gross = moneyOf(sales);
-  const units = reservas.length;
-  const targetUnits = sumNullable(cells.map((cell) => cell.units));
-  const targetGtq = sumNullable(cells.map((cell) => cell.gtq));
-  const paceUnitsRaw = sumNullable(cells.map((cell) => paceValue(cell.units, monthFactor(cell.month, range, today))));
-  const paceGtqRaw = sumNullable(cells.map((cell) => paceValue(cell.gtq, monthFactor(cell.month, range, today))));
-  const paceUnits = paceUnitsRaw == null ? null : round1(paceUnitsRaw);
-  const paceGtq = paceGtqRaw == null ? null : round1(paceGtqRaw);
-  const projectIds = scopedProjects(dims, filters, sales);
-  for (const cell of cells) if (!projectIds.includes(cell.projectId)) projectIds.push(cell.projectId);
-  for (const row of reservas) if (row.projectId && !projectIds.includes(row.projectId)) projectIds.push(row.projectId);
-  const asesorIds = [...new Set([...sales.map((sale) => sale.asesorId), ...cells.map((cell) => cell.asesorId), ...reservas.map((row) => row.asesorId)].filter((id) => id && !dims.notRepIds.has(id)))];
-  const list = linesOf(sales, [], dims);
-  const dates = dayLabel(range, today);
-  const baseNotice = reservaNotice(gross.units, gross.sin, capped, reservas.length);
-  const metaNotice = targetUnits == null ? "Este periodo no tiene meta. El ritmo aparece cuando entra la meta del mes." : null;
-  return {
-    section: "status-de-ventas",
-    question: QUESTIONS["status-de-ventas"],
-    periodLabel: range.label,
-    rangeLabel: windowLabel(range),
-    caption: "El ritmo es la meta prorrateada a hoy. Un mes ya cerrado se compara contra la meta completa. La fecha de cierre es el último día del mes.",
-    notice: joinNotice([metaNotice, baseNotice]),
-    projects: projectChoices(dims),
-    choices,
-    lines: list.lines,
-    listShown: list.lines.length,
-    listTotal: list.total,
-    tone: toneOf(gap(units, paceUnitsRaw)),
-    units,
-    paceUnits,
-    targetUnits,
-    gapUnits: gap(units, paceUnitsRaw),
-    gtq: gross.gtq,
-    paceGtq,
-    targetGtq,
-    gapGtq: gross.gtq == null || paceGtqRaw == null ? null : round1(gross.gtq - paceGtqRaw),
-    closeOn: dates.closeOn,
-    dayLabel: dates.dayLabel,
-    rhythm: buildRhythm(range, reservas, cells, today),
-    byProject: statusRows(
-      projectIds,
-      (id) => dims.projects.find((project) => project.id === id)?.name ?? "Sin dato",
-      sales,
-      reservas,
-      cells,
-      (sale) => sale.projectId,
-      (row) => row.projectId,
-      (cell) => cell.projectId,
-      range,
-      today,
-    ),
-    byAsesor: statusRows(
-      asesorIds,
-      (id) => dims.asesores.get(id)?.name ?? "Sin dato",
-      sales,
-      reservas,
-      cells,
-      (sale) => sale.asesorId,
-      (row) => row.asesorId,
-      (cell) => cell.asesorId,
-      range,
-      today,
-    ),
-    editor: book.editor,
-  };
-}
 
 function sinDatoName(label: string): boolean {
   const key = label
@@ -1317,6 +1116,15 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
   const key = JSON.stringify({ section, filters });
   const hit = payloadCache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.body;
+  if (section === "status-de-ventas") {
+    const body = await buildStatusLifetime(filters);
+    payloadCache.set(key, { at: Date.now(), body });
+    if (payloadCache.size > 40) {
+      const oldest = [...payloadCache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
+      if (oldest) payloadCache.delete(oldest[0]);
+    }
+    return body;
+  }
   if (isStockSection(section)) {
     const body = await buildStockVista(section, filters);
     payloadCache.set(key, { at: Date.now(), body });
@@ -1347,7 +1155,7 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
   if (section === "ventas-por-canales") windows.push({ from: trailStart(range), to: range.to, label: "" });
 
   const needsLoss = section === "ventas-totales";
-  const needsTarget = section === "objetivos-de-ventas" || section === "status-de-ventas";
+  const needsTarget = section === "objetivos-de-ventas";
   const needsReservas = needsTarget || section === "ventas-por-canales";
   const dims = await loadDims(client);
   const [sold, lost, book, reservas] = await Promise.all([
@@ -1418,8 +1226,6 @@ export async function buildVista(section: VistaSection, filters: Filters): Promi
     body = buildTotales(filters, range, dims, sales, losses, scopedSpan, scopedLossSpan, capped, choices, targetCells.cells, bridge);
   } else if (section === "objetivos-de-ventas") {
     body = buildObjetivos(filters, range, dims, sales, reservas.rows, targetBook, capped, choices);
-  } else if (section === "status-de-ventas") {
-    body = buildStatus(filters, range, today, dims, sales, reservas.rows, targetBook, capped, choices);
   } else {
     const trail = applySpecific(sold.rows, filters, section);
     body = buildCanales(filters, range, dims, sales, trail, capped, choices, reservas.rows);
