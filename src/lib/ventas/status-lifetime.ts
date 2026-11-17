@@ -406,8 +406,21 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
   const reservaTower = new Map<string, Map<string, number>>();
   const pcvTower = new Map<string, Map<string, number>>();
 
-  function place(row: Record<string, unknown>, dayColumn: string, projectMap: Map<string, Map<string, number>>, towerMap: Map<string, Map<string, number>>): void {
-    const day = typeof row[dayColumn] === "string" ? String(row[dayColumn]).slice(0, 10) : "";
+  const earliestComprobante = new Map<string, string>();
+  for (const row of reservasPage.rows) {
+    const dealId = row.deal_id == null ? "" : String(row.deal_id);
+    const day = typeof row.comprobante_on === "string" ? row.comprobante_on.slice(0, 10) : "";
+    if (!dealId || !day) continue;
+    const known = earliestComprobante.get(dealId);
+    if (!known || day < known) earliestComprobante.set(dealId, day);
+  }
+
+  function place(
+    row: Record<string, unknown>,
+    day: string,
+    projectMap: Map<string, Map<string, number>>,
+    towerMap: Map<string, Map<string, number>>,
+  ): void {
     const dealId = row.deal_id == null ? "" : String(row.deal_id);
     if (!day || !dealId) return;
     const deal = deals.get(dealId);
@@ -420,8 +433,18 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
     bump(towerMap, `${deal.projectId}|${key}`, day);
   }
 
-  for (const row of reservasPage.rows) place(row, "comprobante_on", reservaDays, reservaTower);
-  for (const row of pcvPage.rows) place(row, "clock_on", pcvDays, pcvTower);
+  for (const row of reservasPage.rows) {
+    const day = typeof row.comprobante_on === "string" ? row.comprobante_on.slice(0, 10) : "";
+    place(row, day, reservaDays, reservaTower);
+  }
+  for (const row of pcvPage.rows) {
+    const dealId = row.deal_id == null ? "" : String(row.deal_id);
+    const reservaOn = dealId ? earliestComprobante.get(dealId) : undefined;
+    if (!reservaOn) continue;
+    const clock = typeof row.clock_on === "string" ? row.clock_on.slice(0, 10) : "";
+    if (!clock) continue;
+    place(row, clock > reservaOn ? clock : reservaOn, pcvDays, pcvTower);
+  }
 
   const byProject: StatusBand[] = selected.map((project) => {
     const reservas = prefixOf(reservaDays.get(project.project.id));
