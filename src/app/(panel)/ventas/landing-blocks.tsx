@@ -684,10 +684,7 @@ function ObjetivoFigure({ units, target }: { units: number; target: number | nul
   return (
     <span className={styles.ogFigure}>
       <span className={styles.ogActual}>
-        <span className={styles.kpiValue}>
-          {whole(units)}
-          <span className={styles.kpiUnit}>{reservaWord(units)}</span>
-        </span>
+        <span className={styles.ogTarget}>{whole(units)}</span>
         {target != null ? <span className={styles.ogSlash}>/</span> : null}
         {target != null ? <span className={styles.ogTarget}>{whole(target)}</span> : null}
       </span>
