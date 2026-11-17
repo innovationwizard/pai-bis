@@ -79,7 +79,7 @@ function pcvBody(day: string, value: number): string {
 }
 
 function esperadoBody(band: StatusBand, day: string, value: number): string {
-  return `Lo esperado al ${dotted(day)}: ${formatUnits(value)}. Cierre temporal ${dotted(band.closeOn)}. La línea gris sale de cero el ${dotted(band.startOn)} y llega a ${formatUnits(band.units)} unidades en esa fecha, 24 meses después del primer mes del CSV de Ritmo de Ventas.`;
+  return `Lo esperado al ${dotted(day)}: ${formatUnits(value)}. Cierre temporal ${dotted(band.closeOn)}. La línea gris sale de cero el ${dotted(band.startOn)}, el primer mes con una reserva o un PCV en la base, y llega a ${formatUnits(band.units)} unidades 24 meses después. El cierre es temporal.`;
 }
 
 function StatusChart({
@@ -108,8 +108,9 @@ function StatusChart({
   const stroke = band.kind === "proyecto" ? { reservas: 2.75, pcv: 2.25, esperado: 1.25 } : { reservas: 1.75, pcv: 1.5, esperado: 1 };
   const reservasPath = linePath(points, "reservas", xOf, yOf);
   const pcvPath = linePath(points, "pcv", xOf, yOf);
-  const esperadoPath = linePath(points, "esperado", xOf, yOf);
-  const closeX = points.some((point) => point.day === band.closeOn) ? xOf(band.closeOn) : null;
+  const hasClose = band.closeOn !== "";
+  const esperadoPath = hasClose ? linePath(points, "esperado", xOf, yOf) : "";
+  const closeX = hasClose && points.some((point) => point.day === band.closeOn) ? xOf(band.closeOn) : null;
 
   const rawLabels: { key: string; x: number; y: number; text: string; fill: string; tip: Tip }[] = [];
   for (const point of points) {
@@ -182,15 +183,17 @@ function StatusChart({
         );
       })}
       {closeX != null ? <line x1={closeX} x2={closeX} y1={pad.t} y2={height - pad.b} stroke="#cbd5e1" strokeDasharray="2 3" /> : null}
-      <path d={esperadoPath} fill="none" stroke={ESPERADO} strokeWidth={stroke.esperado} />
-      <path
-        d={esperadoPath}
-        fill="none"
-        stroke="transparent"
-        strokeWidth={12}
-        style={{ cursor: "pointer" }}
-        onClick={() => onTip({ key: "esperado", title: "Esperado", body: esperadoBody(band, lastActual(band, "reservas"), band.esperado) })}
-      />
+      {hasClose ? <path d={esperadoPath} fill="none" stroke={ESPERADO} strokeWidth={stroke.esperado} /> : null}
+      {hasClose ? (
+        <path
+          d={esperadoPath}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={12}
+          style={{ cursor: "pointer" }}
+          onClick={() => onTip({ key: "esperado", title: "Esperado", body: esperadoBody(band, lastActual(band, "reservas"), band.esperado) })}
+        />
+      ) : null}
       <path d={pcvPath} fill="none" stroke={PCV} strokeWidth={stroke.pcv} strokeDasharray="6 4" />
       <path
         d={pcvPath}
@@ -318,13 +321,15 @@ function StatusRow({ band }: { band: StatusBand }) {
         >
           {formatGap(band.gap)}
         </button>
-        <button
-          type="button"
-          className={styles.close}
-          onClick={() => toggle({ key: "cierre", title: "Cierre temporal", body: esperadoBody(band, band.closeOn, band.units) })}
-        >
-          {`Cierre temporal ${dotted(band.closeOn)}`}
-        </button>
+        {band.closeOn ? (
+          <button
+            type="button"
+            className={styles.close}
+            onClick={() => toggle({ key: "cierre", title: "Cierre temporal", body: esperadoBody(band, band.closeOn, band.units) })}
+          >
+            {`Cierre temporal ${dotted(band.closeOn)}`}
+          </button>
+        ) : null}
       </div>
       <div className={styles.plot}>
         <StatusChart band={band} onTip={toggle} />

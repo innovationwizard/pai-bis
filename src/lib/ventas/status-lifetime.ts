@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PROJECT_DISPLAY_ORDER, projectKey } from "@/lib/projects";
 import { guatemalaToday } from "./period";
@@ -8,28 +6,6 @@ import type { Choice, StatusBand, StatusPoint, StatusVista } from "./vista-types
 const PAGE = 1000;
 const CAP = 20000;
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-const MONTH_INDEX: Record<string, number> = {
-  jan: 1,
-  feb: 2,
-  mar: 3,
-  apr: 4,
-  may: 5,
-  jun: 6,
-  jul: 7,
-  aug: 8,
-  sep: 9,
-  oct: 10,
-  nov: 11,
-  dec: 12,
-};
-
-const PROJECT_UNITS: Record<string, number> = {
-  [projectKey("BOULEVARD 5")]: 298,
-  [projectKey("BENESTARE")]: 282,
-  [projectKey("BOSQUE LAS TAPIAS")]: 234,
-  [projectKey("SANTA ELENA")]: 11,
-};
-
 
 const DISPLAY_NAME: Record<string, string> = {
   [projectKey("BOULEVARD 5")]: "Boulevard 5",
@@ -61,8 +37,6 @@ const EMPTY_CHOICES: StatusVista["choices"] = {
   estadoUnidad: [],
 };
 
-let cachedStarts: Map<string, string> | null = null;
-
 function ventasDb() {
   return createAdminClient().schema("ventas");
 }
@@ -91,52 +65,16 @@ function shortMonth(iso: string): string {
   return `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(2, 4)}`;
 }
 
-function parseMonthToken(raw: string): string | null {
-  const token = raw.trim().replace(/\s+/g, "-");
-  const match = token.match(/^([A-Za-z]{3})-(\d{2})$/);
-  if (!match) return null;
-  const month = MONTH_INDEX[match[1].toLowerCase()];
-  if (!month) return null;
-  const year = 2000 + Number(match[2]);
-  return `${year}-${String(month).padStart(2, "0")}-01`;
-}
-
-function firstCsvMonth(csv: string): string | null {
-  for (const line of csv.split(/\r?\n/)) {
-    const cells = line.split(";");
-    if (cells[0]?.trim().toLowerCase() !== "unidades") continue;
-    for (const cell of cells.slice(1)) {
-      const month = parseMonthToken(cell);
-      if (month) return month;
+function earliestMonth(reservas: Map<string, number> | undefined, pcv: Map<string, number> | undefined): string | null {
+  let earliest = "";
+  for (const days of [reservas, pcv]) {
+    if (!days) continue;
+    for (const day of days.keys()) {
+      if (day && (!earliest || day < earliest)) earliest = day;
     }
   }
-  return null;
-}
-
-function monthFrom(csv: string, project: string): string {
-  const month = firstCsvMonth(csv);
-  if (!month) throw new Error(`El CSV de ${project} no trae el primer mes.`);
-  return month;
-}
-
-function readRitmo(path: string, project: string): string {
-  try {
-    return readFileSync(path, "utf8");
-  } catch {
-    throw new Error(`No se pudo leer el CSV de Ritmo de Ventas de ${project}.`);
-  }
-}
-
-function projectStarts(): Map<string, string> {
-  if (cachedStarts) return cachedStarts;
-  const starts = new Map<string, string>([
-    [projectKey("BOULEVARD 5"), monthFrom(readRitmo(join(process.cwd(), "docs-ventas/BOULEVARD_5_1_Ritmo_de_Ventas.csv"), "Boulevard 5"), "Boulevard 5")],
-    [projectKey("BENESTARE"), monthFrom(readRitmo(join(process.cwd(), "docs-ventas/BENESTARE_1_Ritmo_de_Ventas.csv"), "Benestare"), "Benestare")],
-    [projectKey("BOSQUE LAS TAPIAS"), monthFrom(readRitmo(join(process.cwd(), "docs-ventas/BOSQUE_LAS_TAPIAS_1_Ritmo_de_Ventas.csv"), "Bosque Las Tapias"), "Bosque Las Tapias")],
-    [projectKey("SANTA ELENA"), monthFrom(readRitmo(join(process.cwd(), "docs-ventas/SANTA_ELENA_1_Ritmo_de_Ventas.csv"), "Santa Elena"), "Santa Elena")],
-  ]);
-  cachedStarts = starts;
-  return starts;
+  if (!earliest) return null;
+  return `${earliest.slice(0, 7)}-01`;
 }
 
 function expectedAt(units: number, start: string, close: string, day: string): number {
@@ -280,7 +218,7 @@ function bandOf(input: {
   congelado: boolean;
   frozenDetail: string | null;
   units: number;
-  start: string;
+  start: string | null;
   close: string;
   today: string;
   reservas: { day: string; n: number }[];
@@ -288,6 +226,32 @@ function bandOf(input: {
 }): StatusBand {
   const reservas = atCount(input.reservas, input.today);
   const pcv = atCount(input.pcv, input.today);
+  if (!input.start || !input.close) {
+    return {
+      id: input.id,
+      label: input.label,
+      kind: input.kind,
+      congelado: input.congelado,
+      frozenDetail: input.frozenDetail,
+      units: input.units,
+      reservas,
+      pcv,
+      esperado: 0,
+      gap: round1(reservas - 0),
+      startOn: "",
+      closeOn: "",
+      points: [{
+        day: input.today,
+        reservas,
+        pcv,
+        esperado: 0,
+        labelReservas: true,
+        labelPcv: true,
+        labelEsperado: false,
+        axisLabel: "hoy",
+      }],
+    };
+  }
   const esperado = round1(expectedAt(input.units, input.start, input.close, input.today));
   return {
     id: input.id,
@@ -366,20 +330,17 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
   const choices = choicesOf(projects);
   if (filters.projectIds && filters.projectIds.length === 0) return emptyVista(today, choices, null);
 
-  const starts = projectStarts();
   const byKey = new Map(projects.filter((project) => !project.sin).map((project) => [projectKey(project.name), project]));
   const selected = PROJECT_DISPLAY_ORDER.flatMap((name) => {
     const key = projectKey(name);
     const project = byKey.get(key);
-    const units = PROJECT_UNITS[key];
-    const start = starts.get(key);
-    if (!project || units == null || !start) return [];
+    if (!project) return [];
     if (filters.projectIds && !filters.projectIds.includes(project.id)) return [];
-    return [{ key, project, units, start, close: addMonths(start, 24), label: DISPLAY_NAME[key] ?? displayName(project.name) }];
+    return [{ key, project, label: DISPLAY_NAME[key] ?? displayName(project.name) }];
   });
   if (selected.length === 0) return emptyVista(today, choices, null);
 
-  const [reservasPage, pcvPage, towersPage, stock] = await Promise.all([
+  const [reservasPage, pcvPage, towersPage, inventory] = await Promise.all([
     readPages((from, to) =>
       client.from("fact_comprobante").select("id,deal_id,comprobante_on").order("id").range(from, to),
     ),
@@ -462,26 +423,31 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
   for (const row of reservasPage.rows) place(row, "comprobante_on", reservaDays, reservaTower);
   for (const row of pcvPage.rows) place(row, "clock_on", pcvDays, pcvTower);
 
-  const byProject: StatusBand[] = selected.map((project) =>
-    bandOf({
+  const byProject: StatusBand[] = selected.map((project) => {
+    const reservas = prefixOf(reservaDays.get(project.project.id));
+    const pcv = prefixOf(pcvDays.get(project.project.id));
+    const start = earliestMonth(reservaDays.get(project.project.id), pcvDays.get(project.project.id));
+    return bandOf({
       id: project.project.id,
       label: project.label,
       kind: "proyecto",
       congelado: false,
       frozenDetail: null,
-      units: project.units,
-      start: project.start,
-      close: project.close,
+      units: inventory.projects.get(project.key) ?? 0,
+      start,
+      close: start ? addMonths(start, 24) : "",
       today,
-      reservas: prefixOf(reservaDays.get(project.project.id)),
-      pcv: prefixOf(pcvDays.get(project.project.id)),
-    }),
-  );
+      reservas,
+      pcv,
+    });
+  });
 
   const byTower: StatusBand[] = [];
   for (const project of selected) {
     if (project.key === projectKey("SANTA ELENA")) continue;
-    const towersOfProject = stock.get(project.key);
+    const start = earliestMonth(reservaDays.get(project.project.id), pcvDays.get(project.project.id));
+    const close = start ? addMonths(start, 24) : "";
+    const towersOfProject = inventory.towers.get(project.key);
     if (!towersOfProject) continue;
     const rows = [...towersOfProject.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name, "es"));
     for (const [key, tower] of rows) {
@@ -501,8 +467,8 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
               : "Todas las unidades de esta torre están congeladas."
             : null,
           units: tower.total,
-          start: project.start,
-          close: project.close,
+          start,
+          close,
           today,
           reservas: prefixOf(reservaTower.get(`${project.project.id}|${key}`)),
           pcv: prefixOf(pcvTower.get(`${project.project.id}|${key}`)),
@@ -520,9 +486,10 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
   return body;
 }
 
-async function loadStock(): Promise<Map<string, Map<string, Stock>>> {
+async function loadStock(): Promise<{ projects: Map<string, number>; towers: Map<string, Map<string, Stock>> }> {
   const client = createAdminClient();
-  const grouped = new Map<string, Map<string, Stock>>();
+  const projects = new Map<string, number>();
+  const towers = new Map<string, Map<string, Stock>>();
   for (let offset = 0; offset < CAP; offset += PAGE) {
     const { data, error } = await client
       .from("v_rv_units_full")
@@ -542,18 +509,19 @@ async function loadStock(): Promise<Map<string, Map<string, Stock>>> {
               ? projectKey("SANTA ELENA")
               : "";
       if (!key) continue;
+      projects.set(key, (projects.get(key) ?? 0) + 1);
       const name = String(row.tower_name ?? "");
       const token = towerKey(name);
       if (hiddenTower(token)) continue;
-      const towers = grouped.get(key) ?? new Map<string, Stock>();
-      const current = towers.get(token) ?? { total: 0, congelado: 0, name };
+      const group = towers.get(key) ?? new Map<string, Stock>();
+      const current = group.get(token) ?? { total: 0, congelado: 0, name };
       current.total += 1;
       if (String(row.status ?? "") === "FROZEN") current.congelado += 1;
       if (name.trim().length > current.name.trim().length) current.name = name;
-      towers.set(token, current);
-      grouped.set(key, towers);
+      group.set(token, current);
+      towers.set(key, group);
     }
-    if (batch.length < PAGE) return grouped;
+    if (batch.length < PAGE) return { projects, towers };
   }
   throw new Error("v_rv_units_full excedió el límite de lectura.");
 }
