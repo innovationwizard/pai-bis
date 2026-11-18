@@ -519,7 +519,7 @@ function SaleBar({
   label: string;
   onClick: () => void;
 }) {
-  const track = SALE / 2;
+  const track = SALE;
   const height = value > 0 && peak > 0 ? MIN_SALE + Math.round((value / peak) * (track - MIN_SALE)) : MIN_SALE;
   const shown = count(value);
   return (
