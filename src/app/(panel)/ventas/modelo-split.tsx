@@ -29,33 +29,22 @@ const PCV_SOURCE = "Promesa emitida cuya fecha cae en el periodo. La fecha es la
 const VENDIDO_SOURCE = "PCV del periodo dividido entre las unidades del inventario actual.";
 const PESO_SOURCE = "Unidades del modelo divididas entre las unidades de este grupo.";
 
-const PLOT = 80;
-const SALE = 60;
+const PLOT = 40;
+const SALE = 80;
 const MIN_SALE = 20;
-const MIN_SEG = 14;
+const MIN_SEG = 10;
 
 function count(value: number): string {
   return countFormat.format(value);
 }
 
 function segmentHeights(values: readonly number[]): number[] {
+  const count = Math.max(values.length, 1);
+  const floor = Math.min(MIN_SEG, PLOT / count);
   const sum = values.reduce((total, value) => total + value, 0);
-  if (sum <= 0) return values.map(() => PLOT / Math.max(values.length, 1));
-  let heights = values.map((value) => (value / sum) * PLOT);
-  for (let pass = 0; pass < values.length; pass += 1) {
-    let deficit = 0;
-    let donor = 0;
-    for (const height of heights) {
-      if (height < MIN_SEG) deficit += MIN_SEG - height;
-      else donor += height - MIN_SEG;
-    }
-    if (deficit <= 0 || donor <= 0) break;
-    heights = heights.map((height) => {
-      if (height < MIN_SEG) return MIN_SEG;
-      return height - deficit * ((height - MIN_SEG) / donor);
-    });
-  }
-  return heights;
+  if (sum <= 0) return values.map(() => PLOT / count);
+  const flex = PLOT - floor * count;
+  return values.map((value) => floor + (value / sum) * flex);
 }
 
 function segInk(color: string): string {
@@ -474,30 +463,6 @@ function ModelRow({
   return (
     <div className={styles.splitModel} role="group" aria-label={where}>
       <div className={compact ? styles.splitModelNameStrip : styles.splitModelName}>{model}</div>
-      <div className={styles.splitPlot}>
-        {STATUS.map((item, index) => {
-          const list = counts[item.key];
-          const value = list.length;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              className={styles.splitSeg}
-              style={{ height: heights[index], background: item.color, color: segInk(item.color) }}
-              aria-label={`${where}. ${item.label} ${count(value)}`}
-              onClick={() => onTip({
-                key: `${where}:${mark}:${item.key}`,
-                title: `${item.label} ${count(value)}`,
-                formula: `Unidades en ${item.label}.`,
-                source: INVENTORY_SOURCE,
-                rows: list.map(unitLine),
-              })}
-            >
-              {count(value)}
-            </button>
-          );
-        })}
-      </div>
       <div className={styles.splitSales}>
         <SaleBar
           dashed={false}
@@ -525,6 +490,30 @@ function ModelRow({
             rows: pcv.map((move) => moveLine(vista, move)),
           })}
         />
+      </div>
+      <div className={styles.splitPlot}>
+        {STATUS.map((item, index) => {
+          const list = counts[item.key];
+          const value = list.length;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className={styles.splitSeg}
+              style={{ height: heights[index], background: item.color, color: segInk(item.color) }}
+              aria-label={`${where}. ${item.label} ${count(value)}`}
+              onClick={() => onTip({
+                key: `${where}:${mark}:${item.key}`,
+                title: `${item.label} ${count(value)}`,
+                formula: `Unidades en ${item.label}.`,
+                source: INVENTORY_SOURCE,
+                rows: list.map(unitLine),
+              })}
+            >
+              {count(value)}
+            </button>
+          );
+        })}
       </div>
       <div className={styles.splitMetaLine}>
         <Hit
