@@ -311,6 +311,36 @@ export type ModelRow = {
   share: number;
 };
 
+export type SplitStatus = "disponible" | "reservado" | "congelado" | "vendido";
+
+export type SplitUnit = {
+  projectSlug: string;
+  towerId: string;
+  towerName: string;
+  model: string;
+  code: string;
+  status: SplitStatus;
+};
+
+export type SplitMove = {
+  kind: "reserva" | "pcv";
+  projectSlug: string;
+  towerId: string;
+  towerName: string;
+  model: string;
+  unit: string;
+  day: string;
+  id: string;
+};
+
+export type ModeloSplit = {
+  projects: { slug: string; label: string }[];
+  units: SplitUnit[];
+  moves: SplitMove[];
+  scope: string;
+  notice: string | null;
+};
+
 export type AnalisisVista = VistaBase & {
   section: "analisis-de-inventario";
   leader: string | null;
@@ -320,6 +350,7 @@ export type AnalisisVista = VistaBase & {
   models: ModelRow[];
   byTower: { modelId: string; towerId: string; projectId: string; tower: string; sold: number; available: number }[];
   modelSales: { projectSlug: string; projectId: string; towerId: string; towerName: string; model: string; sold: number }[];
+  split: ModeloSplit;
 };
 
 export type StockProject = {

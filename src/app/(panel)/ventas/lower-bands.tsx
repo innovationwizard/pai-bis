@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, type KeyboardEvent, type ReactNode } from "react";
 import {
   CartesianGrid,
   LabelList,
@@ -26,6 +26,7 @@ import type {
   PromoVista,
   ReferidosVista,
 } from "@/lib/ventas/vista-types";
+import { ModeloSplit } from "./modelo-split";
 import styles from "./lower-bands.module.css";
 
 const NAVY = "#0d2041";
@@ -78,36 +79,6 @@ const PROJECT_BLUE: Record<string, string> = {
   "santa-elena": "#1a4a68",
 };
 
-const SALE_SLUGS: { slug: string; name: string }[] = [
-  { slug: "boulevard-5", name: "BOULEVARD 5" },
-  { slug: "benestare", name: "BENESTARE" },
-  { slug: "bosque-las-tapias", name: "BOSQUE LAS TAPIAS" },
-  { slug: "santa-elena", name: "SANTA ELENA" },
-];
-
-function saleTowerOptions(rows: AnalisisVista["modelSales"]): { id: string; label: string }[] {
-  const seen = new Map<string, { name: string; slug: string }>();
-  for (const row of rows) {
-    if (!row.towerId || !(row.sold > 0) || isMissingLabel(row.towerName)) continue;
-    if (!seen.has(row.towerId)) seen.set(row.towerId, { name: row.towerName, slug: row.projectSlug });
-  }
-  const nameCount = new Map<string, number>();
-  for (const info of seen.values()) nameCount.set(info.name, (nameCount.get(info.name) ?? 0) + 1);
-  return [...seen.entries()]
-    .map(([id, info]) => {
-      const project = SALE_SLUGS.find((item) => item.slug === info.slug)?.name;
-      const shared = (nameCount.get(info.name) ?? 0) > 1;
-      const label = shared && project ? `${titleLabel(project)} · ${info.name}` : info.name;
-      return { id, label };
-    })
-    .sort((a, b) => a.label.localeCompare(b.label, "es"));
-}
-
-function saleModelOptions(rows: AnalisisVista["modelSales"]): string[] {
-  return [...new Set(rows.filter((row) => row.sold > 0 && !isMissingLabel(row.model)).map((row) => row.model))]
-    .sort((a, b) => a.localeCompare(b, "es"));
-}
-
 function projectFill(label: string): string | null {
   const key = projectKey(label);
   if (key === projectKey("BOULEVARD 5")) return PROJECT_BLUE["boulevard-5"];
@@ -126,87 +97,6 @@ function markFill(mark: Mark): string {
   if (mark.tone === "amber") return AMBER;
   if (mark.tone === "blue") return BLUE;
   return projectFill(mark.label) ?? NAVY;
-}
-
-function saleGroups(rows: AnalisisVista["modelSales"], includeSantaElena: boolean): ColumnGroup[] {
-  const byProject = new Map<string, Map<string, number>>();
-  for (const row of rows) {
-    if (isMissingLabel(row.model)) continue;
-    const models = byProject.get(row.projectSlug) ?? new Map<string, number>();
-    models.set(row.model, (models.get(row.model) ?? 0) + row.sold);
-    byProject.set(row.projectSlug, models);
-  }
-  const groups: ColumnGroup[] = [];
-  for (const item of SALE_SLUGS) {
-    const models = byProject.get(item.slug) ?? new Map<string, number>();
-    if (item.slug === "santa-elena" && includeSantaElena) {
-      if (!models.has("491.91 m²")) models.set("491.91 m²", 0);
-      if (!models.has("581 m²")) models.set("581 m²", 0);
-    }
-    const kept = [...models.entries()].filter((entry) => item.slug === "santa-elena" || entry[1] > 0);
-    if (kept.length === 0) continue;
-    const label = titleLabel(item.name);
-    const color = projectBarColor(item.slug);
-    groups.push({
-      key: item.slug,
-      label,
-      rows: kept
-        .sort((a, b) => a[0].localeCompare(b[0], "es"))
-        .map(([model, sold]) => ({
-          key: `${item.slug}:${model}`,
-          id: item.slug,
-          label: model,
-          axis: model,
-          segments: [{ key: "ventas", label: "Ventas", value: sold, color }],
-        })),
-    });
-  }
-  return groups;
-}
-
-function ModeloChart({ vista }: { vista: AnalisisVista }) {
-  const [tower, setTower] = useState("");
-  const [modelo, setModelo] = useState("");
-  const sales = vista.modelSales;
-  const towers = saleTowerOptions(sales);
-  const towerActive = towers.some((choice) => choice.id === tower) ? tower : "";
-  const inTower = sales.filter((row) => !towerActive || row.towerId === towerActive);
-  const models = saleModelOptions(inTower);
-  const modeloActive = models.includes(modelo) ? modelo : "";
-  const shown = inTower.filter((row) => !modeloActive || row.model === modeloActive);
-  const groups = saleGroups(shown, towerActive === "" && modeloActive === "");
-
-  function chooseTower(value: string) {
-    setTower(value);
-    const next = saleModelOptions(sales.filter((row) => !value || row.towerId === value));
-    setModelo((current) => (current && next.includes(current) ? current : ""));
-  }
-
-  return (
-    <>
-      <div className={styles.localFilters}>
-        <label>
-          Torre
-          <select value={towerActive} onChange={(event) => chooseTower(event.target.value)}>
-            <option value="">Todas</option>
-            {towers.map((choice) => (
-              <option key={choice.id} value={choice.id}>{choice.label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Modelo
-          <select value={modeloActive} onChange={(event) => setModelo(event.target.value)}>
-            <option value="">Todos</option>
-            {models.map((label) => (
-              <option key={label} value={label}>{label}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {groups.length === 0 ? emptyNote(null) : <SmallMultiples groups={groups} legend={false} />}
-    </>
-  );
 }
 
 function money(value: number): string {
@@ -915,7 +805,6 @@ export function InventarioBands({
     } satisfies StackRow;
   });
   const towers = towerGroups(vista, roster, projectName, onTower, onProject);
-  const models = modelGroups(vista, roster, projectName);
   return (
     <div className={styles.pair}>
       <section className={styles.band} aria-labelledby="vt-inventario-todos-title">
@@ -927,10 +816,6 @@ export function InventarioBands({
       <section className={styles.band} aria-labelledby="vt-inventario-por-proyecto-title">
         <h2 id="vt-inventario-por-proyecto-title" className={styles.title}>Inventario por proyecto</h2>
         {towers.length === 0 ? emptyNote(null) : <SmallMultiples groups={towers} fit />}
-      </section>
-      <section className={styles.band} aria-labelledby="vt-inventario-modelo-title">
-        <h2 id="vt-inventario-modelo-title" className={styles.title}>Inventario por modelo</h2>
-        {models.length === 0 ? emptyNote(null) : <SmallMultiples groups={models} />}
       </section>
     </div>
   );
@@ -1031,67 +916,6 @@ function towerGroups(
   return groups;
 }
 
-const MODEL_SLUGS: { slug: string; name: string }[] = [
-  { slug: "boulevard-5", name: "BOULEVARD 5" },
-  { slug: "benestare", name: "BENESTARE" },
-  { slug: "bosque-las-tapias", name: "BOSQUE LAS TAPIAS" },
-  { slug: "santa-elena", name: "SANTA ELENA" },
-];
-
-function modelInProject(
-  model: InventarioVista["byModel"][number],
-  slotLabel: string,
-  nameOf: ReadonlyMap<string, string>,
-): boolean {
-  const named = MODEL_SLUGS.find((item) => item.slug === model.projectSlug);
-  if (named) return projectKey(named.name) === projectKey(slotLabel);
-  return projectKey(nameOf.get(model.projectId) ?? "") === projectKey(slotLabel);
-}
-
-function modelGroups(
-  vista: InventarioVista,
-  roster: readonly ProjectSlot[],
-  projectName: ReadonlyMap<string, string>,
-): ColumnGroup[] {
-  const groups: ColumnGroup[] = [];
-  for (const slot of projectSlots(vista, roster, projectName)) {
-    const models = vista.byModel
-      .filter((model) => modelInProject(model, slot.label, slot.nameOf))
-      .filter((model) => model.vendido + model.reservado + model.congelado + model.disponible > 0)
-      .filter((model) => !isMissingLabel(model.model))
-      .sort((a, b) => a.model.localeCompare(b.model, "es"));
-    const rows = projectKey(slot.label) === projectKey("SANTA ELENA")
-      ? [...models, ...["491.91 m²", "581 m²"].filter((size) => !models.some((model) => model.model === size)).map((size) => ({
-        projectId: slot.id,
-        projectSlug: "santa-elena",
-        model: size,
-        vendido: 0,
-        reservado: 0,
-        congelado: 0,
-        disponible: 0,
-      }))].sort((a, b) => a.model.localeCompare(b.model, "es"))
-      : models;
-    if (rows.length === 0) continue;
-    groups.push({
-      key: slot.id || slot.label,
-      label: slot.label,
-      rows: rows.map((model) => ({
-        key: `${model.projectSlug}:${model.model}`,
-        id: model.projectId,
-        label: `${slot.label} · ${model.model}`,
-        axis: model.model,
-        segments: stockSegments({
-          vendido: model.vendido,
-          reservado: model.reservado,
-          congelado: model.congelado,
-          disponible: model.disponible,
-        }),
-      })),
-    });
-  }
-  return groups;
-}
-
 function projectSlots(
   vista: InventarioVista,
   roster: readonly ProjectSlot[],
@@ -1111,9 +935,9 @@ export function ModeloBand({
   pending: ReactNode;
 }) {
   return (
-    <section className={styles.band} aria-labelledby="vt-modelo-title">
-      <h2 id="vt-modelo-title" className={styles.title}>Ventas por modelo</h2>
-      {!vista ? pending : <ModeloChart vista={vista} />}
+    <section id="analisis-de-inventario" className={styles.band} aria-labelledby="vt-modelo-title">
+      <h2 id="vt-modelo-title" className={styles.title}>Análisis de inventario</h2>
+      {!vista ? pending : <ModeloSplit vista={vista} />}
     </section>
   );
 }

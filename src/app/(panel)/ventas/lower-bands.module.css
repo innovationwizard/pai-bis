@@ -694,3 +694,233 @@ button.col { cursor: pointer; }
     row-gap: 4px;
   }
 }
+
+.splitHero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: flex-end;
+}
+
+.splitFigure {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: #0d2041;
+  font: inherit;
+}
+
+.splitFigure strong {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.splitFigure span {
+  font-size: 12px;
+  font-weight: 650;
+  color: rgba(13, 32, 65, 0.72);
+}
+
+.splitCards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+.splitCard {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(13, 32, 65, 0.12);
+  border-radius: 8px;
+}
+
+.splitProject {
+  margin: 0 0 8px;
+  color: #0d2041;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.splitModels {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.splitModel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.splitModelName {
+  color: #0d2041;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.splitStack {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.splitSlice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 22px;
+}
+
+.splitSlice > span {
+  display: block;
+  width: 100%;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.splitCount,
+.splitHit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: #0d2041;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.splitMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.splitMeta button {
+  color: #334155;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.splitSale {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  color: #0d2041;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.splitSaleTrack {
+  display: block;
+  height: 8px;
+  border-radius: 2px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.splitSaleReserva,
+.splitSalePcv {
+  display: block;
+  height: 100%;
+  min-width: 0;
+}
+
+.splitSaleReserva {
+  background: #0d2041;
+}
+
+.splitSalePcv {
+  background: repeating-linear-gradient(90deg, #0573b0 0 6px, transparent 6px 9px);
+}
+
+.splitSwatchPcv {
+  background: repeating-linear-gradient(90deg, #0573b0 0 4px, transparent 4px 6px);
+}
+
+.splitTower {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(13, 32, 65, 0.12);
+}
+
+.splitTower h4 {
+  margin: 0 0 6px;
+  color: #0d2041;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.splitTip {
+  max-height: 280px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.splitTipHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: #0d2041;
+  font-size: 13px;
+}
+
+.splitTipHead button {
+  border: 0;
+  background: none;
+  color: #0d2041;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.splitTip p {
+  margin: 0 0 6px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.splitTip ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #0d2041;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 1100px) {
+  .splitCards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

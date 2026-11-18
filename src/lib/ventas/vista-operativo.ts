@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { projectKey } from "@/lib/projects";
 import { EMBUDO_PIPELINES, embudoFunnel, type EmbudoInput } from "./embudo";
 import { monthEnd, monthStart, monthsTouched, resolveRange, windowLabel, guatemalaToday, type DateWindow } from "./period";
+import { creditedAsesor, factComprobanteHasAsesor } from "./reserva-asesor";
 import type { VistaFilters } from "./vista";
 import type {
   AnalisisVista,
@@ -11,10 +12,14 @@ import type {
   DescuentoVista,
   DesistenciaVista,
   InventarioVista,
+  ModeloSplit,
   NamedBar,
   PrecioVista,
   PromoVista,
   ReferidosVista,
+  SplitMove,
+  SplitStatus,
+  SplitUnit,
   ValorVista,
   VentasVista,
 } from "./vista-types";
@@ -374,7 +379,9 @@ async function buildAnalisis(
   choices.habitaciones = countChoices(sold.rows.map((row) => String(row.habitaciones_id)), dims.habitaciones);
   const leader = models.find((model) => model.sold > 0) ?? null;
   const available = models.reduce((sum, model) => sum + model.available, 0);
-  const modelSales = saleRowsFromUnits(await loadRvUnits(), filters, dims);
+  const units = await loadRvUnits();
+  const modelSales = saleRowsFromUnits(units, filters, dims);
+  const split = await buildModeloSplit(client, filters, range, dims, units);
   const notice = sold.capped
     ? "La consulta del periodo llegó a 5.000 filas. Afina proyecto o periodo."
     : stock.length === 0 && totalSold === 0
@@ -399,6 +406,7 @@ async function buildAnalisis(
     models,
     byTower,
     modelSales,
+    split,
   };
 }
 
@@ -410,6 +418,9 @@ type AvailabilityUnit = {
   towerId: string;
   towerName: string;
   towerIsDefault: boolean;
+  number: string;
+  unitCode: string;
+  code: string;
 };
 
 type ModelCount = keyof Pick<InventarioVista["byModel"][number], "vendido" | "reservado" | "congelado" | "disponible">;
@@ -427,12 +438,14 @@ async function loadRvUnits(): Promise<AvailabilityUnit[]> {
   for (let offset = 0; offset < CAP; offset += PAGE) {
     const { data, error } = await client
       .from("v_rv_units_full")
-      .select("project_slug, unit_type, area_total, status, tower_id, tower_name, tower_is_default")
+      .select("project_slug, unit_type, area_total, status, tower_id, tower_name, tower_is_default, unit_number, unit_code")
       .range(offset, offset + PAGE - 1);
     if (error) throw new Error(error.message);
     const batch = (data ?? []) as unknown as Record<string, unknown>[];
     for (const row of batch) {
       const area = row.area_total == null || row.area_total === "" ? null : Number(row.area_total);
+      const number = String(row.unit_number ?? "");
+      const unitCode = String(row.unit_code ?? "");
       units.push({
         projectSlug: String(row.project_slug ?? ""),
         unitType: String(row.unit_type ?? ""),
@@ -441,6 +454,9 @@ async function loadRvUnits(): Promise<AvailabilityUnit[]> {
         towerId: String(row.tower_id ?? ""),
         towerName: String(row.tower_name ?? ""),
         towerIsDefault: row.tower_is_default === true,
+        number,
+        unitCode,
+        code: number.trim() || unitCode.trim(),
       });
     }
     if (batch.length < PAGE) return units;
@@ -591,6 +607,332 @@ function saleRowsFromUnits(units: readonly AvailabilityUnit[], filters: VistaFil
     groups.set(key, current);
   }
   return [...groups.values()];
+}
+
+const SPLIT_PROJECTS: { slug: string; label: string }[] = [
+  { slug: "boulevard-5", label: "Boulevard 5" },
+  { slug: "benestare", label: "Benestare" },
+  { slug: "bosque-las-tapias", label: "Bosque Las Tapias" },
+  { slug: "santa-elena", label: "Santa Elena" },
+];
+
+const SPLIT_READ = 20000;
+
+function splitProjects(filters: VistaFilters, dims: Dims): { slug: string; label: string }[] {
+  if (filters.projectIds && filters.projectIds.length === 0) return [];
+  const allowed = allowedSlugs(filters, dims);
+  return SPLIT_PROJECTS.filter((project) => !allowed || allowed.has(project.slug));
+}
+
+function dayOf(value: unknown): string {
+  return typeof value === "string" ? value.slice(0, 10) : "";
+}
+
+function inPeriod(day: string, range: DateWindow): boolean {
+  return day !== "" && day >= range.from && day <= range.to;
+}
+
+function unitToken(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^[0-9]+$/.test(trimmed)) {
+    const stripped = trimmed.replace(/^0+/, "");
+    return stripped === "" ? "0" : stripped;
+  }
+  return trimmed;
+}
+
+function foldTower(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function missingName(label: string): boolean {
+  const key = foldTower(label);
+  return key === "" || key === "sin dato" || key === "sin torre" || key === "sin modelo";
+}
+
+function placementTower(unit: AvailabilityUnit): { id: string; name: string } {
+  if (hiddenSaleTower(unit) || missingName(unit.towerName)) return { id: "", name: "" };
+  return { id: unit.towerId, name: unit.towerName.trim() };
+}
+
+type Placed = { model: string; towerId: string; towerName: string; code: string };
+
+function putPlaced(map: Map<string, Placed | "many">, key: string, placed: Placed) {
+  const current = map.get(key);
+  if (!current) {
+    map.set(key, placed);
+    return;
+  }
+  if (current === "many") return;
+  if (current.model !== placed.model || current.code !== placed.code || current.towerId !== placed.towerId) {
+    map.set(key, "many");
+  }
+}
+
+function indexAvailability(units: readonly AvailabilityUnit[]): {
+  byTower: Map<string, Placed | "many">;
+  byToken: Map<string, Placed | "many">;
+} {
+  const byTower = new Map<string, Placed | "many">();
+  const byToken = new Map<string, Placed | "many">();
+  for (const unit of units) {
+    const model = modelCategory(unit);
+    if (!model) continue;
+    if (!SPLIT_PROJECTS.some((project) => project.slug === unit.projectSlug)) continue;
+    const tower = placementTower(unit);
+    const placed: Placed = { model, towerId: tower.id, towerName: tower.name, code: unit.code };
+    const tokens = new Set<string>();
+    const numberToken = unitToken(unit.number);
+    const codeToken = unitToken(unit.unitCode);
+    if (numberToken) tokens.add(numberToken);
+    if (codeToken) tokens.add(codeToken);
+    for (const token of tokens) {
+      putPlaced(byToken, `${unit.projectSlug}|${token}`, placed);
+      if (unit.towerName.trim()) putPlaced(byTower, `${unit.projectSlug}|${foldTower(unit.towerName)}|${token}`, placed);
+    }
+  }
+  return { byTower, byToken };
+}
+
+function lookupPlaced(
+  index: { byTower: Map<string, Placed | "many">; byToken: Map<string, Placed | "many"> },
+  slug: string,
+  towerName: string,
+  tokens: readonly string[],
+): Placed | null {
+  for (const token of tokens) {
+    if (!token) continue;
+    const hit = index.byTower.get(`${slug}|${foldTower(towerName)}|${token}`);
+    if (hit && hit !== "many") return hit;
+  }
+  for (const token of tokens) {
+    if (!token) continue;
+    const hit = index.byToken.get(`${slug}|${token}`);
+    if (hit && hit !== "many") return hit;
+  }
+  return null;
+}
+
+function modelFromDim(slug: string, modelName: string): string {
+  const name = modelName.trim();
+  if (!name || missingName(name) || !isCanonicalUnitType(name)) return "";
+  if (slug === "boulevard-5") {
+    const letter = name.charAt(0).toUpperCase();
+    return letter === "A" || letter === "B" || letter === "C" || letter === "D" || letter === "E" ? letter : "";
+  }
+  return name;
+}
+
+type DealFact = { projectId: string; asesorId: string; unitId: string };
+
+async function readPages(
+  load: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+): Promise<{ rows: Record<string, unknown>[]; capped: boolean }> {
+  const rows: Record<string, unknown>[] = [];
+  for (let offset = 0; offset < SPLIT_READ; offset += PAGE) {
+    const { data, error } = await load(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as Record<string, unknown>[];
+    rows.push(...batch);
+    if (batch.length < PAGE) return { rows, capped: false };
+  }
+  return { rows, capped: true };
+}
+
+async function rowsByIds(
+  client: Db,
+  table: "dim_deal" | "dim_unit" | "fact_comprobante",
+  column: string,
+  ids: readonly string[],
+  select: string,
+): Promise<{ rows: Record<string, unknown>[]; capped: boolean }> {
+  const rows: Record<string, unknown>[] = [];
+  let capped = false;
+  for (let index = 0; index < ids.length; index += 80) {
+    const slice = ids.slice(index, index + 80);
+    const page = await readPages((from, to) =>
+      client.from(table).select(select).in(column, slice).order("id").range(from, to),
+    );
+    rows.push(...page.rows);
+    if (page.capped) capped = true;
+  }
+  return { rows, capped };
+}
+
+function slugOf(dims: Dims, projectId: string): string | null {
+  const project = dims.projects.find((item) => item.id === projectId);
+  return project ? slugForName(project.name) : null;
+}
+
+async function buildModeloSplit(
+  client: Db,
+  filters: VistaFilters,
+  range: DateWindow,
+  dims: Dims,
+  inventory: readonly AvailabilityUnit[],
+): Promise<ModeloSplit> {
+  const projects = splitProjects(filters, dims);
+  const projectText = projects.length === 0
+    ? "Ninguno"
+    : filters.projectIds === null
+      ? "Todos"
+      : projects.map((project) => project.label).join(", ");
+  const asesorName = filters.asesorId ? (dims.asesores.get(filters.asesorId)?.name ?? "Asesor") : "Todos";
+  const scope = `Periodo ${range.label}: ${windowLabel(range)}. Proyectos: ${projectText}. Asesor: ${asesorName}.`;
+  if (projects.length === 0) return { projects, units: [], moves: [], scope, notice: null };
+
+  const allowed = new Set(projects.map((project) => project.slug));
+  const notes: string[] = [];
+  const [roles, pcvPage, reservaPage] = await Promise.all([
+    client.from("asesor_role").select("asesor_id").eq("carries_target", false),
+    readPages((from, to) => client.from("fact_pcv_issuance").select("id,deal_id,clock_on").order("id").range(from, to)),
+    (async () => {
+      const hasAsesor = await factComprobanteHasAsesor(() => client.from("fact_comprobante").select("asesor_id").limit(1));
+      const columns = hasAsesor ? "id,deal_id,comprobante_on,asesor_id" : "id,deal_id,comprobante_on";
+      const page = await readPages((from, to) =>
+        client
+          .from("fact_comprobante")
+          .select(columns)
+          .gte("comprobante_on", range.from)
+          .lte("comprobante_on", range.to)
+          .order("id")
+          .range(from, to),
+      );
+      return { ...page, hasAsesor };
+    })(),
+  ]);
+  if (roles.error) throw new Error(roles.error.message);
+  if (pcvPage.capped) notes.push("La lectura de PCV se detuvo en 20000 filas.");
+  if (reservaPage.capped) notes.push("La lectura de reservas se detuvo en 20000 filas.");
+  const notRep = new Set(((roles.data ?? []) as unknown as { asesor_id: unknown }[]).map((row) => String(row.asesor_id)));
+
+  const pcvDealIds = [...new Set(pcvPage.rows.flatMap((row) => {
+    const id = row.deal_id == null || row.deal_id === "" ? "" : String(row.deal_id);
+    return id ? [id] : [];
+  }))];
+  const earliestPage = await rowsByIds(client, "fact_comprobante", "deal_id", pcvDealIds, "id,deal_id,comprobante_on");
+  if (earliestPage.capped) notes.push("La lectura del primer comprobante se detuvo en 20000 filas.");
+  const earliest = new Map<string, string>();
+  for (const row of earliestPage.rows) {
+    const dealId = row.deal_id == null ? "" : String(row.deal_id);
+    const day = dayOf(row.comprobante_on);
+    if (!dealId || !day) continue;
+    const known = earliest.get(dealId);
+    if (!known || day < known) earliest.set(dealId, day);
+  }
+
+  const dealIds = new Set<string>(pcvDealIds);
+  for (const row of reservaPage.rows) {
+    const id = row.deal_id == null || row.deal_id === "" ? "" : String(row.deal_id);
+    if (id) dealIds.add(id);
+  }
+  const dealPage = await rowsByIds(client, "dim_deal", "id", [...dealIds], "id,project_id,asesor_id,unit_id");
+  if (dealPage.capped) notes.push("La lectura de tratos se detuvo en 20000 filas.");
+  const deals = new Map<string, DealFact>();
+  for (const row of dealPage.rows) {
+    const id = row.id == null ? "" : String(row.id);
+    if (!id) continue;
+    deals.set(id, {
+      projectId: row.project_id == null ? "" : String(row.project_id),
+      asesorId: row.asesor_id == null ? "" : String(row.asesor_id),
+      unitId: row.unit_id == null || row.unit_id === "" ? "" : String(row.unit_id),
+    });
+  }
+  const unitIds = [...new Set([...deals.values()].flatMap((deal) => (deal.unitId ? [deal.unitId] : [])))];
+  const unitPage = await rowsByIds(
+    client,
+    "dim_unit",
+    "id",
+    unitIds,
+    "id,project_id,tower_id,model_id,canonical_unit,unit_token_2",
+  );
+  if (unitPage.capped) notes.push("La lectura de unidades de venta se detuvo en 20000 filas.");
+  const saleUnits = new Map<string, { towerId: string; modelId: string; canonical: string; token2: string }>();
+  for (const row of unitPage.rows) {
+    const id = row.id == null ? "" : String(row.id);
+    if (!id) continue;
+    saleUnits.set(id, {
+      towerId: row.tower_id == null ? "" : String(row.tower_id),
+      modelId: row.model_id == null ? "" : String(row.model_id),
+      canonical: row.canonical_unit == null ? "" : String(row.canonical_unit),
+      token2: row.unit_token_2 == null ? "" : String(row.unit_token_2),
+    });
+  }
+  const index = indexAvailability(inventory);
+
+  function locate(deal: DealFact, slug: string): { model: string; towerId: string; towerName: string; unit: string } {
+    const sale = deal.unitId ? saleUnits.get(deal.unitId) : undefined;
+    const towerName = sale ? (dims.torres.get(sale.towerId) ?? "") : "";
+    const tokens = sale ? [unitToken(sale.canonical), unitToken(sale.token2)].filter((token, index, list) => token && list.indexOf(token) === index) : [];
+    const placed = lookupPlaced(index, slug, towerName, tokens);
+    if (placed) return { model: placed.model, towerId: placed.towerId, towerName: placed.towerName, unit: placed.code || sale?.canonical || "" };
+    const namedTower = missingName(towerName) || (slug === "santa-elena" && foldTower(towerName) === "principal")
+      ? { id: "", name: "" }
+      : { id: sale?.towerId ?? "", name: towerName.trim() };
+    const model = modelFromDim(slug, sale ? (dims.models.get(sale.modelId) ?? "") : "");
+    return { model, towerId: namedTower.id, towerName: namedTower.name, unit: sale?.canonical.trim() || "" };
+  }
+
+  const moves: SplitMove[] = [];
+  for (const row of reservaPage.rows) {
+    const id = row.id == null ? "" : String(row.id);
+    const dealId = row.deal_id == null || row.deal_id === "" ? "" : String(row.deal_id);
+    const day = dayOf(row.comprobante_on);
+    if (!id || !dealId || !inPeriod(day, range)) continue;
+    const deal = deals.get(dealId);
+    if (!deal) continue;
+    const activityAsesor = reservaPage.hasAsesor && typeof row.asesor_id === "string" && row.asesor_id !== "" ? row.asesor_id : null;
+    const asesorId = creditedAsesor(deal.asesorId, activityAsesor, notRep);
+    if (asesorId === null) continue;
+    if (filters.asesorId && asesorId !== filters.asesorId) continue;
+    const slug = slugOf(dims, deal.projectId);
+    if (!slug || !allowed.has(slug)) continue;
+    const place = locate(deal, slug);
+    moves.push({ kind: "reserva", projectSlug: slug, towerId: place.towerId, towerName: place.towerName, model: place.model, unit: place.unit, day, id });
+  }
+  for (const row of pcvPage.rows) {
+    const id = row.id == null ? "" : String(row.id);
+    const dealId = row.deal_id == null || row.deal_id === "" ? "" : String(row.deal_id);
+    if (!id || !dealId) continue;
+    const reservaOn = earliest.get(dealId);
+    const clock = dayOf(row.clock_on);
+    if (!reservaOn || !clock) continue;
+    const day = clock > reservaOn ? clock : reservaOn;
+    if (!inPeriod(day, range)) continue;
+    const deal = deals.get(dealId);
+    if (!deal) continue;
+    const asesorId = creditedAsesor(deal.asesorId, null, notRep);
+    if (filters.asesorId && asesorId !== filters.asesorId) continue;
+    const slug = slugOf(dims, deal.projectId);
+    if (!slug || !allowed.has(slug)) continue;
+    const place = locate(deal, slug);
+    moves.push({ kind: "pcv", projectSlug: slug, towerId: place.towerId, towerName: place.towerName, model: place.model, unit: place.unit, day, id });
+  }
+
+  const units: SplitUnit[] = [];
+  for (const unit of inventory) {
+    if (!allowed.has(unit.projectSlug)) continue;
+    const model = modelCategory(unit);
+    const status = availabilityStatus(unit.status);
+    if (!model || !status) continue;
+    const tower = placementTower(unit);
+    units.push({
+      projectSlug: unit.projectSlug,
+      towerId: tower.id,
+      towerName: tower.name,
+      model,
+      code: unit.code,
+      status: status satisfies SplitStatus,
+    });
+  }
+
+  return { projects, units, moves, scope, notice: notes.length > 0 ? notes.join(" ") : null };
 }
 
 function buildGeneral(
