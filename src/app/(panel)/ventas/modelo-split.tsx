@@ -424,7 +424,19 @@ function ModelRow({
   const total = units.length;
   return (
     <div className={styles.splitModel} role="group" aria-label={where}>
-      <div className={compact ? styles.splitModelNameStrip : styles.splitModelName}>{model}</div>
+      <button
+        type="button"
+        className={compact ? styles.splitModelNameStrip : styles.splitModelName}
+        onClick={() => onTip({
+          key: `${where}:${mark}:modelo`,
+          title: model,
+          formula: `${share(total, parent)} peso · ${share(pcv.length, total)} vendido · ${count(disponible.length)} disponible`,
+          source: PESO_SOURCE,
+          rows: units.map(unitLine),
+        })}
+      >
+        {model}
+      </button>
       <div className={styles.splitSales}>
         <SaleBar
           dashed={false}
@@ -453,52 +465,6 @@ function ModelRow({
           })}
         />
       </div>
-      <div className={styles.splitMetaLine}>
-        <Hit
-          className={styles.splitMetaHit}
-          label={`${where}. peso ${share(total, parent)}`}
-          onClick={() => onTip({
-            key: `${where}:${mark}:peso`,
-            title: `peso ${share(total, parent)}`,
-            formula: `${count(total)} / ${count(parent)} unidades.`,
-            source: PESO_SOURCE,
-            rows: units.map(unitLine),
-          })}
-        >
-          {share(total, parent)}
-        </Hit>
-        <span className={styles.splitMetaDot} aria-hidden="true">·</span>
-        <Hit
-          className={styles.splitMetaHit}
-          label={`${where}. % vendido ${share(pcv.length, total)}`}
-          onClick={() => onTip({
-            key: `${where}:${mark}:vendido`,
-            title: `% vendido ${share(pcv.length, total)}`,
-            formula: `${count(pcv.length)} PCV / ${count(total)} unidades.`,
-            source: VENDIDO_SOURCE,
-            rows: [
-              ...pcv.map((move) => `PCV · ${moveLine(vista, move)}`),
-              ...units.map((unit) => `Unidad · ${unitLine(unit)}`),
-            ],
-          })}
-        >
-          {share(pcv.length, total)}
-        </Hit>
-        <span className={styles.splitMetaDot} aria-hidden="true">·</span>
-        <Hit
-          className={styles.splitMetaHit}
-          label={`${where}. disponible ${count(disponible.length)}`}
-          onClick={() => onTip({
-            key: `${where}:${mark}:disponible`,
-            title: `Disponible ${count(disponible.length)}`,
-            formula: "Unidades en Disponible.",
-            source: INVENTORY_SOURCE,
-            rows: disponible.map(unitLine),
-          })}
-        >
-          {count(disponible.length)}
-        </Hit>
-      </div>
     </div>
   );
 }
@@ -516,7 +482,7 @@ function SaleBar({
   label: string;
   onClick: () => void;
 }) {
-  const width = value > 0 && peak > 0 ? Math.max(8, Math.round((value / peak) * 100)) : 0;
+  const width = value > 0 && peak > 0 ? Math.round((value / peak) * 100) : 0;
   const shown = count(value);
   return (
     <div className={styles.splitSalePlot}>
