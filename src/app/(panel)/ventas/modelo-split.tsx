@@ -21,9 +21,6 @@ const PCV_SOURCE = "Promesa emitida cuya fecha cae en el periodo. La fecha es la
 const VENDIDO_SOURCE = "PCV del periodo dividido entre las unidades del inventario actual.";
 const PESO_SOURCE = "Unidades del modelo divididas entre las unidades de este grupo.";
 
-const SALE = 80;
-const MIN_SALE = 20;
-
 function count(value: number): string {
   return countFormat.format(value);
 }
@@ -519,18 +516,20 @@ function SaleBar({
   label: string;
   onClick: () => void;
 }) {
-  const track = SALE;
-  const height = value > 0 && peak > 0 ? MIN_SALE + Math.round((value / peak) * (track - MIN_SALE)) : MIN_SALE;
+  const width = value > 0 && peak > 0 ? Math.max(8, Math.round((value / peak) * 100)) : 0;
   const shown = count(value);
   return (
     <div className={styles.splitSalePlot}>
-      <button
-        type="button"
-        className={dashed ? styles.splitSalePcv : styles.splitSaleReserva}
-        style={{ height, color: dashed ? "#0d2041" : "#fff" }}
-        aria-label={label}
-        onClick={onClick}
-      >
+      <span className={styles.splitSaleTrack}>
+        <button
+          type="button"
+          className={dashed ? styles.splitSalePcv : styles.splitSaleReserva}
+          style={{ width: `${width}%`, color: dashed ? "#0d2041" : "#fff" }}
+          aria-label={label}
+          onClick={onClick}
+        />
+      </span>
+      <button type="button" className={styles.splitSaleNum} aria-label={label} onClick={onClick}>
         {shown}
       </button>
     </div>

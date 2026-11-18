@@ -846,8 +846,8 @@ button.col { cursor: pointer; }
 
 .splitSales {
   display: flex;
-  flex-direction: row;
-  align-items: flex-end;
+  flex-direction: column;
+  justify-content: stretch;
   gap: 2px;
   width: 100%;
   height: 80px;
@@ -855,10 +855,19 @@ button.col { cursor: pointer; }
 }
 
 .splitSalePlot {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+}
+
+.splitSaleTrack {
   position: relative;
   flex: 1 1 0;
-  width: 0;
-  height: 80px;
   min-width: 0;
 }
 
@@ -867,20 +876,30 @@ button.col { cursor: pointer; }
 .splitSaleZero {
   position: absolute;
   left: 0;
-  right: 0;
+  top: 0;
   bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   margin: 0;
   padding: 0;
   border: 0;
   cursor: pointer;
   overflow: hidden;
+}
+
+.splitSaleNum {
+  flex: 0 0 18px;
+  width: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: #0d2041;
   font-size: clamp(7px, calc(100cqi / var(--split-slots) / 3.2), 10px);
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .splitSaleReserva {
