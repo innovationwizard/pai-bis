@@ -187,6 +187,10 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
   const towerActive = towers.find((choice) => choice.id === tower) ?? null;
   const models = modelChoices(vista, towerActive);
   const modeloActive = models.includes(modelo) ? modelo : "";
+  const slotCount = Math.max(
+    1,
+    ...vista.split.projects.map((project) => modelsOf(project.slug, vista.split.units, vista.split.moves, modeloActive).length),
+  );
   const scopeText = `${vista.split.scope} Torre: ${towerActive?.label ?? "Todas"}. Modelo: ${modeloActive || "Todos"}.`;
   const shownUnits = vista.split.units.filter((unit) => (!towerActive || unit.towerId === towerActive.id) && (!modeloActive || unit.model === modeloActive));
   const shownMoves = vista.split.moves.filter((move) => (!towerActive || move.towerId === towerActive.id) && (!modeloActive || move.model === modeloActive));
@@ -258,7 +262,7 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
           PCV
         </li>
       </ul>
-      <div className={styles.splitStage}>
+      <div className={styles.splitStage} style={{ ["--split-slots" as string]: String(slotCount) }}>
         <div className={styles.splitHero}>
           <button
             type="button"
