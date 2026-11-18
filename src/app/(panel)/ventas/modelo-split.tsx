@@ -1,18 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UNIT_STATUS_COLORS } from "@/lib/reservas/constants";
-import type { AnalisisVista, SplitMove, SplitStatus, SplitUnit } from "@/lib/ventas/vista-types";
+import type { AnalisisVista, SplitMove, SplitUnit } from "@/lib/ventas/vista-types";
 import styles from "./lower-bands.module.css";
 
 const RESERVA = "#0d2041";
-
-const STATUS: { key: SplitStatus; label: string; color: string; ink: string }[] = [
-  { key: "disponible", label: "Disponible", color: UNIT_STATUS_COLORS.AVAILABLE, ink: "#15803d" },
-  { key: "reservado", label: "Reservado", color: UNIT_STATUS_COLORS.RESERVED, ink: UNIT_STATUS_COLORS.RESERVED },
-  { key: "congelado", label: "Congelado", color: UNIT_STATUS_COLORS.FROZEN, ink: UNIT_STATUS_COLORS.FROZEN },
-  { key: "vendido", label: "Vendido", color: UNIT_STATUS_COLORS.SOLD, ink: UNIT_STATUS_COLORS.SOLD },
-];
 
 const SANTA_ELENA = ["491.91 m²", "581 m²"];
 
@@ -29,26 +21,11 @@ const PCV_SOURCE = "Promesa emitida cuya fecha cae en el periodo. La fecha es la
 const VENDIDO_SOURCE = "PCV del periodo dividido entre las unidades del inventario actual.";
 const PESO_SOURCE = "Unidades del modelo divididas entre las unidades de este grupo.";
 
-const PLOT = 40;
 const SALE = 80;
 const MIN_SALE = 20;
-const MIN_SEG = 10;
 
 function count(value: number): string {
   return countFormat.format(value);
-}
-
-function segmentHeights(values: readonly number[]): number[] {
-  const count = Math.max(values.length, 1);
-  const floor = Math.min(MIN_SEG, PLOT / count);
-  const sum = values.reduce((total, value) => total + value, 0);
-  if (sum <= 0) return values.map(() => PLOT / count);
-  const flex = PLOT - floor * count;
-  return values.map((value) => floor + (value / sum) * flex);
-}
-
-function segInk(color: string): string {
-  return color === UNIT_STATUS_COLORS.AVAILABLE ? "#0d2041" : "#fff";
 }
 
 function share(part: number, whole: number): string {
@@ -236,12 +213,6 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
         </label>
       </div>
       <ul className={styles.legend}>
-        {STATUS.map((item) => (
-          <li key={item.key}>
-            <span className={styles.swatch} style={{ background: item.color }} aria-hidden="true" />
-            {item.label}
-          </li>
-        ))}
         <li>
           <span className={styles.swatch} style={{ background: RESERVA }} aria-hidden="true" />
           Reservas
@@ -452,14 +423,8 @@ function ModelRow({
 }) {
   const where = `${projectLabel(vista, slug)} · ${model}`;
   const mark = scopeKey(scope);
-  const counts = {
-    disponible: units.filter((unit) => unit.status === "disponible"),
-    reservado: units.filter((unit) => unit.status === "reservado"),
-    congelado: units.filter((unit) => unit.status === "congelado"),
-    vendido: units.filter((unit) => unit.status === "vendido"),
-  };
+  const disponible = units.filter((unit) => unit.status === "disponible");
   const total = units.length;
-  const heights = segmentHeights(STATUS.map((item) => counts[item.key].length));
   return (
     <div className={styles.splitModel} role="group" aria-label={where}>
       <div className={compact ? styles.splitModelNameStrip : styles.splitModelName}>{model}</div>
@@ -490,30 +455,6 @@ function ModelRow({
             rows: pcv.map((move) => moveLine(vista, move)),
           })}
         />
-      </div>
-      <div className={styles.splitPlot}>
-        {STATUS.map((item, index) => {
-          const list = counts[item.key];
-          const value = list.length;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              className={styles.splitSeg}
-              style={{ height: heights[index], background: item.color, color: segInk(item.color) }}
-              aria-label={`${where}. ${item.label} ${count(value)}`}
-              onClick={() => onTip({
-                key: `${where}:${mark}:${item.key}`,
-                title: `${item.label} ${count(value)}`,
-                formula: `Unidades en ${item.label}.`,
-                source: INVENTORY_SOURCE,
-                rows: list.map(unitLine),
-              })}
-            >
-              {count(value)}
-            </button>
-          );
-        })}
       </div>
       <div className={styles.splitMetaLine}>
         <Hit
@@ -549,16 +490,16 @@ function ModelRow({
         <span className={styles.splitMetaDot} aria-hidden="true">·</span>
         <Hit
           className={styles.splitMetaHit}
-          label={`${where}. disponible ${count(counts.disponible.length)}`}
+          label={`${where}. disponible ${count(disponible.length)}`}
           onClick={() => onTip({
             key: `${where}:${mark}:disponible`,
-            title: `Disponible ${count(counts.disponible.length)}`,
+            title: `Disponible ${count(disponible.length)}`,
             formula: "Unidades en Disponible.",
             source: INVENTORY_SOURCE,
-            rows: counts.disponible.map(unitLine),
+            rows: disponible.map(unitLine),
           })}
         >
-          {count(counts.disponible.length)}
+          {count(disponible.length)}
         </Hit>
       </div>
     </div>
