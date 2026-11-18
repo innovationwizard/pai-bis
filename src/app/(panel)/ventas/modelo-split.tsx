@@ -6,7 +6,6 @@ import type { AnalisisVista, SplitMove, SplitStatus, SplitUnit } from "@/lib/ven
 import styles from "./lower-bands.module.css";
 
 const RESERVA = "#0d2041";
-const PCV = "#0573b0";
 
 const STATUS: { key: SplitStatus; label: string; color: string; ink: string }[] = [
   { key: "disponible", label: "Disponible", color: UNIT_STATUS_COLORS.AVAILABLE, ink: "#15803d" },
@@ -31,7 +30,8 @@ const VENDIDO_SOURCE = "PCV del periodo dividido entre las unidades del inventar
 const PESO_SOURCE = "Unidades del modelo divididas entre las unidades de este grupo.";
 
 const PLOT = 80;
-const SALE = 40;
+const SALE = 60;
+const MIN_SALE = 20;
 const MIN_SEG = 14;
 
 function count(value: number): string {
@@ -379,7 +379,7 @@ function ProjectCard({
       {scope.kind === "all" && towers.length > 1 ? towers.map((tower) => (
         <section key={tower.id} className={styles.splitTower} aria-label={tower.name}>
           <h4>{tower.name}</h4>
-          <ModelGraphics vista={vista} slug={slug} models={models} scope={{ kind: "one", id: tower.id }} onTip={onTip} />
+          <ModelGraphics vista={vista} slug={slug} models={models} scope={{ kind: "one", id: tower.id }} compact onTip={onTip} />
         </section>
       )) : null}
     </article>
@@ -391,12 +391,14 @@ function ModelGraphics({
   slug,
   models,
   scope,
+  compact = false,
   onTip,
 }: {
   vista: AnalisisVista;
   slug: string;
   models: readonly string[];
   scope: Scope;
+  compact?: boolean;
   onTip: (tip: Tip) => void;
 }) {
   const parent = vista.split.units.filter((unit) => unit.projectSlug === slug && inScope(unit.towerId, scope));
@@ -409,7 +411,7 @@ function ModelGraphics({
     return { model, units, reserva, pcv };
   });
   return (
-    <div className={styles.splitModels}>
+    <div className={compact ? `${styles.splitModels} ${styles.splitModelsStrip}` : styles.splitModels}>
       {rows.map((row) => (
         <ModelRow
           key={`${slug}:${scopeKey(scope)}:${row.model}`}
@@ -422,6 +424,7 @@ function ModelGraphics({
           reserva={row.reserva}
           pcv={row.pcv}
           salePeak={salePeak}
+          compact={compact}
           onTip={onTip}
         />
       ))}
@@ -439,6 +442,7 @@ function ModelRow({
   reserva,
   pcv,
   salePeak,
+  compact = false,
   onTip,
 }: {
   vista: AnalisisVista;
@@ -450,6 +454,7 @@ function ModelRow({
   reserva: readonly SplitMove[];
   pcv: readonly SplitMove[];
   salePeak: number;
+  compact?: boolean;
   onTip: (tip: Tip) => void;
 }) {
   const where = `${projectLabel(vista, slug)} · ${model}`;
@@ -464,7 +469,7 @@ function ModelRow({
   const heights = segmentHeights(STATUS.map((item) => counts[item.key].length));
   return (
     <div className={styles.splitModel} role="group" aria-label={where}>
-      <div className={styles.splitModelName}>{model}</div>
+      <div className={compact ? styles.splitModelNameStrip : styles.splitModelName}>{model}</div>
       <div className={styles.splitPlot}>
         {STATUS.map((item, index) => {
           const list = counts[item.key];
@@ -531,7 +536,7 @@ function ModelRow({
         >
           {share(total, parent)}
         </Hit>
-        <span aria-hidden="true">·</span>
+        <span className={styles.splitMetaDot} aria-hidden="true">·</span>
         <Hit
           className={styles.splitMetaHit}
           label={`${where}. % vendido ${share(pcv.length, total)}`}
@@ -548,7 +553,7 @@ function ModelRow({
         >
           {share(pcv.length, total)}
         </Hit>
-        <span aria-hidden="true">·</span>
+        <span className={styles.splitMetaDot} aria-hidden="true">·</span>
         <Hit
           className={styles.splitMetaHit}
           label={`${where}. disponible ${count(counts.disponible.length)}`}
@@ -580,14 +585,15 @@ function SaleBar({
   label: string;
   onClick: () => void;
 }) {
-  const height = value > 0 && peak > 0 ? Math.max(16, Math.round((value / peak) * SALE)) : 0;
+  const track = SALE / 2;
+  const height = value > 0 && peak > 0 ? MIN_SALE + Math.round((value / peak) * (track - MIN_SALE)) : MIN_SALE;
   const shown = count(value);
   return (
     <div className={styles.splitSalePlot}>
       <button
         type="button"
-        className={height > 0 ? (dashed ? styles.splitSalePcv : styles.splitSaleReserva) : styles.splitSaleZero}
-        style={height > 0 ? { height, color: dashed ? "#0d2041" : "#fff" } : { color: dashed ? PCV : RESERVA }}
+        className={dashed ? styles.splitSalePcv : styles.splitSaleReserva}
+        style={{ height, color: dashed ? "#0d2041" : "#fff" }}
         aria-label={label}
         onClick={onClick}
       >
