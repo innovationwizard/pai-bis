@@ -21,6 +21,9 @@ const PCV_SOURCE = "Promesa emitida cuya fecha cae en el periodo. La fecha es la
 const VENDIDO_SOURCE = "PCV del periodo dividido entre las unidades del inventario actual.";
 const PESO_SOURCE = "Unidades del modelo divididas entre las unidades de este grupo.";
 
+const SALE = 80;
+const MIN_SALE = 20;
+
 function count(value: number): string {
   return countFormat.format(value);
 }
@@ -424,19 +427,7 @@ function ModelRow({
   const total = units.length;
   return (
     <div className={styles.splitModel} role="group" aria-label={where}>
-      <button
-        type="button"
-        className={compact ? styles.splitModelNameStrip : styles.splitModelName}
-        onClick={() => onTip({
-          key: `${where}:${mark}:modelo`,
-          title: model,
-          formula: `${share(total, parent)} peso · ${share(pcv.length, total)} vendido · ${count(disponible.length)} disponible`,
-          source: PESO_SOURCE,
-          rows: units.map(unitLine),
-        })}
-      >
-        {model}
-      </button>
+      <div className={compact ? styles.splitModelNameStrip : styles.splitModelName}>{model}</div>
       <div className={styles.splitSales}>
         <SaleBar
           dashed={false}
@@ -465,6 +456,52 @@ function ModelRow({
           })}
         />
       </div>
+      <div className={styles.splitMetaLine}>
+        <Hit
+          className={styles.splitMetaHit}
+          label={`${where}. peso ${share(total, parent)}`}
+          onClick={() => onTip({
+            key: `${where}:${mark}:peso`,
+            title: `peso ${share(total, parent)}`,
+            formula: `${count(total)} / ${count(parent)} unidades.`,
+            source: PESO_SOURCE,
+            rows: units.map(unitLine),
+          })}
+        >
+          {share(total, parent)}
+        </Hit>
+        <span className={styles.splitMetaDot} aria-hidden="true">·</span>
+        <Hit
+          className={styles.splitMetaHit}
+          label={`${where}. % vendido ${share(pcv.length, total)}`}
+          onClick={() => onTip({
+            key: `${where}:${mark}:vendido`,
+            title: `% vendido ${share(pcv.length, total)}`,
+            formula: `${count(pcv.length)} PCV / ${count(total)} unidades.`,
+            source: VENDIDO_SOURCE,
+            rows: [
+              ...pcv.map((move) => `PCV · ${moveLine(vista, move)}`),
+              ...units.map((unit) => `Unidad · ${unitLine(unit)}`),
+            ],
+          })}
+        >
+          {share(pcv.length, total)}
+        </Hit>
+        <span className={styles.splitMetaDot} aria-hidden="true">·</span>
+        <Hit
+          className={styles.splitMetaHit}
+          label={`${where}. disponible ${count(disponible.length)}`}
+          onClick={() => onTip({
+            key: `${where}:${mark}:disponible`,
+            title: `Disponible ${count(disponible.length)}`,
+            formula: "Unidades en Disponible.",
+            source: INVENTORY_SOURCE,
+            rows: disponible.map(unitLine),
+          })}
+        >
+          {count(disponible.length)}
+        </Hit>
+      </div>
     </div>
   );
 }
@@ -482,20 +519,18 @@ function SaleBar({
   label: string;
   onClick: () => void;
 }) {
-  const width = value > 0 && peak > 0 ? Math.round((value / peak) * 100) : 0;
+  const track = SALE;
+  const height = value > 0 && peak > 0 ? MIN_SALE + Math.round((value / peak) * (track - MIN_SALE)) : MIN_SALE;
   const shown = count(value);
   return (
     <div className={styles.splitSalePlot}>
-      <span className={styles.splitSaleTrack}>
-        <button
-          type="button"
-          className={dashed ? styles.splitSalePcv : styles.splitSaleReserva}
-          style={{ width: `${width}%`, color: dashed ? "#0d2041" : "#fff" }}
-          aria-label={label}
-          onClick={onClick}
-        />
-      </span>
-      <button type="button" className={styles.splitSaleNum} aria-label={label} onClick={onClick}>
+      <button
+        type="button"
+        className={dashed ? styles.splitSalePcv : styles.splitSaleReserva}
+        style={{ height, color: dashed ? "#0d2041" : "#fff" }}
+        aria-label={label}
+        onClick={onClick}
+      >
         {shown}
       </button>
     </div>

@@ -757,7 +757,7 @@ button.col { cursor: pointer; }
   min-width: 0;
   max-width: 100%;
   padding: 4px;
-  overflow: visible;
+  overflow: hidden;
   border: 1px solid rgba(13, 32, 65, 0.12);
   border-radius: 8px;
 }
@@ -775,12 +775,12 @@ button.col { cursor: pointer; }
 
 .splitModels {
   display: flex;
-  flex-direction: column;
   flex-wrap: nowrap;
-  align-items: stretch;
-  gap: 8px;
+  align-items: flex-end;
+  gap: 2px;
   width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .splitModelsStrip {
@@ -788,37 +788,34 @@ button.col { cursor: pointer; }
 }
 
 .splitModel {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
+  flex: 1 1 0;
+  width: 0;
   min-width: 0;
   max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
 }
 
 .splitModelName,
 .splitModelNameStrip {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
   color: #0d2041;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 16px;
-  text-align: left;
-  white-space: normal;
-  overflow: visible;
-  overflow-wrap: anywhere;
+  line-height: 14px;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.splitModelName,
+.splitModelName {
+  height: 28px;
+}
+
 .splitModelNameStrip {
-  height: auto;
+  height: 14px;
 }
 
 .splitPlot {
@@ -849,32 +846,20 @@ button.col { cursor: pointer; }
 
 .splitSales {
   display: flex;
-  flex: 1 1 148px;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  width: auto;
-  min-width: 148px;
-  height: auto;
-  min-height: 0;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 2px;
+  width: 100%;
+  height: 80px;
+  min-height: 80px;
 }
 
 .splitSalePlot {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 2px;
-  width: 100%;
-  height: 16px;
-  min-height: 16px;
-  min-width: 0;
-}
-
-.splitSaleTrack {
   position: relative;
-  flex: 1 1 120px;
-  height: 14px;
-  min-width: 120px;
+  flex: 1 1 0;
+  width: 0;
+  height: 80px;
+  min-width: 0;
 }
 
 .splitSaleReserva,
@@ -882,31 +867,20 @@ button.col { cursor: pointer; }
 .splitSaleZero {
   position: absolute;
   left: 0;
-  top: 0;
-  height: 14px;
-  max-width: 100%;
-  display: block;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0;
   padding: 0;
   border: 0;
   cursor: pointer;
   overflow: hidden;
-}
-
-.splitSaleNum {
-  flex: 0 0 auto;
-  min-width: 1.1em;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  color: #0d2041;
   font-size: clamp(7px, calc(100cqi / var(--split-slots) / 3.2), 10px);
   font-weight: 700;
-  line-height: 14px;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
-  text-align: left;
 }
 
 .splitSaleReserva {
