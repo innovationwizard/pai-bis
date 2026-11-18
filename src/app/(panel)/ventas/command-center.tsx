@@ -26,7 +26,7 @@ import { ProjectPillRow } from "@/components/project-pill-row";
 import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
 import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
 import { StatusLifetime } from "./status-bands";
-import { ControlesGrid, DesistimientosBands, InventarioBands, ModeloBand, ReferidosBand, TasaBand, ValorBand } from "./lower-bands";
+import { ControlesGrid, DesistimientosBands, ModeloBand, ReferidosBand, TasaBand, ValorBand } from "./lower-bands";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
@@ -483,17 +483,6 @@ export default function CommandCenter() {
       <TasaBand
         vista={tasa}
         pending={<StatusLine section="tasa-de-conversion" errors={errors} busy={busy} />}
-      />
-      <hr className="op-filter-rule vc-band-rule" />
-
-      <InventarioBands
-        vista={inventario}
-        pending={<StatusLine section="inventario-general" errors={errors} busy={busy} />}
-        roster={roster}
-        projectName={projectName}
-        asesorNote={bar.asesor ? "El inventario no se parte por asesor." : null}
-        onProject={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
-        onTower={(projectId, tower, label) => toggleFocus({ kind: "torre", projectId, tower, label })}
       />
       <hr className="op-filter-rule vc-band-rule" />
 

@@ -788,37 +788,12 @@ export function InventarioBands({
       </section>
     );
   }
-  const projects = orderedProjects(roster, vista.byProject).map((item) => {
-    const row = item.row;
-    const id = item.id;
-    return {
-      key: id || item.label,
-      id,
-      label: item.label,
-      segments: stockSegments({
-        vendido: row?.vendido ?? 0,
-        reservado: row?.reservado ?? 0,
-        congelado: row?.congelado ?? 0,
-        disponible: row?.disponible ?? 0,
-      }),
-      onOpen: id ? () => onProject(id, item.label) : undefined,
-    } satisfies StackRow;
-  });
-  const towers = towerGroups(vista, roster, projectName, onTower, onProject);
-  return (
-    <div className={styles.pair}>
-      <section className={styles.band} aria-labelledby="vt-inventario-todos-title">
-        <h2 id="vt-inventario-todos-title" className={styles.title}>Inventario de todos los proyectos</h2>
-        {/* {vista.notice && !vista.notice.includes("otro estado") ? <p className="op-note">{vista.notice}</p> : null} */}
-        {/* {asesorNote ? <p className="op-note">{asesorNote}</p> : null} */}
-        {projects.length === 0 ? emptyNote(null) : <StackChart groups={[{ key: "proyectos", label: null, rows: projects }]} weight="project" />}
-      </section>
-      <section className={styles.band} aria-labelledby="vt-inventario-por-proyecto-title">
-        <h2 id="vt-inventario-por-proyecto-title" className={styles.title}>Inventario por proyecto</h2>
-        {towers.length === 0 ? emptyNote(null) : <SmallMultiples groups={towers} fit />}
-      </section>
-    </div>
-  );
+  void roster;
+  void projectName;
+  void onProject;
+  void onTower;
+  void vista;
+  return null;
 }
 
 function isMissingLabel(label: string): boolean {

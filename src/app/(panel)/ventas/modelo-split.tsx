@@ -30,8 +30,36 @@ const PCV_SOURCE = "Promesa emitida cuya fecha cae en el periodo. La fecha es la
 const VENDIDO_SOURCE = "PCV del periodo dividido entre las unidades del inventario actual.";
 const PESO_SOURCE = "Unidades del modelo divididas entre las unidades de este grupo.";
 
+const PLOT = 80;
+const SALE = 40;
+const MIN_SEG = 14;
+
 function count(value: number): string {
   return countFormat.format(value);
+}
+
+function segmentHeights(values: readonly number[]): number[] {
+  const sum = values.reduce((total, value) => total + value, 0);
+  if (sum <= 0) return values.map(() => PLOT / Math.max(values.length, 1));
+  let heights = values.map((value) => (value / sum) * PLOT);
+  for (let pass = 0; pass < values.length; pass += 1) {
+    let deficit = 0;
+    let donor = 0;
+    for (const height of heights) {
+      if (height < MIN_SEG) deficit += MIN_SEG - height;
+      else donor += height - MIN_SEG;
+    }
+    if (deficit <= 0 || donor <= 0) break;
+    heights = heights.map((height) => {
+      if (height < MIN_SEG) return MIN_SEG;
+      return height - deficit * ((height - MIN_SEG) / donor);
+    });
+  }
+  return heights;
+}
+
+function segInk(color: string): string {
+  return color === UNIT_STATUS_COLORS.AVAILABLE ? "#0d2041" : "#fff";
 }
 
 function share(part: number, whole: number): string {
@@ -214,66 +242,97 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
           </select>
         </label>
       </div>
-      <div className={styles.splitHero}>
-        <button
-          type="button"
-          className={styles.splitFigure}
-          onClick={() => open({
-            key: "unidades",
-            title: `Unidades ${count(shownUnits.length)}`,
-            formula: "Suma del inventario actual en el filtro.",
-            source: INVENTORY_SOURCE,
-            rows: shownUnits.map(unitLine),
-          })}
-        >
-          <strong>{count(shownUnits.length)}</strong>
-          <span>Unidades</span>
-        </button>
-        <button
-          type="button"
-          className={styles.splitFigure}
-          onClick={() => open({
-            key: "reservas",
-            title: `Reservas ${count(reservas.length)}`,
-            formula: "Actividades Reserva del periodo en el filtro.",
-            source: RESERVA_SOURCE,
-            rows: reservas.map((move) => moveLine(vista, move)),
-          })}
-        >
-          <strong>{count(reservas.length)}</strong>
-          <span>Reservas</span>
-        </button>
-        <button
-          type="button"
-          className={styles.splitFigure}
-          onClick={() => open({
-            key: "pcv",
-            title: `PCV ${count(pcvs.length)}`,
-            formula: "PCV del periodo en el filtro.",
-            source: PCV_SOURCE,
-            rows: pcvs.map((move) => moveLine(vista, move)),
-          })}
-        >
-          <strong>{count(pcvs.length)}</strong>
-          <span>PCV</span>
-        </button>
-        <button
-          type="button"
-          className={styles.splitFigure}
-          onClick={() => open({
-            key: "vendido",
-            title: `% vendido ${share(pcvs.length, shownUnits.length)}`,
-            formula: `${count(pcvs.length)} PCV / ${count(shownUnits.length)} unidades.`,
-            source: VENDIDO_SOURCE,
-            rows: [
-              ...pcvs.map((move) => `PCV · ${moveLine(vista, move)}`),
-              ...shownUnits.map((unit) => `Unidad · ${unitLine(unit)}`),
-            ],
-          })}
-        >
-          <strong>{share(pcvs.length, shownUnits.length)}</strong>
-          <span>% vendido</span>
-        </button>
+      <ul className={styles.legend}>
+        {STATUS.map((item) => (
+          <li key={item.key}>
+            <span className={styles.swatch} style={{ background: item.color }} aria-hidden="true" />
+            {item.label}
+          </li>
+        ))}
+        <li>
+          <span className={styles.swatch} style={{ background: RESERVA }} aria-hidden="true" />
+          Reservas
+        </li>
+        <li>
+          <span className={`${styles.swatch} ${styles.splitSwatchPcv}`} aria-hidden="true" />
+          PCV
+        </li>
+      </ul>
+      <div className={styles.splitStage}>
+        <div className={styles.splitHero}>
+          <button
+            type="button"
+            className={styles.splitFigure}
+            onClick={() => open({
+              key: "unidades",
+              title: `Unidades ${count(shownUnits.length)}`,
+              formula: "Suma del inventario actual en el filtro.",
+              source: INVENTORY_SOURCE,
+              rows: shownUnits.map(unitLine),
+            })}
+          >
+            <strong>{count(shownUnits.length)}</strong>
+            <span>Unidades</span>
+          </button>
+          <button
+            type="button"
+            className={styles.splitFigure}
+            onClick={() => open({
+              key: "reservas",
+              title: `Reservas ${count(reservas.length)}`,
+              formula: "Actividades Reserva del periodo en el filtro.",
+              source: RESERVA_SOURCE,
+              rows: reservas.map((move) => moveLine(vista, move)),
+            })}
+          >
+            <strong>{count(reservas.length)}</strong>
+            <span>Reservas</span>
+          </button>
+          <button
+            type="button"
+            className={styles.splitFigure}
+            onClick={() => open({
+              key: "pcv",
+              title: `PCV ${count(pcvs.length)}`,
+              formula: "PCV del periodo en el filtro.",
+              source: PCV_SOURCE,
+              rows: pcvs.map((move) => moveLine(vista, move)),
+            })}
+          >
+            <strong>{count(pcvs.length)}</strong>
+            <span>PCV</span>
+          </button>
+          <button
+            type="button"
+            className={styles.splitFigure}
+            onClick={() => open({
+              key: "vendido",
+              title: `% vendido ${share(pcvs.length, shownUnits.length)}`,
+              formula: `${count(pcvs.length)} PCV / ${count(shownUnits.length)} unidades.`,
+              source: VENDIDO_SOURCE,
+              rows: [
+                ...pcvs.map((move) => `PCV · ${moveLine(vista, move)}`),
+                ...shownUnits.map((unit) => `Unidad · ${unitLine(unit)}`),
+              ],
+            })}
+          >
+            <strong>{share(pcvs.length, shownUnits.length)}</strong>
+            <span>% vendido</span>
+          </button>
+        </div>
+        <div className={styles.splitCards}>
+          {vista.split.projects.map((project) => (
+            <ProjectCard
+              key={project.slug}
+              vista={vista}
+              slug={project.slug}
+              label={project.label}
+              focusedModel={modeloActive}
+              scope={cardScope(towerActive, project.slug)}
+              onTip={open}
+            />
+          ))}
+        </div>
       </div>
       {tip ? (
         <div className={styles.splitTip} role="dialog" aria-label={tip.title}>
@@ -292,35 +351,6 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
           </ul>
         </div>
       ) : null}
-      <ul className={styles.legend}>
-        {STATUS.map((item) => (
-          <li key={item.key}>
-            <span className={styles.swatch} style={{ background: item.color }} aria-hidden="true" />
-            {item.label}
-          </li>
-        ))}
-        <li>
-          <span className={styles.swatch} style={{ background: RESERVA }} aria-hidden="true" />
-          Reservas
-        </li>
-        <li>
-          <span className={`${styles.swatch} ${styles.splitSwatchPcv}`} aria-hidden="true" />
-          PCV
-        </li>
-      </ul>
-      <div className={styles.splitCards}>
-        {vista.split.projects.map((project) => (
-          <ProjectCard
-            key={project.slug}
-            vista={vista}
-            slug={project.slug}
-            label={project.label}
-            focusedModel={modeloActive}
-            scope={cardScope(towerActive, project.slug)}
-            onTip={open}
-          />
-        ))}
-      </div>
     </>
   );
 }
@@ -370,13 +400,11 @@ function ModelGraphics({
   onTip: (tip: Tip) => void;
 }) {
   const parent = vista.split.units.filter((unit) => unit.projectSlug === slug && inScope(unit.towerId, scope));
-  let unitPeak = 1;
   let salePeak = 1;
   const rows = models.map((model) => {
     const units = parent.filter((unit) => unit.model === model);
     const reserva = vista.split.moves.filter((move) => move.kind === "reserva" && move.projectSlug === slug && move.model === model && inScope(move.towerId, scope));
     const pcv = vista.split.moves.filter((move) => move.kind === "pcv" && move.projectSlug === slug && move.model === model && inScope(move.towerId, scope));
-    unitPeak = Math.max(unitPeak, units.length);
     salePeak = Math.max(salePeak, reserva.length, pcv.length);
     return { model, units, reserva, pcv };
   });
@@ -391,7 +419,6 @@ function ModelGraphics({
           scope={scope}
           units={row.units}
           parent={parent.length}
-          unitPeak={unitPeak}
           reserva={row.reserva}
           pcv={row.pcv}
           salePeak={salePeak}
@@ -409,7 +436,6 @@ function ModelRow({
   scope,
   units,
   parent,
-  unitPeak,
   reserva,
   pcv,
   salePeak,
@@ -421,7 +447,6 @@ function ModelRow({
   scope: Scope;
   units: readonly SplitUnit[];
   parent: number;
-  unitPeak: number;
   reserva: readonly SplitMove[];
   pcv: readonly SplitMove[];
   salePeak: number;
@@ -436,37 +461,65 @@ function ModelRow({
     vendido: units.filter((unit) => unit.status === "vendido"),
   };
   const total = units.length;
+  const heights = segmentHeights(STATUS.map((item) => counts[item.key].length));
   return (
     <div className={styles.splitModel} role="group" aria-label={where}>
       <div className={styles.splitModelName}>{model}</div>
-      <div className={styles.splitStack} style={{ width: total === 0 ? undefined : `${Math.max(36, (total / unitPeak) * 100)}%` }}>
-        {STATUS.map((item) => {
+      <div className={styles.splitPlot}>
+        {STATUS.map((item, index) => {
           const list = counts[item.key];
           const value = list.length;
           return (
-            <div key={item.key} className={styles.splitSlice} style={{ flexGrow: value > 0 ? value : 0, flexBasis: value > 0 ? 0 : 28 }}>
-              <button
-                type="button"
-                className={styles.splitCount}
-                style={{ color: item.ink }}
-                aria-label={`${where}. ${item.label} ${count(value)}`}
-                onClick={() => onTip({
-                  key: `${where}:${mark}:${item.key}`,
-                  title: `${item.label} ${count(value)}`,
-                  formula: `Unidades en ${item.label}.`,
-                  source: INVENTORY_SOURCE,
-                  rows: list.map(unitLine),
-                })}
-              >
-                {count(value)}
-              </button>
-              <span style={{ background: item.color, opacity: value > 0 ? 1 : 0.45 }} />
-            </div>
+            <button
+              key={item.key}
+              type="button"
+              className={styles.splitSeg}
+              style={{ height: heights[index], background: item.color, color: segInk(item.color) }}
+              aria-label={`${where}. ${item.label} ${count(value)}`}
+              onClick={() => onTip({
+                key: `${where}:${mark}:${item.key}`,
+                title: `${item.label} ${count(value)}`,
+                formula: `Unidades en ${item.label}.`,
+                source: INVENTORY_SOURCE,
+                rows: list.map(unitLine),
+              })}
+            >
+              {count(value)}
+            </button>
           );
         })}
       </div>
-      <div className={styles.splitMeta}>
+      <div className={styles.splitSales}>
+        <SaleBar
+          dashed={false}
+          value={reserva.length}
+          peak={salePeak}
+          label={`${where}. Reservas ${count(reserva.length)}`}
+          onClick={() => onTip({
+            key: `${where}:${mark}:reserva`,
+            title: `Reservas ${count(reserva.length)}`,
+            formula: "Actividades Reserva del periodo.",
+            source: RESERVA_SOURCE,
+            rows: reserva.map((move) => moveLine(vista, move)),
+          })}
+        />
+        <SaleBar
+          dashed
+          value={pcv.length}
+          peak={salePeak}
+          label={`${where}. PCV ${count(pcv.length)}`}
+          onClick={() => onTip({
+            key: `${where}:${mark}:pcv`,
+            title: `PCV ${count(pcv.length)}`,
+            formula: "PCV del periodo.",
+            source: PCV_SOURCE,
+            rows: pcv.map((move) => moveLine(vista, move)),
+          })}
+        />
+      </div>
+      <div className={styles.splitMetaLine}>
         <Hit
+          className={styles.splitMetaHit}
           label={`${where}. peso ${share(total, parent)}`}
           onClick={() => onTip({
             key: `${where}:${mark}:peso`,
@@ -476,9 +529,11 @@ function ModelRow({
             rows: units.map(unitLine),
           })}
         >
-          {`${share(total, parent)} peso`}
+          {share(total, parent)}
         </Hit>
+        <span aria-hidden="true">·</span>
         <Hit
+          className={styles.splitMetaHit}
           label={`${where}. % vendido ${share(pcv.length, total)}`}
           onClick={() => onTip({
             key: `${where}:${mark}:vendido`,
@@ -491,9 +546,11 @@ function ModelRow({
             ],
           })}
         >
-          {`${share(pcv.length, total)} vendido`}
+          {share(pcv.length, total)}
         </Hit>
+        <span aria-hidden="true">·</span>
         <Hit
+          className={styles.splitMetaHit}
           label={`${where}. disponible ${count(counts.disponible.length)}`}
           onClick={() => onTip({
             key: `${where}:${mark}:disponible`,
@@ -503,60 +560,39 @@ function ModelRow({
             rows: counts.disponible.map(unitLine),
           })}
         >
-          {`${count(counts.disponible.length)} disponible`}
+          {count(counts.disponible.length)}
         </Hit>
       </div>
-      <SaleRow
-        label="Reservas"
-        dashed={false}
-        value={reserva.length}
-        peak={salePeak}
-        onClick={() => onTip({
-          key: `${where}:${mark}:reserva`,
-          title: `Reservas ${count(reserva.length)}`,
-          formula: "Actividades Reserva del periodo.",
-          source: RESERVA_SOURCE,
-          rows: reserva.map((move) => moveLine(vista, move)),
-        })}
-      />
-      <SaleRow
-        label="PCV"
-        dashed
-        value={pcv.length}
-        peak={salePeak}
-        onClick={() => onTip({
-          key: `${where}:${mark}:pcv`,
-          title: `PCV ${count(pcv.length)}`,
-          formula: "PCV del periodo.",
-          source: PCV_SOURCE,
-          rows: pcv.map((move) => moveLine(vista, move)),
-        })}
-      />
     </div>
   );
 }
 
-function SaleRow({
-  label,
+function SaleBar({
   dashed,
   value,
   peak,
+  label,
   onClick,
 }: {
-  label: string;
   dashed: boolean;
   value: number;
   peak: number;
+  label: string;
   onClick: () => void;
 }) {
-  const width = peak > 0 ? (value / peak) * 100 : 0;
+  const height = value > 0 && peak > 0 ? Math.max(16, Math.round((value / peak) * SALE)) : 0;
+  const shown = count(value);
   return (
-    <div className={styles.splitSale}>
-      <span>{label}</span>
-      <span className={styles.splitSaleTrack}>
-        <span className={dashed ? styles.splitSalePcv : styles.splitSaleReserva} style={{ width: `${width}%` }} />
-      </span>
-      <Hit label={`${label} ${count(value)}`} onClick={onClick}>{count(value)}</Hit>
+    <div className={styles.splitSalePlot}>
+      <button
+        type="button"
+        className={height > 0 ? (dashed ? styles.splitSalePcv : styles.splitSaleReserva) : styles.splitSaleZero}
+        style={height > 0 ? { height, color: dashed ? "#0d2041" : "#fff" } : { color: dashed ? PCV : RESERVA }}
+        aria-label={label}
+        onClick={onClick}
+      >
+        {shown}
+      </button>
     </div>
   );
 }
