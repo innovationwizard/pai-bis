@@ -79,7 +79,7 @@ function pcvBody(day: string, value: number): string {
 }
 
 function esperadoBody(band: StatusBand, day: string, value: number): string {
-  return `Lo esperado al ${dotted(day)}: ${formatUnits(value)}. Cierre temporal ${dotted(band.closeOn)}. La línea gris sale de cero el ${dotted(band.startOn)}, el primer mes con una reserva o un PCV en la base, y llega a ${formatUnits(band.units)} unidades 24 meses después. El cierre es temporal.`;
+  return `Lo esperado al ${dotted(day)}: ${formatUnits(value)}. La línea gris sale de cero el ${dotted(band.startOn)}, el primer mes con una reserva o un PCV en la base, y llega a ${formatUnits(band.units)} unidades 24 meses después.`;
 }
 
 function StatusChart({
@@ -321,15 +321,6 @@ function StatusRow({ band }: { band: StatusBand }) {
         >
           {formatGap(band.gap)}
         </button>
-        {band.closeOn ? (
-          <button
-            type="button"
-            className={styles.close}
-            onClick={() => toggle({ key: "cierre", title: "Cierre temporal", body: esperadoBody(band, band.closeOn, band.units) })}
-          >
-            {`Cierre temporal ${dotted(band.closeOn)}`}
-          </button>
-        ) : null}
       </div>
       <div className={styles.plot}>
         <StatusChart band={band} onTip={toggle} />
