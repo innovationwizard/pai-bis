@@ -737,7 +737,7 @@ button.col { cursor: pointer; }
 }
 
 .splitBand,
-.splitBelow {
+.splitProjectBand {
   display: grid;
   grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
   gap: 8px;
@@ -749,6 +749,20 @@ button.col { cursor: pointer; }
 .splitBand {
   height: max(18dvh, var(--split-band, 260px));
   min-height: calc(168px * 18 / 22);
+}
+
+.splitBands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.splitProjectBand {
+  height: var(--split-project-band, 196px);
+  min-height: var(--split-project-band, 196px);
+  max-height: var(--split-project-band, 196px);
 }
 
 .splitHero {
@@ -857,20 +871,6 @@ button.col { cursor: pointer; }
 
 .splitSwatchPcv {
   background: repeating-linear-gradient(90deg, #0573b0 0 4px, transparent 4px 6px);
-}
-
-.splitTower {
-  margin: 2px 0 0;
-  padding: 2px 0 0;
-  border-top: 1px solid rgba(13, 32, 65, 0.12);
-}
-
-.splitTower h4 {
-  margin: 0 0 2px;
-  color: #0d2041;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.2;
 }
 
 .splitTip {

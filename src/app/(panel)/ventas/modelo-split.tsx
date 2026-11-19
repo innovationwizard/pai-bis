@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { BarShapeProps, XAxisTickContentProps } from "recharts";
+import { compareProjectLabels } from "@/lib/projects";
 import type { AnalisisVista, SplitMove, SplitUnit } from "@/lib/ventas/vista-types";
 import styles from "./lower-bands.module.css";
 
@@ -18,8 +19,7 @@ type TowerChoice = { id: string; label: string; slug: string };
 type Scope = { kind: "all" } | { kind: "one"; id: string } | { kind: "none" };
 type Kind = "reserva" | "pcv";
 type Series = { model: string; reserva: SplitMove[]; pcv: SplitMove[] };
-type TowerView = { id: string; name: string; series: Series[] };
-type ProjectView = { slug: string; label: string; series: Series[]; towers: TowerView[] };
+type ProjectView = { slug: string; label: string; series: Series[] };
 
 const RESERVA_SOURCE = "Actividades Reserva finalizadas en el periodo. Una fila por actividad. Fuente: ventas.fact_comprobante.comprobante_on.";
 const PCV_SOURCE = "Promesa emitida cuya fecha cae en el periodo. La fecha es la de emisión, o la del primer comprobante si es posterior. Entra solo si el trato tiene comprobante. Fuente: ventas.fact_pcv_issuance.clock_on y ventas.fact_comprobante.";
@@ -153,19 +153,6 @@ function seriesFor(
   }));
 }
 
-function structuralTowers(slug: string, units: readonly SplitUnit[], moves: readonly SplitMove[]): { id: string; name: string }[] {
-  const names = new Map<string, string>();
-  for (const unit of units) {
-    if (unit.projectSlug === slug && unit.towerId && unit.towerName && !unnamed(unit.towerName)) names.set(unit.towerId, unit.towerName);
-  }
-  for (const move of moves) {
-    if (move.projectSlug === slug && move.towerId && move.towerName && !unnamed(move.towerName)) names.set(move.towerId, move.towerName);
-  }
-  return [...names.entries()]
-    .map(([id, name]) => ({ id, name }))
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-}
-
 function cardScope(tower: TowerChoice | null, slug: string): Scope {
   if (!tower) return { kind: "all" };
   if (tower.slug !== slug) return { kind: "none" };
@@ -184,22 +171,16 @@ function buildView(vista: AnalisisVista, tower: TowerChoice | null, focused: str
   pcvs: SplitMove[];
   axis: number;
 } {
-  const projects = vista.split.projects.map((project) => {
-    const scope = cardScope(tower, project.slug);
-    const towers = scope.kind === "all" ? structuralTowers(project.slug, vista.split.units, vista.split.moves) : [];
-    return {
-      slug: project.slug,
-      label: project.label,
-      series: seriesFor(vista.split.units, vista.split.moves, project.slug, scope, focused),
-      towers: towers.length > 1
-        ? towers.map((item) => ({
-          id: item.id,
-          name: item.name,
-          series: seriesFor(vista.split.units, vista.split.moves, project.slug, { kind: "one", id: item.id }, focused),
-        }))
-        : [],
-    };
-  });
+  const projects = [...vista.split.projects]
+    .sort((a, b) => compareProjectLabels(a.label, b.label))
+    .map((project) => {
+      const scope = cardScope(tower, project.slug);
+      return {
+        slug: project.slug,
+        label: project.label,
+        series: seriesFor(vista.split.units, vista.split.moves, project.slug, scope, focused),
+      };
+    });
   const labels: string[] = [];
   const reservas: SplitMove[] = [];
   const pcvs: SplitMove[] = [];
@@ -208,9 +189,6 @@ function buildView(vista: AnalisisVista, tower: TowerChoice | null, focused: str
       labels.push(row.model);
       reservas.push(...row.reserva);
       pcvs.push(...row.pcv);
-    }
-    for (const band of project.towers) {
-      for (const row of band.series) labels.push(row.model);
     }
   }
   return {
@@ -225,11 +203,14 @@ function scaleOf(projects: readonly ProjectView[], kind: Kind): number {
   let peak = 0;
   for (const project of projects) {
     for (const row of project.series) peak = Math.max(peak, row[kind].length);
-    for (const band of project.towers) {
-      for (const row of band.series) peak = Math.max(peak, row[kind].length);
-    }
   }
   return peak > 0 ? peak * 1.28 : 1;
+}
+
+function movesOf(project: ProjectView, kind: Kind): SplitMove[] {
+  const rows: SplitMove[] = [];
+  for (const item of project.series) rows.push(...item[kind]);
+  return rows;
 }
 
 function modelOf(payload: unknown): string {
@@ -325,6 +306,7 @@ function ModelChart({
   yMax,
   axis,
   fit = false,
+  maxBarSize = 22,
   onOpen,
 }: {
   place: string;
@@ -333,6 +315,7 @@ function ModelChart({
   yMax: number;
   axis: number;
   fit?: boolean;
+  maxBarSize?: number | null;
   onOpen: (model: string, kind: Kind, place: string) => void;
 }) {
   const fontSize = countSize(series.length);
@@ -363,7 +346,7 @@ function ModelChart({
             name={name}
             fill={kind === "reserva" ? RESERVA : "rgba(5, 115, 176, 0.12)"}
             stroke={kind === "pcv" ? PCV : "none"}
-            maxBarSize={22}
+            maxBarSize={maxBarSize ?? undefined}
             isAnimationActive={false}
             activeBar={false}
             shape={columnShape(kind, place, fontSize, (model) => open(model))}
@@ -386,6 +369,7 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
   const view = useMemo(() => buildView(vista, towerActive, modeloActive), [vista, towerActive, modeloActive]);
   const yMax = useMemo(() => scaleOf(view.projects, series), [view.projects, series]);
   const bandHeight = Math.max(260, view.axis + 110);
+  const projectBand = TOP + PLOT + view.axis + 12;
   const scopeText = `${vista.split.scope} Torre: ${towerActive?.label ?? "Todas"}. Modelo: ${modeloActive || "Todos"}.`;
 
   useEffect(() => {
@@ -410,19 +394,26 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
   }
 
   function openCount(model: string, kind: Kind, place: string) {
-    const project = view.projects.find((item) => place === item.label || place.startsWith(`${item.label} · `));
-    const pool = project == null
-      ? []
-      : place === project.label
-        ? project.series
-        : project.towers.find((band) => place === `${project.label} · ${band.name}`)?.series ?? [];
-    const row = pool.find((item) => item.model === model);
+    const project = view.projects.find((item) => item.label === place);
+    const row = project?.series.find((item) => item.model === model);
     const moves = row ? row[kind] : [];
     const title = kind === "reserva" ? "Reserva" : "PCV";
     open({
       key: `${place}:${kind}:${model}`,
       title: `${title} ${count(moves.length)}`,
       formula: kind === "reserva" ? "Actividades Reserva del periodo." : "PCV del periodo.",
+      source: kind === "reserva" ? RESERVA_SOURCE : PCV_SOURCE,
+      rows: moves.map((move) => moveLine(vista, move)),
+    });
+  }
+
+  function openProject(project: ProjectView, kind: Kind) {
+    const moves = movesOf(project, kind);
+    const heading = kind === "reserva" ? "Unidades con Reserva" : "Unidades con PCV";
+    open({
+      key: `${project.slug}:${kind}`,
+      title: `${project.label}. ${heading} ${count(moves.length)}`,
+      formula: kind === "reserva" ? "Actividades Reserva del periodo en el filtro." : "PCV del periodo en el filtro.",
       source: kind === "reserva" ? RESERVA_SOURCE : PCV_SOURCE,
       rows: moves.map((move) => moveLine(vista, move)),
     });
@@ -533,30 +524,55 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
           ))}
         </div>
       </div>
-      {view.projects.some((project) => project.towers.length > 0) ? (
-        <div className={styles.splitBelow}>
-          <div />
-          <div className={styles.splitCards}>
-            {view.projects.map((project) => (
-              <div key={project.slug}>
-                {project.towers.map((band) => (
-                  <section key={band.id} className={styles.splitTower} aria-label={`${project.label} ${band.name}`}>
-                    <h4>{band.name}</h4>
-                    {band.series.length > 0 ? (
+      {view.projects.length > 0 ? (
+        <div className={styles.splitBands} style={{ ["--split-project-band" as string]: `${projectBand}px` }}>
+          {view.projects.map((project) => {
+            const reservas = movesOf(project, "reserva");
+            const pcvs = movesOf(project, "pcv");
+            return (
+              <section key={project.slug} className={styles.splitProjectBand} aria-label={project.label}>
+                <div className={styles.splitHero}>
+                  <span className={styles.splitHeroTitle}>{project.label}</span>
+                  <button
+                    type="button"
+                    className={styles.splitFigure}
+                    onClick={() => openProject(project, "reserva")}
+                  >
+                    <strong>
+                      {count(reservas.length)}
+                      <span className={styles.splitUnit}>{reservaUnit(reservas.length)}</span>
+                    </strong>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.splitFigure}
+                    onClick={() => openProject(project, "pcv")}
+                  >
+                    <strong>
+                      {count(pcvs.length)}
+                      <span className={styles.splitUnit}>PCV</span>
+                    </strong>
+                  </button>
+                </div>
+                <div className={styles.splitCards}>
+                  <article className={styles.splitCard} aria-label={`Modelos de ${project.label}`}>
+                    {project.series.length > 0 ? (
                       <ModelChart
-                        place={`${project.label} · ${band.name}`}
-                        series={band.series}
+                        fit
+                        place={project.label}
+                        series={project.series}
                         kind={series}
                         yMax={yMax}
                         axis={view.axis}
+                        maxBarSize={null}
                         onOpen={openCount}
                       />
                     ) : null}
-                  </section>
-                ))}
-              </div>
-            ))}
-          </div>
+                  </article>
+                </div>
+              </section>
+            );
+          })}
         </div>
       ) : null}
       {tip ? (
