@@ -28,6 +28,10 @@ function count(value: number): string {
   return countFormat.format(value);
 }
 
+function reservaUnit(units: number): string {
+  return units === 1 ? "reserva" : "reservas";
+}
+
 function dotted(iso: string): string {
   const [year, month, day] = iso.slice(0, 10).split("-");
   if (!year || !month || !day) return iso;
@@ -476,6 +480,7 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
       </div>
       <div className={styles.splitBand} style={{ ["--split-band" as string]: `${bandHeight}px` }}>
         <div className={styles.splitHero}>
+          <span className={styles.splitHeroTitle}>Todos los Proyectos</span>
           <button
             type="button"
             className={styles.splitFigure}
@@ -487,8 +492,10 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
               rows: view.reservas.map((move) => moveLine(vista, move)),
             })}
           >
-            <span>Unidades con Reserva</span>
-            <strong>{count(view.reservas.length)}</strong>
+            <strong>
+              {count(view.reservas.length)}
+              <span className={styles.splitUnit}>{reservaUnit(view.reservas.length)}</span>
+            </strong>
           </button>
           <button
             type="button"
@@ -501,8 +508,10 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
               rows: view.pcvs.map((move) => moveLine(vista, move)),
             })}
           >
-            <span>Unidades con PCV</span>
-            <strong>{count(view.pcvs.length)}</strong>
+            <strong>
+              {count(view.pcvs.length)}
+              <span className={styles.splitUnit}>PCV</span>
+            </strong>
           </button>
         </div>
         <div className={styles.splitCards}>

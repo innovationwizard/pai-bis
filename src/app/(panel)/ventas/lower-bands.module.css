@@ -766,6 +766,13 @@ button.col { cursor: pointer; }
   background: var(--color-card);
 }
 
+.splitHeroTitle {
+  color: rgba(13, 32, 65, 0.75);
+  font-size: calc(26px * 0.75);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .splitFigure {
   display: flex;
   flex-direction: column;
@@ -792,11 +799,12 @@ button.col { cursor: pointer; }
   font-variant-numeric: tabular-nums;
 }
 
-.splitFigure span {
-  color: rgba(13, 32, 65, 0.75);
+.splitFigure .splitUnit {
+  margin-left: 4px;
+  color: inherit;
   font-size: calc(26px * 0.75);
-  font-weight: 700;
-  line-height: 1.25;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .splitCards {
