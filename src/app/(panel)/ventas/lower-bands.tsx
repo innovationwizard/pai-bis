@@ -910,7 +910,7 @@ export function ModeloBand({
   pending: ReactNode;
 }) {
   return (
-    <section id="analisis-de-inventario" className={styles.band} aria-labelledby="vt-modelo-title">
+    <section id="analisis-de-inventario" className={`${styles.band} ${styles.splitPage}`} aria-labelledby="vt-modelo-title">
       <h2 id="vt-modelo-title" className={styles.title}>Análisis de inventario: Split de ventas por modelo</h2>
       {!vista ? pending : <ModeloSplit vista={vista} />}
     </section>

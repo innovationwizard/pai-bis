@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { BarShapeProps, XAxisTickContentProps } from "recharts";
 import { compareProjectLabels } from "@/lib/projects";
@@ -9,8 +9,7 @@ import styles from "./lower-bands.module.css";
 
 const RESERVA = "#0d2041";
 const PCV = "#0573b0";
-const PLOT = 120;
-const TOP = 16;
+const LABEL_FONT = "700 11px Inter, ui-sans-serif, system-ui, sans-serif";
 
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 
@@ -56,12 +55,6 @@ function inScope(towerId: string, scope: Scope): boolean {
   if (scope.kind === "all") return true;
   if (scope.kind === "none") return false;
   return towerId === scope.id;
-}
-
-function axisHeight(labels: readonly string[]): number {
-  let longest = 0;
-  for (const label of labels) longest = Math.max(longest, label.length);
-  return Math.max(48, longest * 9 + 18);
 }
 
 function countSize(models: number): number {
@@ -169,7 +162,6 @@ function buildView(vista: AnalisisVista, tower: TowerChoice | null, focused: str
   projects: ProjectView[];
   reservas: SplitMove[];
   pcvs: SplitMove[];
-  axis: number;
 } {
   const projects = [...vista.split.projects]
     .sort((a, b) => compareProjectLabels(a.label, b.label))
@@ -181,22 +173,15 @@ function buildView(vista: AnalisisVista, tower: TowerChoice | null, focused: str
         series: seriesFor(vista.split.units, vista.split.moves, project.slug, scope, focused),
       };
     });
-  const labels: string[] = [];
   const reservas: SplitMove[] = [];
   const pcvs: SplitMove[] = [];
   for (const project of projects) {
     for (const row of project.series) {
-      labels.push(row.model);
       reservas.push(...row.reserva);
       pcvs.push(...row.pcv);
     }
   }
-  return {
-    projects,
-    reservas,
-    pcvs,
-    axis: axisHeight(labels),
-  };
+  return { projects, reservas, pcvs };
 }
 
 function scaleOf(projects: readonly ProjectView[], kind: Kind): number {
@@ -204,7 +189,7 @@ function scaleOf(projects: readonly ProjectView[], kind: Kind): number {
   for (const project of projects) {
     for (const row of project.series) peak = Math.max(peak, row[kind].length);
   }
-  return peak > 0 ? peak * 1.28 : 1;
+  return peak > 0 ? peak : 1;
 }
 
 function movesOf(project: ProjectView, kind: Kind): SplitMove[] {
@@ -219,7 +204,51 @@ function modelOf(payload: unknown): string {
   return typeof model === "string" ? model : "";
 }
 
-function VerticalTick({ x, y, payload }: XAxisTickContentProps) {
+let labelCanvas: HTMLCanvasElement | null = null;
+
+function labelWidth(text: string, fontSize: number): number {
+  if (typeof document === "undefined") return text.length * fontSize * 0.64;
+  labelCanvas ??= document.createElement("canvas");
+  const ctx = labelCanvas.getContext("2d");
+  if (!ctx) return text.length * fontSize * 0.64;
+  ctx.font = LABEL_FONT.replace("11px", `${fontSize}px`);
+  return ctx.measureText(text).width;
+}
+
+function longestLabel(labels: readonly string[]): string {
+  return labels.reduce((best, label) => (label.length > best.length ? label : best), "");
+}
+
+function paddedWidth(text: string, fontSize: number): number {
+  return labelWidth(text, fontSize) * 1.12 + 6;
+}
+
+function fitLabel(labels: readonly string[], room: number): { font: number; axis: number } {
+  const longest = longestLabel(labels);
+  const full = longest ? paddedWidth(longest, 11) : 16;
+  if (!longest || room >= full) return { font: 11, axis: Math.max(16, Math.ceil(full)) };
+  if (room <= 6) return { font: 1, axis: Math.max(0, room) };
+  let font = 11 * ((room - 6) / Math.max(full - 6, 1));
+  let width = paddedWidth(longest, font);
+  if (width > room && width > 0) font *= room / width;
+  return { font: Math.max(font, 1), axis: room };
+}
+
+function chartSlots(box: number, countFont: number, labels: readonly string[]): { top: number; font: number; axis: number } {
+  const topWanted = countFont + 6;
+  const fitted = fitLabel(labels, Number.POSITIVE_INFINITY);
+  const minPlot = 16;
+  if (box >= topWanted + fitted.axis + minPlot) {
+    return { top: topWanted, font: 11, axis: fitted.axis };
+  }
+  const available = Math.max(0, box - minPlot);
+  const top = Math.max(11, Math.min(topWanted, Math.floor(available * 0.34)));
+  const axis = Math.max(0, available - top);
+  const squeezed = fitLabel(labels, axis);
+  return { top, font: squeezed.font, axis };
+}
+
+function VerticalTick({ x, y, payload, fontSize }: XAxisTickContentProps & { fontSize: number }) {
   const anchorX = typeof x === "number" ? x : Number(x);
   const anchorY = typeof y === "number" ? y : Number(y);
   if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) return null;
@@ -230,8 +259,9 @@ function VerticalTick({ x, y, payload }: XAxisTickContentProps) {
       x={anchorX}
       y={yText}
       fill="#0d2041"
-      fontSize={11}
+      fontSize={fontSize}
       fontWeight={700}
+      fontFamily="Inter, ui-sans-serif, system-ui, sans-serif"
       textAnchor="end"
       transform={`rotate(-90 ${anchorX} ${yText})`}
     >
@@ -304,8 +334,6 @@ function ModelChart({
   series,
   kind,
   yMax,
-  axis,
-  fit = false,
   maxBarSize = 22,
   onOpen,
 }: {
@@ -313,46 +341,63 @@ function ModelChart({
   series: readonly Series[];
   kind: Kind;
   yMax: number;
-  axis: number;
-  fit?: boolean;
   maxBarSize?: number | null;
   onOpen: (model: string, kind: Kind, place: string) => void;
 }) {
+  const host = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState(0);
+  useEffect(() => {
+    const node = host.current;
+    if (!node) return;
+    const measure = () => {
+      const next = Math.round(node.clientHeight);
+      setBox((current) => (current === next ? current : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   const fontSize = countSize(series.length);
+  const labels = series.map((row) => row.model);
+  const slots = chartSlots(box, fontSize, labels);
   const data = series.map((row) => ({ model: row.model, value: row[kind].length }));
   const open = (model: string) => onOpen(model, kind, place);
   const name = kind === "reserva" ? "Reserva" : "PCV";
+  const tick = (props: XAxisTickContentProps) => <VerticalTick {...props} fontSize={slots.font} />;
   return (
-    <div className={fit ? styles.splitChart : styles.splitChartFree} style={fit ? undefined : { height: TOP + PLOT + axis }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: TOP, right: 2, left: 2, bottom: 0 }} barCategoryGap="12%">
-          <XAxis
-            dataKey="model"
-            interval={0}
-            minTickGap={0}
-            angle={-90}
-            textAnchor="end"
-            height={axis}
-            tickSize={0}
-            tickMargin={0}
-            tickLine={false}
-            padding={{ left: 6, right: 6 }}
-            axisLine={{ stroke: "rgba(13, 32, 65, 0.28)" }}
-            tick={VerticalTick}
-          />
-          <YAxis hide width={0} domain={[0, yMax]} allowDecimals={false} />
-          <Bar
-            dataKey="value"
-            name={name}
-            fill={kind === "reserva" ? RESERVA : "rgba(5, 115, 176, 0.12)"}
-            stroke={kind === "pcv" ? PCV : "none"}
-            maxBarSize={maxBarSize ?? undefined}
-            isAnimationActive={false}
-            activeBar={false}
-            shape={columnShape(kind, place, fontSize, (model) => open(model))}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+    <div ref={host} className={styles.splitChart}>
+      {box > 0 ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: slots.top, right: 2, left: 2, bottom: 0 }} barCategoryGap="12%">
+            <XAxis
+              dataKey="model"
+              interval={0}
+              minTickGap={0}
+              angle={-90}
+              textAnchor="end"
+              height={slots.axis}
+              tickSize={0}
+              tickMargin={0}
+              tickLine={false}
+              padding={{ left: 6, right: 6 }}
+              axisLine={{ stroke: "rgba(13, 32, 65, 0.28)" }}
+              tick={tick}
+            />
+            <YAxis hide width={0} domain={[0, yMax]} allowDecimals={false} />
+            <Bar
+              dataKey="value"
+              name={name}
+              fill={kind === "reserva" ? RESERVA : "rgba(5, 115, 176, 0.12)"}
+              stroke={kind === "pcv" ? PCV : "none"}
+              maxBarSize={maxBarSize ?? undefined}
+              isAnimationActive={false}
+              activeBar={false}
+              shape={columnShape(kind, place, fontSize, (model) => open(model))}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      ) : null}
     </div>
   );
 }
@@ -368,8 +413,6 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
   const modeloActive = models.includes(modelo) ? modelo : "";
   const view = useMemo(() => buildView(vista, towerActive, modeloActive), [vista, towerActive, modeloActive]);
   const yMax = useMemo(() => scaleOf(view.projects, series), [view.projects, series]);
-  const bandHeight = Math.max(260, view.axis + 110);
-  const projectBand = TOP + PLOT + view.axis + 12;
   const scopeText = `${vista.split.scope} Torre: ${towerActive?.label ?? "Todas"}. Modelo: ${modeloActive || "Todos"}.`;
 
   useEffect(() => {
@@ -469,7 +512,7 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
           </button>
         </div>
       </div>
-      <div className={styles.splitBand} style={{ ["--split-band" as string]: `${bandHeight}px` }}>
+      <div className={styles.splitBand}>
         <div className={styles.splitHero}>
           <span className={styles.splitHeroTitle}>Todos los Proyectos</span>
           <button
@@ -511,12 +554,10 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
               <h3 className={styles.splitProject}>{project.label}</h3>
               {project.series.length > 0 ? (
                 <ModelChart
-                  fit
                   place={project.label}
                   series={project.series}
                   kind={series}
                   yMax={yMax}
-                  axis={view.axis}
                   onOpen={openCount}
                 />
               ) : null}
@@ -525,7 +566,7 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
         </div>
       </div>
       {view.projects.length > 0 ? (
-        <div className={styles.splitBands} style={{ ["--split-project-band" as string]: `${projectBand}px` }}>
+        <div className={styles.splitBands}>
           {view.projects.map((project) => {
             const reservas = movesOf(project, "reserva");
             const pcvs = movesOf(project, "pcv");
@@ -558,12 +599,10 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
                   <article className={styles.splitCard} aria-label={`Modelos de ${project.label}`}>
                     {project.series.length > 0 ? (
                       <ModelChart
-                        fit
                         place={project.label}
                         series={project.series}
                         kind={series}
                         yMax={yMax}
-                        axis={view.axis}
                         maxBarSize={null}
                         onOpen={openCount}
                       />
