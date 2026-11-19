@@ -1,42 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import type { BarShapeProps, XAxisTickContentProps } from "recharts";
 import type { AnalisisVista, SplitMove, SplitUnit } from "@/lib/ventas/vista-types";
 import styles from "./lower-bands.module.css";
 
 const RESERVA = "#0d2041";
-
-const SANTA_ELENA = ["491.91 m²", "581 m²"];
+const PCV = "#0573b0";
+const PLOT = 120;
+const TOP = 16;
 
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
-const pctFormat = new Intl.NumberFormat("es-GT", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
 
 type Tip = { key: string; title: string; formula: string; source: string; rows: string[] };
 type TowerChoice = { id: string; label: string; slug: string };
 type Scope = { kind: "all" } | { kind: "one"; id: string } | { kind: "none" };
+type Kind = "reserva" | "pcv";
+type Series = { model: string; reserva: SplitMove[]; pcv: SplitMove[] };
+type TowerView = { id: string; name: string; series: Series[] };
+type ProjectView = { slug: string; label: string; series: Series[]; towers: TowerView[] };
 
-const INVENTORY_SOURCE = "Inventario actual. Fuente: v_rv_units_full.status. Disponible, Reservado, Congelado y Vendido. En revisión no entra.";
 const RESERVA_SOURCE = "Actividades Reserva finalizadas en el periodo. Una fila por actividad. Fuente: ventas.fact_comprobante.comprobante_on.";
 const PCV_SOURCE = "Promesa emitida cuya fecha cae en el periodo. La fecha es la de emisión, o la del primer comprobante si es posterior. Entra solo si el trato tiene comprobante. Fuente: ventas.fact_pcv_issuance.clock_on y ventas.fact_comprobante.";
-const VENDIDO_SOURCE = "PCV del periodo dividido entre las unidades del inventario actual.";
-const PESO_SOURCE = "Unidades del modelo divididas entre las unidades de este grupo.";
-
-const SALE = 80;
-const MIN_SALE = 20;
 
 function count(value: number): string {
   return countFormat.format(value);
-}
-
-function share(part: number, whole: number): string {
-  if (!(whole > 0)) return "0%";
-  return `${pctFormat.format(Math.round((part / whole) * 1000) / 10)}%`;
 }
 
 function dotted(iso: string): string {
   const [year, month, day] = iso.slice(0, 10).split("-");
   if (!year || !month || !day) return iso;
   return `${day}.${month}.${year}`;
+}
+
+function unnamed(label: string): boolean {
+  const key = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return key === "" || key === "sin dato" || key === "sin torre" || key === "sin modelo";
 }
 
 function projectLabel(vista: AnalisisVista, slug: string): string {
@@ -49,10 +54,16 @@ function inScope(towerId: string, scope: Scope): boolean {
   return towerId === scope.id;
 }
 
-function scopeKey(scope: Scope): string {
-  if (scope.kind === "all") return "all";
-  if (scope.kind === "none") return "none";
-  return scope.id;
+function axisHeight(labels: readonly string[]): number {
+  let longest = 0;
+  for (const label of labels) longest = Math.max(longest, label.length);
+  return Math.max(48, longest * 9 + 18);
+}
+
+function countSize(models: number): number {
+  if (models > 12) return 9;
+  if (models > 8) return 10;
+  return 11;
 }
 
 function towerChoices(vista: AnalisisVista): TowerChoice[] {
@@ -62,7 +73,7 @@ function towerChoices(vista: AnalisisVista): TowerChoice[] {
     ...vista.split.moves.map((move) => ({ id: move.towerId, name: move.towerName, slug: move.projectSlug })),
   ];
   for (const row of rows) {
-    if (!row.id || !row.name || seen.has(row.id)) continue;
+    if (!row.id || !row.name || unnamed(row.name) || seen.has(row.id)) continue;
     seen.set(row.id, { name: row.name, slug: row.slug });
   }
   const nameCount = new Map<string, number>();
@@ -86,26 +97,66 @@ function modelChoices(vista: AnalisisVista, tower: TowerChoice | null): string[]
     if (tower && move.towerId !== tower.id) continue;
     if (move.model) names.add(move.model);
   }
-  const santa = vista.split.projects.some((project) => project.slug === "santa-elena");
-  if (santa && (!tower || tower.slug === "santa-elena")) {
-    for (const size of SANTA_ELENA) names.add(size);
+  return [...names].sort((a, b) => a.localeCompare(b, "es"));
+}
+
+function modelsIn(
+  slug: string,
+  units: readonly SplitUnit[],
+  moves: readonly SplitMove[],
+  scope: Scope,
+  focused: string,
+): string[] {
+  if (scope.kind === "none") return [];
+  if (focused) return [focused];
+  const names = new Set<string>();
+  for (const unit of units) {
+    if (unit.projectSlug === slug && unit.model && inScope(unit.towerId, scope)) names.add(unit.model);
+  }
+  for (const move of moves) {
+    if (move.projectSlug === slug && move.model && inScope(move.towerId, scope)) names.add(move.model);
   }
   return [...names].sort((a, b) => a.localeCompare(b, "es"));
 }
 
-function modelsOf(slug: string, units: readonly SplitUnit[], moves: readonly SplitMove[], focused: string): string[] {
-  if (focused) return [focused];
-  const names = new Set<string>();
-  for (const unit of units) if (unit.projectSlug === slug && unit.model) names.add(unit.model);
-  for (const move of moves) if (move.projectSlug === slug && move.model) names.add(move.model);
-  if (slug === "santa-elena") for (const size of SANTA_ELENA) names.add(size);
-  return [...names].sort((a, b) => a.localeCompare(b, "es"));
+function collect(
+  moves: readonly SplitMove[],
+  slug: string,
+  model: string,
+  scope: Scope,
+  kind: Kind,
+): SplitMove[] {
+  const rows: SplitMove[] = [];
+  for (const move of moves) {
+    if (move.kind !== kind || move.projectSlug !== slug || move.model !== model) continue;
+    if (!inScope(move.towerId, scope)) continue;
+    rows.push(move);
+  }
+  return rows;
+}
+
+function seriesFor(
+  units: readonly SplitUnit[],
+  moves: readonly SplitMove[],
+  slug: string,
+  scope: Scope,
+  focused: string,
+): Series[] {
+  return modelsIn(slug, units, moves, scope, focused).map((model) => ({
+    model,
+    reserva: collect(moves, slug, model, scope, "reserva"),
+    pcv: collect(moves, slug, model, scope, "pcv"),
+  }));
 }
 
 function structuralTowers(slug: string, units: readonly SplitUnit[], moves: readonly SplitMove[]): { id: string; name: string }[] {
   const names = new Map<string, string>();
-  for (const unit of units) if (unit.projectSlug === slug && unit.towerId && unit.towerName) names.set(unit.towerId, unit.towerName);
-  for (const move of moves) if (move.projectSlug === slug && move.towerId && move.towerName) names.set(move.towerId, move.towerName);
+  for (const unit of units) {
+    if (unit.projectSlug === slug && unit.towerId && unit.towerName && !unnamed(unit.towerName)) names.set(unit.towerId, unit.towerName);
+  }
+  for (const move of moves) {
+    if (move.projectSlug === slug && move.towerId && move.towerName && !unnamed(move.towerName)) names.set(move.towerId, move.towerName);
+  }
   return [...names.entries()]
     .map(([id, name]) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
@@ -117,31 +168,205 @@ function cardScope(tower: TowerChoice | null, slug: string): Scope {
   return { kind: "one", id: tower.id };
 }
 
-function unitLine(unit: SplitUnit): string {
-  return unit.towerName ? `${unit.code} · ${unit.towerName}` : unit.code;
-}
-
 function moveLine(vista: AnalisisVista, move: SplitMove): string {
   const who = move.unit || move.id;
   const model = move.model ? ` · ${move.model}` : "";
   return `${projectLabel(vista, move.projectSlug)} · ${who} · ${dotted(move.day)}${model}`;
 }
 
-function Hit({
-  className,
-  label,
-  onClick,
-  children,
-}: {
-  className?: string;
-  label: string;
-  onClick: () => void;
-  children: string;
-}) {
+function buildView(vista: AnalisisVista, tower: TowerChoice | null, focused: string): {
+  projects: ProjectView[];
+  reservas: SplitMove[];
+  pcvs: SplitMove[];
+  yMax: number;
+  axis: number;
+} {
+  const projects = vista.split.projects.map((project) => {
+    const scope = cardScope(tower, project.slug);
+    const towers = scope.kind === "all" ? structuralTowers(project.slug, vista.split.units, vista.split.moves) : [];
+    return {
+      slug: project.slug,
+      label: project.label,
+      series: seriesFor(vista.split.units, vista.split.moves, project.slug, scope, focused),
+      towers: towers.length > 1
+        ? towers.map((item) => ({
+          id: item.id,
+          name: item.name,
+          series: seriesFor(vista.split.units, vista.split.moves, project.slug, { kind: "one", id: item.id }, focused),
+        }))
+        : [],
+    };
+  });
+  let peak = 0;
+  const labels: string[] = [];
+  const reservas: SplitMove[] = [];
+  const pcvs: SplitMove[] = [];
+  for (const project of projects) {
+    for (const row of project.series) {
+      peak = Math.max(peak, row.reserva.length, row.pcv.length);
+      labels.push(row.model);
+      reservas.push(...row.reserva);
+      pcvs.push(...row.pcv);
+    }
+    for (const band of project.towers) {
+      for (const row of band.series) {
+        peak = Math.max(peak, row.reserva.length, row.pcv.length);
+        labels.push(row.model);
+      }
+    }
+  }
+  return {
+    projects,
+    reservas,
+    pcvs,
+    yMax: peak > 0 ? peak * 1.28 : 1,
+    axis: axisHeight(labels),
+  };
+}
+
+function modelOf(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const model = (payload as { model?: unknown }).model;
+  return typeof model === "string" ? model : "";
+}
+
+function VerticalTick({ x, y, payload }: XAxisTickContentProps) {
+  const anchorX = typeof x === "number" ? x : Number(x);
+  const anchorY = typeof y === "number" ? y : Number(y);
+  if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) return null;
+  const label = payload?.value == null ? "" : String(payload.value);
+  const yText = anchorY + 2;
   return (
-    <button type="button" className={className ?? styles.splitHit} aria-label={label} onClick={onClick}>
-      {children}
-    </button>
+    <text
+      x={anchorX}
+      y={yText}
+      fill="#0d2041"
+      fontSize={11}
+      fontWeight={700}
+      textAnchor="end"
+      transform={`rotate(-90 ${anchorX} ${yText})`}
+    >
+      {label}
+    </text>
+  );
+}
+
+function columnValue(value: BarShapeProps["value"]): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) {
+    const last = value[value.length - 1];
+    return typeof last === "number" && Number.isFinite(last) ? last : 0;
+  }
+  return 0;
+}
+
+function columnShape(
+  kind: Kind,
+  place: string,
+  fontSize: number,
+  onOpen: (model: string, kind: Kind) => void,
+) {
+  return function Column(props: BarShapeProps) {
+    const { x, y, width, height } = props;
+    if (x == null || y == null || width == null || height == null) return null;
+    const model = modelOf(props.payload);
+    const shown = columnValue(props.value);
+    const dashed = kind === "pcv";
+    const label = dashed ? "PCV" : "Reserva";
+    const cx = x + width / 2;
+    const baseline = y - 4;
+    const hit = Math.max(12, width);
+    return (
+      <g
+        role="button"
+        tabIndex={0}
+        aria-label={`${place}. ${label} ${count(shown)}`}
+        style={{ cursor: "pointer" }}
+        onClick={() => onOpen(model, kind)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          onOpen(model, kind);
+        }}
+      >
+        {width > 0 && height > 0 ? (
+          <rect
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            fill={dashed ? "rgba(5, 115, 176, 0.12)" : RESERVA}
+            stroke={dashed ? PCV : "none"}
+            strokeWidth={dashed ? 1.5 : 0}
+            strokeDasharray={dashed ? "4 3" : undefined}
+          />
+        ) : null}
+        <rect x={cx - hit / 2} y={baseline - fontSize - 1} width={hit} height={fontSize + 4} fill="transparent" />
+        <text x={cx} y={baseline} textAnchor="middle" fill="#0d2041" fontSize={fontSize} fontWeight={700}>
+          {count(shown)}
+        </text>
+      </g>
+    );
+  };
+}
+
+function ModelChart({
+  place,
+  series,
+  yMax,
+  axis,
+  onOpen,
+}: {
+  place: string;
+  series: readonly Series[];
+  yMax: number;
+  axis: number;
+  onOpen: (model: string, kind: Kind, place: string) => void;
+}) {
+  const fontSize = countSize(series.length);
+  const data = series.map((row) => ({ model: row.model, reserva: row.reserva.length, pcv: row.pcv.length }));
+  const open = (model: string, kind: Kind) => onOpen(model, kind, place);
+  return (
+    <div className={styles.splitChart} style={{ height: TOP + PLOT + axis }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: TOP, right: 2, left: 2, bottom: 0 }} barGap={2} barCategoryGap="12%">
+          <XAxis
+            dataKey="model"
+            interval={0}
+            minTickGap={0}
+            angle={-90}
+            textAnchor="end"
+            height={axis}
+            tickSize={0}
+            tickMargin={0}
+            tickLine={false}
+            padding={{ left: 6, right: 6 }}
+            axisLine={{ stroke: "rgba(13, 32, 65, 0.28)" }}
+            tick={VerticalTick}
+          />
+          <YAxis hide width={0} domain={[0, yMax]} allowDecimals={false} />
+          <Bar
+            dataKey="reserva"
+            name="Reserva"
+            fill={RESERVA}
+            maxBarSize={22}
+            isAnimationActive={false}
+            activeBar={false}
+            shape={columnShape("reserva", place, fontSize, open)}
+          />
+          <Bar
+            dataKey="pcv"
+            name="PCV"
+            fill="rgba(5, 115, 176, 0.12)"
+            stroke={PCV}
+            maxBarSize={22}
+            isAnimationActive={false}
+            activeBar={false}
+            shape={columnShape("pcv", place, fontSize, open)}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -153,15 +378,8 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
   const towerActive = towers.find((choice) => choice.id === tower) ?? null;
   const models = modelChoices(vista, towerActive);
   const modeloActive = models.includes(modelo) ? modelo : "";
-  const slotCount = Math.max(
-    1,
-    ...vista.split.projects.map((project) => modelsOf(project.slug, vista.split.units, vista.split.moves, modeloActive).length),
-  );
+  const view = useMemo(() => buildView(vista, towerActive, modeloActive), [vista, towerActive, modeloActive]);
   const scopeText = `${vista.split.scope} Torre: ${towerActive?.label ?? "Todas"}. Modelo: ${modeloActive || "Todos"}.`;
-  const shownUnits = vista.split.units.filter((unit) => (!towerActive || unit.towerId === towerActive.id) && (!modeloActive || unit.model === modeloActive));
-  const shownMoves = vista.split.moves.filter((move) => (!towerActive || move.towerId === towerActive.id) && (!modeloActive || move.model === modeloActive));
-  const reservas = shownMoves.filter((move) => move.kind === "reserva");
-  const pcvs = shownMoves.filter((move) => move.kind === "pcv");
 
   useEffect(() => {
     if (!tip) return;
@@ -182,6 +400,25 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
 
   function open(next: Tip) {
     setTip((current) => (current?.key === next.key ? null : next));
+  }
+
+  function openCount(model: string, kind: Kind, place: string) {
+    const project = view.projects.find((item) => place === item.label || place.startsWith(`${item.label} · `));
+    const pool = project == null
+      ? []
+      : place === project.label
+        ? project.series
+        : project.towers.find((band) => place === `${project.label} · ${band.name}`)?.series ?? [];
+    const row = pool.find((item) => item.model === model);
+    const moves = row ? row[kind] : [];
+    const title = kind === "reserva" ? "Reserva" : "PCV";
+    open({
+      key: `${place}:${kind}:${model}`,
+      title: `${title} ${count(moves.length)}`,
+      formula: kind === "reserva" ? "Actividades Reserva del periodo." : "PCV del periodo.",
+      source: kind === "reserva" ? RESERVA_SOURCE : PCV_SOURCE,
+      rows: moves.map((move) => moveLine(vista, move)),
+    });
   }
 
   return (
@@ -215,86 +452,72 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
       <ul className={styles.legend}>
         <li>
           <span className={styles.swatch} style={{ background: RESERVA }} aria-hidden="true" />
-          Reservas
+          Reserva
         </li>
         <li>
           <span className={`${styles.swatch} ${styles.splitSwatchPcv}`} aria-hidden="true" />
           PCV
         </li>
       </ul>
-      <div className={styles.splitStage} style={{ ["--split-slots" as string]: String(slotCount) }}>
+      <div className={styles.splitStage}>
         <div className={styles.splitHero}>
           <button
             type="button"
             className={styles.splitFigure}
             onClick={() => open({
-              key: "unidades",
-              title: `Unidades ${count(shownUnits.length)}`,
-              formula: "Suma del inventario actual en el filtro.",
-              source: INVENTORY_SOURCE,
-              rows: shownUnits.map(unitLine),
-            })}
-          >
-            <strong>{count(shownUnits.length)}</strong>
-            <span>Unidades</span>
-          </button>
-          <button
-            type="button"
-            className={styles.splitFigure}
-            onClick={() => open({
               key: "reservas",
-              title: `Reservas ${count(reservas.length)}`,
+              title: `Unidades con Reserva ${count(view.reservas.length)}`,
               formula: "Actividades Reserva del periodo en el filtro.",
               source: RESERVA_SOURCE,
-              rows: reservas.map((move) => moveLine(vista, move)),
+              rows: view.reservas.map((move) => moveLine(vista, move)),
             })}
           >
-            <strong>{count(reservas.length)}</strong>
-            <span>Reservas</span>
+            <strong>{count(view.reservas.length)}</strong>
+            <span>Unidades con Reserva</span>
           </button>
           <button
             type="button"
             className={styles.splitFigure}
             onClick={() => open({
               key: "pcv",
-              title: `PCV ${count(pcvs.length)}`,
+              title: `Unidades con PCV ${count(view.pcvs.length)}`,
               formula: "PCV del periodo en el filtro.",
               source: PCV_SOURCE,
-              rows: pcvs.map((move) => moveLine(vista, move)),
+              rows: view.pcvs.map((move) => moveLine(vista, move)),
             })}
           >
-            <strong>{count(pcvs.length)}</strong>
-            <span>PCV</span>
-          </button>
-          <button
-            type="button"
-            className={styles.splitFigure}
-            onClick={() => open({
-              key: "vendido",
-              title: `% vendido ${share(pcvs.length, shownUnits.length)}`,
-              formula: `${count(pcvs.length)} PCV / ${count(shownUnits.length)} unidades.`,
-              source: VENDIDO_SOURCE,
-              rows: [
-                ...pcvs.map((move) => `PCV · ${moveLine(vista, move)}`),
-                ...shownUnits.map((unit) => `Unidad · ${unitLine(unit)}`),
-              ],
-            })}
-          >
-            <strong>{share(pcvs.length, shownUnits.length)}</strong>
-            <span>% vendido</span>
+            <strong>{count(view.pcvs.length)}</strong>
+            <span>Unidades con PCV</span>
           </button>
         </div>
         <div className={styles.splitCards}>
-          {vista.split.projects.map((project) => (
-            <ProjectCard
-              key={project.slug}
-              vista={vista}
-              slug={project.slug}
-              label={project.label}
-              focusedModel={modeloActive}
-              scope={cardScope(towerActive, project.slug)}
-              onTip={open}
-            />
+          {view.projects.map((project) => (
+            <article key={project.slug} className={styles.splitCard} aria-label={project.label}>
+              <h3 className={styles.splitProject}>{project.label}</h3>
+              {project.series.length > 0 ? (
+                <ModelChart
+                  place={project.label}
+                  series={project.series}
+                  yMax={view.yMax}
+                  axis={view.axis}
+                  onOpen={openCount}
+                />
+              ) : null}
+              {project.towers.map((band) => (
+                <section key={band.id} className={styles.splitTower} aria-label={band.name}>
+                  <h4>{band.name}</h4>
+                  {band.series.length > 0 ? (
+                    <ModelChart
+                      place={`${project.label} · ${band.name}`}
+                      series={band.series}
+                      yMax={view.yMax}
+                      axis={view.axis}
+                      onOpen={openCount}
+                    />
+                  ) : null}
+                </section>
+              ))}
+            </article>
           ))}
         </div>
       </div>
@@ -316,223 +539,5 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
         </div>
       ) : null}
     </>
-  );
-}
-
-function ProjectCard({
-  vista,
-  slug,
-  label,
-  focusedModel,
-  scope,
-  onTip,
-}: {
-  vista: AnalisisVista;
-  slug: string;
-  label: string;
-  focusedModel: string;
-  scope: Scope;
-  onTip: (tip: Tip) => void;
-}) {
-  const models = modelsOf(slug, vista.split.units, vista.split.moves, focusedModel);
-  const towers = structuralTowers(slug, vista.split.units, vista.split.moves);
-  return (
-    <article className={styles.splitCard} aria-label={label}>
-      <h3 className={styles.splitProject}>{label}</h3>
-      <ModelGraphics vista={vista} slug={slug} models={models} scope={scope} onTip={onTip} />
-      {scope.kind === "all" && towers.length > 1 ? towers.map((tower) => (
-        <section key={tower.id} className={styles.splitTower} aria-label={tower.name}>
-          <h4>{tower.name}</h4>
-          <ModelGraphics vista={vista} slug={slug} models={models} scope={{ kind: "one", id: tower.id }} compact onTip={onTip} />
-        </section>
-      )) : null}
-    </article>
-  );
-}
-
-function ModelGraphics({
-  vista,
-  slug,
-  models,
-  scope,
-  compact = false,
-  onTip,
-}: {
-  vista: AnalisisVista;
-  slug: string;
-  models: readonly string[];
-  scope: Scope;
-  compact?: boolean;
-  onTip: (tip: Tip) => void;
-}) {
-  const parent = vista.split.units.filter((unit) => unit.projectSlug === slug && inScope(unit.towerId, scope));
-  let salePeak = 1;
-  const rows = models.map((model) => {
-    const units = parent.filter((unit) => unit.model === model);
-    const reserva = vista.split.moves.filter((move) => move.kind === "reserva" && move.projectSlug === slug && move.model === model && inScope(move.towerId, scope));
-    const pcv = vista.split.moves.filter((move) => move.kind === "pcv" && move.projectSlug === slug && move.model === model && inScope(move.towerId, scope));
-    salePeak = Math.max(salePeak, reserva.length, pcv.length);
-    return { model, units, reserva, pcv };
-  });
-  return (
-    <div className={compact ? `${styles.splitModels} ${styles.splitModelsStrip}` : styles.splitModels}>
-      {rows.map((row) => (
-        <ModelRow
-          key={`${slug}:${scopeKey(scope)}:${row.model}`}
-          vista={vista}
-          slug={slug}
-          model={row.model}
-          scope={scope}
-          units={row.units}
-          parent={parent.length}
-          reserva={row.reserva}
-          pcv={row.pcv}
-          salePeak={salePeak}
-          compact={compact}
-          onTip={onTip}
-        />
-      ))}
-    </div>
-  );
-}
-
-function ModelRow({
-  vista,
-  slug,
-  model,
-  scope,
-  units,
-  parent,
-  reserva,
-  pcv,
-  salePeak,
-  compact = false,
-  onTip,
-}: {
-  vista: AnalisisVista;
-  slug: string;
-  model: string;
-  scope: Scope;
-  units: readonly SplitUnit[];
-  parent: number;
-  reserva: readonly SplitMove[];
-  pcv: readonly SplitMove[];
-  salePeak: number;
-  compact?: boolean;
-  onTip: (tip: Tip) => void;
-}) {
-  const where = `${projectLabel(vista, slug)} · ${model}`;
-  const mark = scopeKey(scope);
-  const disponible = units.filter((unit) => unit.status === "disponible");
-  const total = units.length;
-  return (
-    <div className={styles.splitModel} role="group" aria-label={where}>
-      <div className={compact ? styles.splitModelNameStrip : styles.splitModelName}>{model}</div>
-      <div className={styles.splitSales}>
-        <SaleBar
-          dashed={false}
-          value={reserva.length}
-          peak={salePeak}
-          label={`${where}. Reservas ${count(reserva.length)}`}
-          onClick={() => onTip({
-            key: `${where}:${mark}:reserva`,
-            title: `Reservas ${count(reserva.length)}`,
-            formula: "Actividades Reserva del periodo.",
-            source: RESERVA_SOURCE,
-            rows: reserva.map((move) => moveLine(vista, move)),
-          })}
-        />
-        <SaleBar
-          dashed
-          value={pcv.length}
-          peak={salePeak}
-          label={`${where}. PCV ${count(pcv.length)}`}
-          onClick={() => onTip({
-            key: `${where}:${mark}:pcv`,
-            title: `PCV ${count(pcv.length)}`,
-            formula: "PCV del periodo.",
-            source: PCV_SOURCE,
-            rows: pcv.map((move) => moveLine(vista, move)),
-          })}
-        />
-      </div>
-      <div className={styles.splitMetaLine}>
-        <Hit
-          className={styles.splitMetaHit}
-          label={`${where}. peso ${share(total, parent)}`}
-          onClick={() => onTip({
-            key: `${where}:${mark}:peso`,
-            title: `peso ${share(total, parent)}`,
-            formula: `${count(total)} / ${count(parent)} unidades.`,
-            source: PESO_SOURCE,
-            rows: units.map(unitLine),
-          })}
-        >
-          {share(total, parent)}
-        </Hit>
-        <span className={styles.splitMetaDot} aria-hidden="true">·</span>
-        <Hit
-          className={styles.splitMetaHit}
-          label={`${where}. % vendido ${share(pcv.length, total)}`}
-          onClick={() => onTip({
-            key: `${where}:${mark}:vendido`,
-            title: `% vendido ${share(pcv.length, total)}`,
-            formula: `${count(pcv.length)} PCV / ${count(total)} unidades.`,
-            source: VENDIDO_SOURCE,
-            rows: [
-              ...pcv.map((move) => `PCV · ${moveLine(vista, move)}`),
-              ...units.map((unit) => `Unidad · ${unitLine(unit)}`),
-            ],
-          })}
-        >
-          {share(pcv.length, total)}
-        </Hit>
-        <span className={styles.splitMetaDot} aria-hidden="true">·</span>
-        <Hit
-          className={styles.splitMetaHit}
-          label={`${where}. disponible ${count(disponible.length)}`}
-          onClick={() => onTip({
-            key: `${where}:${mark}:disponible`,
-            title: `Disponible ${count(disponible.length)}`,
-            formula: "Unidades en Disponible.",
-            source: INVENTORY_SOURCE,
-            rows: disponible.map(unitLine),
-          })}
-        >
-          {count(disponible.length)}
-        </Hit>
-      </div>
-    </div>
-  );
-}
-
-function SaleBar({
-  dashed,
-  value,
-  peak,
-  label,
-  onClick,
-}: {
-  dashed: boolean;
-  value: number;
-  peak: number;
-  label: string;
-  onClick: () => void;
-}) {
-  const track = SALE;
-  const height = value > 0 && peak > 0 ? MIN_SALE + Math.round((value / peak) * (track - MIN_SALE)) : MIN_SALE;
-  const shown = count(value);
-  return (
-    <div className={styles.splitSalePlot}>
-      <button
-        type="button"
-        className={dashed ? styles.splitSalePcv : styles.splitSaleReserva}
-        style={{ height, color: dashed ? "#0d2041" : "#fff" }}
-        aria-label={label}
-        onClick={onClick}
-      >
-        {shown}
-      </button>
-    </div>
   );
 }
