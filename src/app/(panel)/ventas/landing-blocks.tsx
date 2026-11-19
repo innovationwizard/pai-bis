@@ -1,5 +1,17 @@
 "use client";
 
+/*
+ * Section 2.1 name mapping (class names unchanged):
+ * .overview / .ogLead → Hero Band
+ * .kpi (when parent is .overview or .ogLead) → Compact Hero
+ * .kpi (when parent is a project row) → Project KPI Card
+ * .hero (when parent is .overview or .ogLead) → Expanded Hero
+ * .hero (when parent is a project row) → Project Detail Card
+ * .projects / .ogBands → Project Bands
+ * data-level="project" → Project Summary Columns
+ * data-level="asesor" → Member Columns
+ */
+
 import { useState, type ReactNode } from "react";
 import { compareProjectLabels, isDisplayProject, projectKey } from "@/lib/projects";
 import type { CanalesVista, FunnelStage, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
@@ -170,9 +182,12 @@ function Columns({
       {columns.map((column) => {
         const body = (
           <>
-            <span className={styles.vval}>{whole(column.reservas)}</span>
             <span className={styles.vplot}>
-              <span className={styles.vbar} data-project={column.hue} style={{ height: widthOf(column.reservas, peak) }} />
+              <span className={styles.vtrack}>
+                <span className={styles.vbar} data-project={column.hue} style={{ height: widthOf(column.reservas, peak) }}>
+                  <span className={styles.vval}>{whole(column.reservas)}</span>
+                </span>
+              </span>
             </span>
             <span className={styles.vname}>{column.name}</span>
           </>

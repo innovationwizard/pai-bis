@@ -1,3 +1,15 @@
+/*
+ * Section 2.1 name mapping (class names unchanged):
+ * .overview / .ogLead → Hero Band
+ * .kpi (when parent is .overview or .ogLead) → Compact Hero
+ * .kpi (when parent is a project row) → Project KPI Card
+ * .hero (when parent is .overview or .ogLead) → Expanded Hero
+ * .hero (when parent is a project row) → Project Detail Card
+ * .projects / .ogBands → Project Bands
+ * data-level="project" → Project Summary Columns
+ * data-level="asesor" → Member Columns
+ */
+
 .block {
   --project-benestare: #0d2041;
   --project-boulevard-5: #3d6f8f;
@@ -251,21 +263,37 @@ button.vcol {
 .vcol[aria-pressed="true"] .vname { color: var(--color-primary); }
 
 .vval {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 4px);
+  color: var(--color-text-primary);
   font-size: 13px;
   font-weight: 700;
   line-height: 20px;
+  white-space: nowrap;
+  transform: translateX(-50%);
 }
 
 .vplot {
   display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 140px;
+  padding-top: 24px;
+}
+
+.vtrack {
+  display: flex;
+  flex: 1 1 auto;
   align-items: flex-end;
   justify-content: center;
   width: 100%;
-  min-height: 140px;
+  min-height: 0;
 }
 
 .vbar {
+  position: relative;
   display: block;
   width: 60%;
   margin-inline: auto;
@@ -508,7 +536,7 @@ button.vcol {
 }
 
 .projects .vplot {
-  min-height: 16px;
+  min-height: 40px;
 }
 
 .projects .vname {
