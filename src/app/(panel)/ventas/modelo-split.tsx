@@ -178,7 +178,6 @@ function buildView(vista: AnalisisVista, tower: TowerChoice | null, focused: str
   projects: ProjectView[];
   reservas: SplitMove[];
   pcvs: SplitMove[];
-  yMax: number;
   axis: number;
 } {
   const projects = vista.split.projects.map((project) => {
@@ -197,31 +196,36 @@ function buildView(vista: AnalisisVista, tower: TowerChoice | null, focused: str
         : [],
     };
   });
-  let peak = 0;
   const labels: string[] = [];
   const reservas: SplitMove[] = [];
   const pcvs: SplitMove[] = [];
   for (const project of projects) {
     for (const row of project.series) {
-      peak = Math.max(peak, row.reserva.length, row.pcv.length);
       labels.push(row.model);
       reservas.push(...row.reserva);
       pcvs.push(...row.pcv);
     }
     for (const band of project.towers) {
-      for (const row of band.series) {
-        peak = Math.max(peak, row.reserva.length, row.pcv.length);
-        labels.push(row.model);
-      }
+      for (const row of band.series) labels.push(row.model);
     }
   }
   return {
     projects,
     reservas,
     pcvs,
-    yMax: peak > 0 ? peak * 1.28 : 1,
     axis: axisHeight(labels),
   };
+}
+
+function scaleOf(projects: readonly ProjectView[], kind: Kind): number {
+  let peak = 0;
+  for (const project of projects) {
+    for (const row of project.series) peak = Math.max(peak, row[kind].length);
+    for (const band of project.towers) {
+      for (const row of band.series) peak = Math.max(peak, row[kind].length);
+    }
+  }
+  return peak > 0 ? peak * 1.28 : 1;
 }
 
 function modelOf(payload: unknown): string {
@@ -313,23 +317,28 @@ function columnShape(
 function ModelChart({
   place,
   series,
+  kind,
   yMax,
   axis,
+  fit = false,
   onOpen,
 }: {
   place: string;
   series: readonly Series[];
+  kind: Kind;
   yMax: number;
   axis: number;
+  fit?: boolean;
   onOpen: (model: string, kind: Kind, place: string) => void;
 }) {
   const fontSize = countSize(series.length);
-  const data = series.map((row) => ({ model: row.model, reserva: row.reserva.length, pcv: row.pcv.length }));
-  const open = (model: string, kind: Kind) => onOpen(model, kind, place);
+  const data = series.map((row) => ({ model: row.model, value: row[kind].length }));
+  const open = (model: string) => onOpen(model, kind, place);
+  const name = kind === "reserva" ? "Reserva" : "PCV";
   return (
-    <div className={styles.splitChart} style={{ height: TOP + PLOT + axis }}>
+    <div className={fit ? styles.splitChart : styles.splitChartFree} style={fit ? undefined : { height: TOP + PLOT + axis }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: TOP, right: 2, left: 2, bottom: 0 }} barGap={2} barCategoryGap="12%">
+        <BarChart data={data} margin={{ top: TOP, right: 2, left: 2, bottom: 0 }} barCategoryGap="12%">
           <XAxis
             dataKey="model"
             interval={0}
@@ -346,23 +355,14 @@ function ModelChart({
           />
           <YAxis hide width={0} domain={[0, yMax]} allowDecimals={false} />
           <Bar
-            dataKey="reserva"
-            name="Reserva"
-            fill={RESERVA}
+            dataKey="value"
+            name={name}
+            fill={kind === "reserva" ? RESERVA : "rgba(5, 115, 176, 0.12)"}
+            stroke={kind === "pcv" ? PCV : "none"}
             maxBarSize={22}
             isAnimationActive={false}
             activeBar={false}
-            shape={columnShape("reserva", place, fontSize, open)}
-          />
-          <Bar
-            dataKey="pcv"
-            name="PCV"
-            fill="rgba(5, 115, 176, 0.12)"
-            stroke={PCV}
-            maxBarSize={22}
-            isAnimationActive={false}
-            activeBar={false}
-            shape={columnShape("pcv", place, fontSize, open)}
+            shape={columnShape(kind, place, fontSize, (model) => open(model))}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -373,12 +373,15 @@ function ModelChart({
 export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
   const [tower, setTower] = useState("");
   const [modelo, setModelo] = useState("");
+  const [series, setSeries] = useState<Kind>("reserva");
   const [tip, setTip] = useState<Tip | null>(null);
   const towers = towerChoices(vista);
   const towerActive = towers.find((choice) => choice.id === tower) ?? null;
   const models = modelChoices(vista, towerActive);
   const modeloActive = models.includes(modelo) ? modelo : "";
   const view = useMemo(() => buildView(vista, towerActive, modeloActive), [vista, towerActive, modeloActive]);
+  const yMax = useMemo(() => scaleOf(view.projects, series), [view.projects, series]);
+  const bandHeight = Math.max(260, view.axis + 110);
   const scopeText = `${vista.split.scope} Torre: ${towerActive?.label ?? "Todas"}. Modelo: ${modeloActive || "Todos"}.`;
 
   useEffect(() => {
@@ -448,18 +451,30 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
             ))}
           </select>
         </label>
+        <div className={styles.splitToggle} role="group" aria-label="Reserva o PCV">
+          <button
+            type="button"
+            aria-pressed={series === "reserva"}
+            onClick={() => {
+              setSeries("reserva");
+              setTip(null);
+            }}
+          >
+            Reserva
+          </button>
+          <button
+            type="button"
+            aria-pressed={series === "pcv"}
+            onClick={() => {
+              setSeries("pcv");
+              setTip(null);
+            }}
+          >
+            PCV
+          </button>
+        </div>
       </div>
-      <ul className={styles.legend}>
-        <li>
-          <span className={styles.swatch} style={{ background: RESERVA }} aria-hidden="true" />
-          Reserva
-        </li>
-        <li>
-          <span className={`${styles.swatch} ${styles.splitSwatchPcv}`} aria-hidden="true" />
-          PCV
-        </li>
-      </ul>
-      <div className={styles.splitStage}>
+      <div className={styles.splitBand} style={{ ["--split-band" as string]: `${bandHeight}px` }}>
         <div className={styles.splitHero}>
           <button
             type="button"
@@ -472,8 +487,8 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
               rows: view.reservas.map((move) => moveLine(vista, move)),
             })}
           >
-            <strong>{count(view.reservas.length)}</strong>
             <span>Unidades con Reserva</span>
+            <strong>{count(view.reservas.length)}</strong>
           </button>
           <button
             type="button"
@@ -486,8 +501,8 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
               rows: view.pcvs.map((move) => moveLine(vista, move)),
             })}
           >
-            <strong>{count(view.pcvs.length)}</strong>
             <span>Unidades con PCV</span>
+            <strong>{count(view.pcvs.length)}</strong>
           </button>
         </div>
         <div className={styles.splitCards}>
@@ -496,31 +511,45 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
               <h3 className={styles.splitProject}>{project.label}</h3>
               {project.series.length > 0 ? (
                 <ModelChart
+                  fit
                   place={project.label}
                   series={project.series}
-                  yMax={view.yMax}
+                  kind={series}
+                  yMax={yMax}
                   axis={view.axis}
                   onOpen={openCount}
                 />
               ) : null}
-              {project.towers.map((band) => (
-                <section key={band.id} className={styles.splitTower} aria-label={band.name}>
-                  <h4>{band.name}</h4>
-                  {band.series.length > 0 ? (
-                    <ModelChart
-                      place={`${project.label} · ${band.name}`}
-                      series={band.series}
-                      yMax={view.yMax}
-                      axis={view.axis}
-                      onOpen={openCount}
-                    />
-                  ) : null}
-                </section>
-              ))}
             </article>
           ))}
         </div>
       </div>
+      {view.projects.some((project) => project.towers.length > 0) ? (
+        <div className={styles.splitBelow}>
+          <div />
+          <div className={styles.splitCards}>
+            {view.projects.map((project) => (
+              <div key={project.slug}>
+                {project.towers.map((band) => (
+                  <section key={band.id} className={styles.splitTower} aria-label={`${project.label} ${band.name}`}>
+                    <h4>{band.name}</h4>
+                    {band.series.length > 0 ? (
+                      <ModelChart
+                        place={`${project.label} · ${band.name}`}
+                        series={band.series}
+                        kind={series}
+                        yMax={yMax}
+                        axis={view.axis}
+                        onOpen={openCount}
+                      />
+                    ) : null}
+                  </section>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {tip ? (
         <div className={styles.splitTip} role="dialog" aria-label={tip.title}>
           <div className={styles.splitTipHead}>

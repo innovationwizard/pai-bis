@@ -83,6 +83,47 @@
   flex-wrap: wrap;
   align-items: end;
   gap: 8px 12px;
+  width: 100%;
+}
+
+.splitToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  margin-left: auto;
+  padding: 3px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background:
+    radial-gradient(120% 90% at 8% 0%, rgba(255, 255, 255, 0.9) 0%, transparent 48%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 245, 249, 0.92) 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 1px rgba(15, 23, 42, 0.04);
+}
+
+.splitToggle button {
+  height: 26px;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.splitToggle button[aria-pressed="true"] {
+  color: #0f172a;
+  background: linear-gradient(180deg, #fff 0%, rgba(255, 255, 255, 0.72) 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 .localFilters label {
@@ -695,68 +736,86 @@ button.col { cursor: pointer; }
   }
 }
 
-.splitStage {
-  display: flex;
-  align-items: flex-start;
+.splitBand,
+.splitBelow {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
   gap: 8px;
+  align-items: stretch;
   width: 100%;
-  max-width: 100%;
   min-width: 0;
-  overflow-x: clip;
+}
+
+.splitBand {
+  height: max(18dvh, var(--split-band, 260px));
+  min-height: calc(168px * 18 / 22);
 }
 
 .splitHero {
   display: flex;
-  flex: 0 0 128px;
   flex-direction: column;
-  gap: 16px;
-  width: 128px;
-  max-width: 128px;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
   min-width: 0;
-  padding-top: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-card);
 }
 
 .splitFigure {
-  display: grid;
-  gap: 1px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
   margin: 0;
   padding: 0;
   border: 0;
   background: none;
   cursor: pointer;
   text-align: left;
-  color: #0d2041;
+  color: var(--color-text-primary);
   font: inherit;
 }
 
 .splitFigure strong {
-  font-size: 28px;
+  align-self: stretch;
+  width: 100%;
+  font-size: calc(64px * 0.75);
   font-weight: 700;
   line-height: 1;
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
 .splitFigure span {
-  font-size: 12px;
-  font-weight: 600;
+  color: rgba(13, 32, 65, 0.75);
+  font-size: calc(26px * 0.75);
+  font-weight: 700;
   line-height: 1.25;
-  color: rgba(13, 32, 65, 0.72);
 }
 
 .splitCards {
   display: flex;
-  flex: 1 1 0;
-  gap: 6px;
-  width: 0;
+  gap: 8px;
+  width: 100%;
   min-width: 0;
-  align-items: flex-start;
+  height: 100%;
+  align-items: stretch;
 }
 
 .splitCard {
+  display: flex;
   flex: 1 1 0;
+  flex-direction: column;
   width: 0;
   min-width: 0;
   max-width: 100%;
+  height: 100%;
   padding: 6px 4px 4px;
   overflow: hidden;
   border: 1px solid rgba(13, 32, 65, 0.12);
@@ -771,9 +830,16 @@ button.col { cursor: pointer; }
   line-height: 1.2;
 }
 
-.splitChart {
+.splitChart,
+.splitChartFree {
   width: 100%;
   min-width: 0;
+}
+
+.splitChart {
+  flex: 1 1 0;
+  height: 0;
+  min-height: 0;
 }
 
 .splitChart :global(.recharts-wrapper),
