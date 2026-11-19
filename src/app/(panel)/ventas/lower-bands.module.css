@@ -736,19 +736,8 @@ button.col { cursor: pointer; }
   }
 }
 
-/* Same first-screen budget as Items 1 and 2: Compact Hero, Expanded Hero, and every Project Band stay in view. */
 .splitPage {
   position: relative;
-  height: calc(100dvh - 308px);
-  min-height: 420px;
-  gap: 4px;
-  overflow: hidden;
-}
-
-.splitPage > .title,
-.splitPage > .localFilters,
-.splitPage > .splitBand {
-  flex: none;
 }
 
 .splitBand,
@@ -771,17 +760,18 @@ button.col { cursor: pointer; }
 
 .splitBands {
   display: flex;
-  flex: 1 1 auto;
+  flex: none;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
-  min-height: 0;
 }
 
 .splitProjectBand {
-  flex: 1 1 0;
-  height: auto;
+  flex: none;
+  height: 156px;
+  min-height: 156px;
+  max-height: 156px;
 }
 
 .splitHero {
@@ -801,20 +791,9 @@ button.col { cursor: pointer; }
   background: var(--color-card);
 }
 
-.splitBand > .splitHero {
-  gap: 2px;
-  padding: 4px 14px;
-}
-
 .splitProjectBand .splitHero {
-  container-type: size;
-  gap: 0;
-  padding: 2px 8px;
-}
-
-.splitProjectBand .splitHeroTitle {
-  font-size: clamp(11px, 16cqh, 13px);
-  line-height: 1.1;
+  gap: 4px;
+  padding: 8px 12px;
 }
 
 .splitProjectBand .splitFigure {
@@ -822,13 +801,7 @@ button.col { cursor: pointer; }
 }
 
 .splitProjectBand .splitFigure strong {
-  font-size: clamp(14px, 22cqh, 26px);
-  line-height: 1;
   white-space: nowrap;
-}
-
-.splitProjectBand .splitFigure .splitUnit {
-  font-size: clamp(10px, 12cqh, 13px);
 }
 
 .splitHeroTitle {
