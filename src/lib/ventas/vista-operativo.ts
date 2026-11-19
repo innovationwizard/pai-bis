@@ -413,7 +413,6 @@ async function buildAnalisis(
 type AvailabilityUnit = {
   projectSlug: string;
   unitType: string;
-  areaTotal: number | null;
   status: string;
   towerId: string;
   towerName: string;
@@ -438,18 +437,16 @@ async function loadRvUnits(): Promise<AvailabilityUnit[]> {
   for (let offset = 0; offset < CAP; offset += PAGE) {
     const { data, error } = await client
       .from("v_rv_units_full")
-      .select("project_slug, unit_type, area_total, status, tower_id, tower_name, tower_is_default, unit_number, unit_code")
+      .select("project_slug, unit_type, status, tower_id, tower_name, tower_is_default, unit_number, unit_code")
       .range(offset, offset + PAGE - 1);
     if (error) throw new Error(error.message);
     const batch = (data ?? []) as unknown as Record<string, unknown>[];
     for (const row of batch) {
-      const area = row.area_total == null || row.area_total === "" ? null : Number(row.area_total);
       const number = String(row.unit_number ?? "");
       const unitCode = String(row.unit_code ?? "");
       units.push({
         projectSlug: String(row.project_slug ?? ""),
         unitType: String(row.unit_type ?? ""),
-        areaTotal: area != null && Number.isFinite(area) ? area : null,
         status: String(row.status ?? ""),
         towerId: String(row.tower_id ?? ""),
         towerName: String(row.tower_name ?? ""),
@@ -531,22 +528,12 @@ function isCanonicalUnitType(value: string): boolean {
   return true;
 }
 
-function santaElenaSize(area: number | null): string {
-  if (area == null) return "Casas";
-  if (Math.abs(area - 491.91) <= 0.05) return "491.91 m²";
-  if (Math.abs(area - 581) <= 0.05) return "581 m²";
-  const rounded = Math.round(area * 100) / 100;
-  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, "");
-  return `${text} m²`;
-}
-
 function modelCategory(unit: AvailabilityUnit): string | null {
   if (!isCanonicalUnitType(unit.unitType)) return null;
   if (unit.projectSlug === "boulevard-5") {
     const letter = unit.unitType.trim().charAt(0).toUpperCase();
     return letter === "A" || letter === "B" || letter === "C" || letter === "D" || letter === "E" ? letter : null;
   }
-  if (unit.projectSlug === "santa-elena") return santaElenaSize(unit.areaTotal);
   return unit.unitType.trim();
 }
 

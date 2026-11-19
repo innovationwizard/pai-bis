@@ -757,7 +757,7 @@ button.col { cursor: pointer; }
 .splitHero {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: flex-start;
   gap: 8px;
   width: 100%;
@@ -772,6 +772,7 @@ button.col { cursor: pointer; }
 }
 
 .splitProjectBand .splitHero {
+  justify-content: flex-start;
   gap: 4px;
   padding: 10px 12px;
 }
@@ -792,21 +793,6 @@ button.col { cursor: pointer; }
   line-height: 1.25;
 }
 
-.splitTotal {
-  align-self: center;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #0d2041;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-}
-
 .splitModelList {
   display: flex;
   flex: 1 1 auto;
@@ -821,35 +807,168 @@ button.col { cursor: pointer; }
 }
 
 .splitModelList li {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
   min-width: 0;
+  min-height: 16px;
 }
 
 .splitModelName {
   min-width: 0;
   color: #0d2041;
   font-size: 12px;
-  font-weight: 600;
-  line-height: 1.3;
+  font-weight: 700;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
-.splitModelCount {
-  flex: none;
+.splitModelTrack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.6rem;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
   background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.splitModelPlot {
+  height: 8px;
+  min-width: 0;
+  background: rgba(13, 32, 65, 0.08);
+}
+
+.splitModelBar {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+}
+
+.splitModelBar[data-dashed="true"] {
+  box-sizing: border-box;
+  height: 8px;
+  border-width: 1.5px;
+  border-style: dashed;
+}
+
+.splitModelCount {
+  justify-self: end;
   color: #0d2041;
-  font: inherit;
   font-size: 13px;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
+}
+
+.towerChart {
+  display: flex;
+  flex: 1 1 0;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.towerGroup {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  padding-right: 6px;
+  border-right: 1px solid rgba(13, 32, 65, 0.16);
+}
+
+.towerGroup:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.towerCols {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.towerCol {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
   cursor: pointer;
+  color: #0d2041;
+  font: inherit;
+}
+
+.towerPlot {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 14px;
+  box-shadow: inset 0 -1px 0 rgba(13, 32, 65, 0.28);
+}
+
+.towerBar {
+  position: absolute;
+  bottom: 0;
+  left: 15%;
+  width: 70%;
+  box-sizing: border-box;
+}
+
+.towerBar[data-dashed="true"] {
+  border-width: 1.5px;
+  border-style: dashed;
+}
+
+.towerNum {
+  position: absolute;
+  right: 0;
+  left: 0;
+  color: #0d2041;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.towerLabel {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  height: 54px;
+  font-weight: 700;
+  line-height: 1;
+  writing-mode: vertical-rl;
+}
+
+.towerModel {
+  flex: none;
+  margin-top: 2px;
+  color: #0d2041;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
 }
 
 .splitFigure {

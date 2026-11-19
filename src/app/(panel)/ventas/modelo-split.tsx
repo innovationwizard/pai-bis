@@ -30,6 +30,10 @@ function count(value: number): string {
   return countFormat.format(value);
 }
 
+function reservaUnit(units: number): string {
+  return units === 1 ? "reserva" : "reservas";
+}
+
 function dotted(iso: string): string {
   const [year, month, day] = iso.slice(0, 10).split("-");
   if (!year || !month || !day) return iso;
@@ -151,38 +155,169 @@ function countsFor(project: ProjectView, kind: Kind): ModelCount[] {
   return project.series.map((row) => ({ model: row.model, moves: row[kind] }));
 }
 
-function countsAcross(projects: readonly ProjectView[], kind: Kind): ModelCount[] {
-  const byName = new Map<string, SplitMove[]>();
+type TowerRef = { key: string; label: string };
+type TowerColumn = TowerRef & { moves: SplitMove[] };
+type TowerGroup = { model: string; towers: TowerColumn[] };
+
+function towerKey(id: string, name: string): string {
+  return id || name.trim();
+}
+
+function projectTowers(slug: string, units: readonly SplitUnit[], moves: readonly SplitMove[]): TowerRef[] {
+  const labels = new Map<string, string>();
+  const add = (projectSlug: string, id: string, name: string) => {
+    if (projectSlug !== slug) return;
+    const key = towerKey(id, name);
+    const label = name.trim();
+    const known = labels.get(key);
+    if (known == null || (known === "" && label !== "")) labels.set(key, label);
+  };
+  for (const unit of units) add(unit.projectSlug, unit.towerId, unit.towerName);
+  for (const move of moves) add(move.projectSlug, move.towerId, move.towerName);
+  return [...labels.entries()]
+    .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => {
+      if (a.label === "" && b.label !== "") return 1;
+      if (b.label === "" && a.label !== "") return -1;
+      return a.label.localeCompare(b.label, "es") || a.key.localeCompare(b.key);
+    });
+}
+
+function towerGroups(
+  project: ProjectView,
+  units: readonly SplitUnit[],
+  moves: readonly SplitMove[],
+  kind: Kind,
+): TowerGroup[] {
+  const towers = projectTowers(project.slug, units, moves);
+  return countsFor(project, kind).map((row) => ({
+    model: row.model,
+    towers: towers.map((tower) => ({
+      ...tower,
+      moves: row.moves.filter((move) => towerKey(move.towerId, move.towerName) === tower.key),
+    })),
+  }));
+}
+
+function towerPeak(
+  projects: readonly ProjectView[],
+  units: readonly SplitUnit[],
+  moves: readonly SplitMove[],
+  kind: Kind,
+): number {
+  let peak = 0;
   for (const project of projects) {
-    for (const row of project.series) {
-      const bucket = byName.get(row.model);
-      if (bucket) bucket.push(...row[kind]);
-      else byName.set(row.model, [...row[kind]]);
+    for (const group of towerGroups(project, units, moves, kind)) {
+      for (const tower of group.towers) peak = Math.max(peak, tower.moves.length);
     }
   }
-  return [...byName.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0], "es"))
-    .map(([model, moves]) => ({ model, moves }));
+  return peak > 0 ? peak : 1;
 }
 
 function ModelList({
   rows,
+  scale,
+  color,
+  dashed,
   onOpen,
 }: {
   rows: readonly ModelCount[];
+  scale: number;
+  color: string;
+  dashed: boolean;
   onOpen: (row: ModelCount) => void;
 }) {
+  const ceiling = scale > 0 ? scale : 1;
   return (
     <ul className={styles.splitModelList}>
-      {rows.map((row) => (
-        <li key={row.model}>
-          <span className={styles.splitModelName}>{row.model}</span>
-          <button type="button" className={styles.splitModelCount} onClick={() => onOpen(row)}>
-            {count(row.moves.length)}
-          </button>
-        </li>
-      ))}
+      {rows.map((row) => {
+        const value = row.moves.length;
+        const width = `${(value / ceiling) * 100}%`;
+        return (
+          <li key={row.model}>
+            <span className={styles.splitModelName}>{row.model}</span>
+            <button type="button" className={styles.splitModelTrack} onClick={() => onOpen(row)}>
+              <span className={styles.splitModelPlot}>
+                <span
+                  className={styles.splitModelBar}
+                  data-dashed={dashed ? "true" : undefined}
+                  style={{
+                    width,
+                    background: dashed ? projectTint(color) : color,
+                    borderColor: color,
+                  }}
+                />
+              </span>
+              <span className={styles.splitModelCount}>{count(value)}</span>
+            </button>
+          </li>
+        );
+      })}
     </ul>
+  );
+}
+
+function TowerChart({
+  place,
+  groups,
+  scale,
+  color,
+  dashed,
+  onOpen,
+}: {
+  place: string;
+  groups: readonly TowerGroup[];
+  scale: number;
+  color: string;
+  dashed: boolean;
+  onOpen: (group: TowerGroup, tower: TowerColumn) => void;
+}) {
+  const ceiling = scale > 0 ? scale : 1;
+  const longest = groups.reduce((best, group) => {
+    for (const tower of group.towers) if (tower.label.length > best) best = tower.label.length;
+    return best;
+  }, 0);
+  const labelSize = longest > 0 ? Math.min(11, 50 / (longest * 0.6)) : 11;
+  return (
+    <div className={styles.towerChart}>
+      {groups.map((group) => (
+        <div key={group.model} className={styles.towerGroup}>
+          <div className={styles.towerCols}>
+            {group.towers.map((tower) => {
+              const value = tower.moves.length;
+              const height = `${(value / ceiling) * 100}%`;
+              const name = tower.label;
+              return (
+                <button
+                  key={`${group.model}:${tower.key}:${tower.label}`}
+                  type="button"
+                  className={styles.towerCol}
+                  aria-label={`${place}. ${group.model}. ${name}. ${count(value)}`}
+                  onClick={() => onOpen(group, tower)}
+                >
+                  <span className={styles.towerPlot}>
+                    <span className={styles.towerNum} style={{ bottom: `calc(${height} + 2px)` }}>{count(value)}</span>
+                    {value > 0 ? (
+                      <span
+                        className={styles.towerBar}
+                        data-dashed={dashed ? "true" : undefined}
+                        style={{
+                          height,
+                          background: dashed ? projectTint(color) : color,
+                          borderColor: color,
+                        }}
+                      />
+                    ) : null}
+                  </span>
+                  <span className={styles.towerLabel} style={{ fontSize: labelSize }}>{name}</span>
+                </button>
+              );
+            })}
+          </div>
+          <span className={styles.towerModel}>{group.model}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -397,6 +532,10 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
   const [tip, setTip] = useState<Tip | null>(null);
   const view = useMemo(() => buildView(vista), [vista]);
   const yMax = useMemo(() => scaleOf(view.projects, series), [view.projects, series]);
+  const towerMax = useMemo(
+    () => towerPeak(view.projects, vista.split.units, vista.split.moves, series),
+    [view.projects, vista.split.units, vista.split.moves, series],
+  );
 
   useEffect(() => {
     if (!tip) return;
@@ -456,7 +595,7 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
           <span className={styles.splitHeroTitle}>Todos los Proyectos</span>
           <button
             type="button"
-            className={styles.splitTotal}
+            className={styles.splitFigure}
             onClick={() => open(series === "reserva" ? {
               key: "reservas",
               title: `Unidades con Reserva ${count(view.reservas.length)}`,
@@ -471,21 +610,13 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
               rows: view.pcvs.map((move) => moveLine(vista, move)),
             })}
           >
-            {count(series === "reserva" ? view.reservas.length : view.pcvs.length)}
+            <strong>
+              {count(series === "reserva" ? view.reservas.length : view.pcvs.length)}
+              <span className={styles.splitUnit}>
+                {series === "reserva" ? reservaUnit(view.reservas.length) : "PCV"}
+              </span>
+            </strong>
           </button>
-          <ModelList
-            rows={countsAcross(view.projects, series)}
-            onOpen={(row) => {
-              const title = series === "reserva" ? "Reserva" : "PCV";
-              open({
-                key: `all:${series}:${row.model}`,
-                title: `${title} ${count(row.moves.length)}`,
-                formula: series === "reserva" ? "Actividades Reserva del periodo." : "PCV del periodo.",
-                source: series === "reserva" ? RESERVA_SOURCE : PCV_SOURCE,
-                rows: row.moves.map((move) => moveLine(vista, move)),
-              });
-            }}
-          />
         </div>
         <div className={styles.splitCards}>
           {view.projects.map((project) => (
@@ -512,21 +643,32 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
                   <span className={styles.splitHeroTitle}>{project.label}</span>
                   <ModelList
                     rows={countsFor(project, series)}
+                    scale={yMax}
+                    color={projectColor(project.label)}
+                    dashed={series === "pcv"}
                     onOpen={(row) => openCount(row.model, series, project.label)}
                   />
                 </div>
                 <div className={styles.splitCards}>
-                  <article className={styles.splitCard} aria-label={`Modelos de ${project.label}`}>
-                    {project.series.length > 0 ? (
-                      <ModelChart
-                        place={project.label}
-                        series={project.series}
-                        kind={series}
-                        yMax={yMax}
-                        maxBarSize={null}
-                        onOpen={openCount}
-                      />
-                    ) : null}
+                  <article className={styles.splitCard} aria-label={`Torres de ${project.label}`}>
+                    <TowerChart
+                      place={project.label}
+                      groups={towerGroups(project, vista.split.units, vista.split.moves, series)}
+                      scale={towerMax}
+                      color={projectColor(project.label)}
+                      dashed={series === "pcv"}
+                      onOpen={(group, tower) => {
+                        const title = series === "reserva" ? "Reserva" : "PCV";
+                        const where = tower.label ? `${group.model}. ${tower.label}` : group.model;
+                        open({
+                          key: `${project.slug}:${series}:${group.model}:${tower.key}`,
+                          title: `${project.label}. ${where}. ${title} ${count(tower.moves.length)}`,
+                          formula: series === "reserva" ? "Actividades Reserva del periodo." : "PCV del periodo.",
+                          source: series === "reserva" ? RESERVA_SOURCE : PCV_SOURCE,
+                          rows: tower.moves.map((move) => moveLine(vista, move)),
+                        });
+                      }}
+                    />
                   </article>
                 </div>
               </section>
