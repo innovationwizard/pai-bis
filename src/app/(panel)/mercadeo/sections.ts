@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { LineChart, Megaphone, Radio, SlidersHorizontal, Target, TrendingUp } from "lucide-react";
+import { Building2, ClipboardList, FileText, LineChart, Megaphone, Wallet } from "lucide-react";
 
 export type MercadeoSection = {
   slug: string;
@@ -7,15 +7,16 @@ export type MercadeoSection = {
   icon: LucideIcon;
 };
 
+/** Report pages, in the Power BI page order. The rail scrolls to these bands. */
 export const MERCADEO_SECTIONS: readonly MercadeoSection[] = [
-  { slug: "reporte-maestro", title: "Reporte maestro", icon: Target },
-  { slug: "efectividad", title: "Efectividad de campañas", icon: Megaphone },
-  { slug: "costo-por-lead", title: "Evolución de costos por lead mensual", icon: LineChart },
-  { slug: "inversion-acumulada", title: "Evolución de inversiones en pauta acumulada mensual", icon: TrendingUp },
-  { slug: "canales", title: "Operatividad de canales", icon: Radio },
-  { slug: "gestion-de-pauta", title: "Gestión de pauta", icon: SlidersHorizontal },
+  { slug: "performance-ads", title: "Performance Ads", icon: Megaphone },
+  { slug: "performance-s", title: "Performance S", icon: LineChart },
+  { slug: "reporte-reservas", title: "Reporte Reservas", icon: ClipboardList },
+  { slug: "integracion-de-inventarios", title: "Integración de Inventarios", icon: Building2 },
+  { slug: "presupuesto-mercadeo", title: "Presupuesto Mercadeo", icon: Wallet },
+  { slug: "pagina-1", title: "Página 1", icon: FileText },
 ];
 
 export function mercadeoSectionPath(slug: string): string {
-  return `/mercadeo/${slug}`;
+  return `/mercadeo#${slug}`;
 }

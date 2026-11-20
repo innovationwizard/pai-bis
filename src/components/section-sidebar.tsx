@@ -27,7 +27,19 @@ function readExpanded(): boolean {
   }
 }
 
-function isCurrent(pathname: string, href: string): boolean {
+function hashId(href: string): string | null {
+  const index = href.indexOf("#");
+  if (index < 0 || index === href.length - 1) return null;
+  return href.slice(index + 1);
+}
+
+function isCurrent(pathname: string, href: string, hash: string): boolean {
+  const id = hashId(href);
+  if (id) {
+    if (pathname !== "/mercadeo") return false;
+    if (hash === "") return id === "performance-ads";
+    return hash === id;
+  }
   return pathname === href
     || (pathname === "/ventas" && href === "/ventas/ventas-totales")
     || (pathname === "/cobros" && href === "/cobros/cobros-por-proyecto");
@@ -42,10 +54,18 @@ export default function SectionSidebar({
 }) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
+  const [hash, setHash] = useState("");
 
   useEffect(() => {
     setExpanded(readExpanded());
   }, []);
+
+  useEffect(() => {
+    const id = window.location.hash.replace(/^#/, "");
+    setHash(id);
+    if (!id) return;
+    document.getElementById(id)?.scrollIntoView({ block: "start" });
+  }, [pathname]);
 
   if (items.length === 0) return null;
 
@@ -86,8 +106,35 @@ export default function SectionSidebar({
       </button>
       <div className="section-sidebar-list">
         {items.map((item) => {
-          const current = isCurrent(pathname, item.href);
+          const current = isCurrent(pathname, item.href, hash);
           const Icon = item.icon;
+          const id = hashId(item.href);
+          if (id) {
+            return (
+              <a
+                key={item.slug}
+                href={item.href}
+                aria-label={item.title}
+                aria-current={current ? "page" : undefined}
+                className="section-sidebar-link"
+                onClick={(event) => {
+                  const target = document.getElementById(id);
+                  if (!target) return;
+                  event.preventDefault();
+                  target.scrollIntoView({ block: "start" });
+                  setHash(id);
+                  const next = `#${id}`;
+                  if (window.location.hash !== next) history.replaceState(null, "", next);
+                }}
+              >
+                <span className="section-sidebar-glyph">
+                  <Icon size={18} strokeWidth={1.75} aria-hidden />
+                </span>
+                <span className="section-sidebar-label">{item.title}</span>
+                <span className="section-sidebar-tip" aria-hidden="true">{item.title}</span>
+              </a>
+            );
+          }
           return (
             <Link
               key={item.slug}

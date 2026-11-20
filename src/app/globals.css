@@ -1598,6 +1598,27 @@ main:has(.section-page) > .section-page > .section-sidebar {
   line-height: 1.45;
 }
 .vc-referidos li + li { margin-top: 2px; }
+.mk-band {
+  scroll-margin-top: 64px;
+}
+
+.mk-band h2 {
+  margin: 0 0 10px;
+  color: #0d2041;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.mk-kpis strong {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+@media (max-width: 720px) {
+  .mk-band .op-kpis-3 { grid-template-columns: 1fr; }
+}
+
 .vc-command h3 {
   margin: 14px 0 4px;
   color: #0d2041;

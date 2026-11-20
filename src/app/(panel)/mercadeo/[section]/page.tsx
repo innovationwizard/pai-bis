@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import SectionPage from "@/components/section-page";
 import { departmentStaticParams, locateIcon } from "@/app/pabi/department-icons";
 import GhostCard from "@/app/pabi/ghost-card";
 import TierDrill from "@/app/pabi/tier-drill";
-import { isGlanceSection } from "@/lib/mercadeo/glance-types";
-import GlanceView from "../glance-view";
-import OperativoView from "../operativo-view";
-import { MERCADEO_SECTIONS } from "../sections";
+import { MERCADEO_SECTIONS, mercadeoSectionPath } from "../sections";
 
 function drillMissing(slug: string): string | null {
   if (slug === "gastos-mercadeo" || slug === "fondeos" || slug === "centros-de-costos") {
@@ -38,22 +35,7 @@ export async function generateMetadata({ params }: MercadeoSectionPageProps): Pr
 export default async function MercadeoSectionPage({ params }: MercadeoSectionPageProps) {
   const { section } = await params;
   const match = MERCADEO_SECTIONS.find((item) => item.slug === section);
-  if (match) {
-    if (match.slug === "reporte-maestro") {
-      return (
-        <SectionPage>
-          <OperativoView variant="reporte" />
-        </SectionPage>
-      );
-    }
-    if (isGlanceSection(match.slug)) {
-      return (
-        <SectionPage>
-          <GlanceView section={match.slug} />
-        </SectionPage>
-      );
-    }
-  }
+  if (match) redirect(mercadeoSectionPath(match.slug));
   const located = locateIcon("mercadeo", section);
   if (!located?.item.drill) notFound();
   const missing = drillMissing(section);
