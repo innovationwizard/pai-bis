@@ -255,21 +255,17 @@ Title: always “Todos los Proyectos”.
 The five status counts and the total, for the current project-pill scope. Every number is visible. The six figures replace the single hero number of Items 1 and 2; the card box does not.
 
 **Expanded Hero**  
-The right-hand card of the Hero Band. Inside it, one card per project in scope. The card height matches the Compact Hero.  
-Each inner card is one horizontal stacked bar per torre. Left to right the segments are Congelado, Disponible, En revisión, Reservado, Vendido, in the status colors. A zero-length segment stays in that order. Torre labels use the Odoo-style short form already locked in §4.2.1 (“TA”, “Principal”) and sit to the left of the bar. Torres are alphabetical by that label. A torre with units is shown even when some statuses are zero.  
-Shared scale across these cards and the Project Detail Cards: the bar track is the largest torre total (sum of the five statuses) in the current scope.  
-Each status count is drawn on its segment when that segment is wide enough to hold the digits. Counts that do not fit, including zero, sit in a compact fixed column of five slots immediately to the right of the bar, in the same order. The column keeps its width on every torre so the tracks share one scale; a slot stays empty when that count is already on the segment. No percentages. No extra titles, connectors, or vertical columns.
+The right-hand card of the Hero Band. Inside it, one card per project in scope. The card height matches the Compact Hero.
 
 **Project Bands**  
 One band per project in scope.  
-- Project KPI Card: project name, the five status counts, and the total.  
-- Project Detail Card: stacked horizontal bars by torre, the same shared scale, numbers beside the bar in the status color, zeros kept.
+- Project KPI Card: project name, the five status counts, and the total.
 
 **Explicit rules**  
 - Numbers are always visible. The tooltip is click-only and only for provenance: `v_rv_units_full` (`status`, `project_slug`, `tower_name`, `unit_number`), the status counted, the active project pills, and the full list of units in that count. Hover does not open it.  
 - No percentages. No extra titles or explanatory text. The Item Title, “Todos los Proyectos”, and the project names are the only headings.  
 - No period, asesor, or modelo filter on this item.  
-- The total is a sixth figure on the Compact Hero and on each Project KPI Card. It is not a sixth segment on the bars.
+- The total is a sixth figure on the Compact Hero and on each Project KPI Card.
 
 ### 4.2 Band B — Analytical and control graphics (0 clicks)
 
@@ -356,7 +352,7 @@ Project Detail Card modelo labels are horizontal. “PLUS” is written as “+�
 - No static files as data sources. All numbers from the live database.  
 - Anti-clutter: readable numbers, no truncated labels, consistent bar height. Denser than Items 1–2 is acceptable; the current wall of mini-charts is not.
 
-This replaces the previous incorrect “stacked inventory composition” language. Inventory status stacks belong exclusively to Item 6.
+This replaces the previous incorrect “stacked inventory composition” language.
 
 Chart interactions (click a bar) may filter a detail table lower on the same page. No item requires navigation to another URL.
 
