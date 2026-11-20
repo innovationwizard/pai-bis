@@ -227,7 +227,37 @@ export default function PerformanceAdsView({ report }: { report: PerformanceAdsR
         </Panel>
       </div>
 
-      <Panel title="Tendencia del costo por cliente potencial">
+      <div className="mk-split">
+        <Panel title="Costo por lead">
+          <div className="mk-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byCpl} margin={{ top: 18, right: 4, left: 0, bottom: 4 }}>
+                <XAxis
+                  dataKey="short"
+                  tick={{ fill: MUTED, fontSize: 10 }}
+                  interval={0}
+                  angle={-90}
+                  textAnchor="end"
+                  height={78}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis hide />
+                <Tooltip formatter={(value) => {
+                  const amount = asNumber(value);
+                  return [amount == null ? "—" : `$${amount.toFixed(2)}`, "Promedio"];
+                }} />
+                <Bar dataKey="cpl" fill={NAVY} radius={[3, 3, 0, 0]} barSize={18}>
+                  <LabelList dataKey="cpl" position="top" formatter={(value) => {
+                    const amount = asNumber(value);
+                    return amount == null ? "" : `$${amount.toFixed(2)}`;
+                  }} fill={NAVY} fontSize={10} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+        <Panel title="Tendencia del costo por cliente potencial">
           <div className="mk-chart">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -254,9 +284,30 @@ export default function PerformanceAdsView({ report }: { report: PerformanceAdsR
               </LineChart>
             </ResponsiveContainer>
           </div>
-      </Panel>
+        </Panel>
+      </div>
 
-      <div className="mk-row-3">
+      <div className="mk-split">
+        <Panel title="Clientes potenciales por día">
+          <div className="mk-chart mk-chart-sm">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={report.weekdays} margin={{ top: 18, right: 4, left: 0, bottom: 0 }}>
+                <XAxis dataKey="name" tick={{ fill: MUTED, fontSize: 10 }} interval={0} axisLine={false} tickLine={false} />
+                <YAxis hide />
+                <Tooltip formatter={(value) => {
+                  const amount = asNumber(value);
+                  return [amount == null ? "—" : count(amount), "Clientes potenciales"];
+                }} />
+                <Bar dataKey="leads" fill={NAVY} radius={[3, 3, 0, 0]} barSize={18}>
+                  <LabelList dataKey="leads" position="top" formatter={(value) => {
+                    const amount = asNumber(value);
+                    return amount == null ? "" : tenthCount(amount);
+                  }} fill={NAVY} fontSize={10} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
         <Panel title="Clientes potenciales por proyecto">
           <div className="mk-pie">
             <div className="mk-chart mk-chart-sm">
@@ -283,46 +334,6 @@ export default function PerformanceAdsView({ report }: { report: PerformanceAdsR
                 </li>
               ))}
             </ul>
-          </div>
-        </Panel>
-        <Panel title="Clientes potenciales por día">
-          <div className="mk-chart mk-chart-sm">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={report.weekdays} margin={{ top: 18, right: 4, left: 0, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fill: MUTED, fontSize: 10 }} interval={0} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip formatter={(value) => {
-                  const amount = asNumber(value);
-                  return [amount == null ? "—" : count(amount), "Clientes potenciales"];
-                }} />
-                <Bar dataKey="leads" fill={NAVY} radius={[3, 3, 0, 0]} barSize={18}>
-                  <LabelList dataKey="leads" position="top" formatter={(value) => {
-                    const amount = asNumber(value);
-                    return amount == null ? "" : tenthCount(amount);
-                  }} fill={NAVY} fontSize={10} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-        <Panel title="Costo por lead">
-          <div className="mk-chart mk-chart-sm">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byCpl} margin={{ top: 18, right: 4, left: 0, bottom: 24 }}>
-                <XAxis dataKey="short" tick={{ fill: MUTED, fontSize: 10 }} interval={0} angle={-35} textAnchor="end" axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip formatter={(value) => {
-                  const amount = asNumber(value);
-                  return [amount == null ? "—" : `$${amount.toFixed(2)}`, "Promedio"];
-                }} />
-                <Bar dataKey="cpl" fill={NAVY} radius={[3, 3, 0, 0]} barSize={22}>
-                  <LabelList dataKey="cpl" position="top" formatter={(value) => {
-                    const amount = asNumber(value);
-                    return amount == null ? "" : `$${amount.toFixed(2)}`;
-                  }} fill={NAVY} fontSize={10} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
           </div>
         </Panel>
       </div>

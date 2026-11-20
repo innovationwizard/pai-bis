@@ -1609,14 +1609,24 @@ main:has(.section-page) > .section-page > .section-sidebar {
   min-width: 0;
 }
 
-.mk-hero {
+.mk-hero,
+.mk-split {
   display: grid;
   grid-template-columns: minmax(calc(220px * 0.6), calc(320px * 0.6)) minmax(0, 1fr);
   gap: 10px;
   align-items: stretch;
 }
 
-.mk-row-3,
+.mk-split > .mk-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mk-split > .mk-panel > .mk-chart {
+  flex: 1 1 auto;
+}
+
 .mk-board {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1767,7 +1777,7 @@ main:has(.section-page) > .section-page > .section-sidebar {
 
 @media (max-width: 1100px) {
   .mk-hero,
-  .mk-row-3,
+  .mk-split,
   .mk-board,
   .mk-pair,
   .mk-pie { grid-template-columns: 1fr; }
