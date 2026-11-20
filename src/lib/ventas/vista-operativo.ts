@@ -663,29 +663,19 @@ function missingName(label: string): boolean {
   return key === "" || key === "sin dato" || key === "sin torre" || key === "sin modelo";
 }
 
-// Prices, headers, and blank cells are not modelos. A name already stored on
-// dim_model does not pass through here, so a Pipedrive modelo is not dropped.
-function inventoryModel(raw: string): string {
-  const name = raw.trim();
+function placementTower(unit: AvailabilityUnit): { id: string; name: string } {
+  if (hiddenSaleTower(unit) || missingName(unit.towerName)) return { id: "", name: "" };
+  return { id: unit.towerId, name: unit.towerName.trim() };
+}
+
+function modelFromDim(slug: string, modelName: string): string {
+  const name = modelName.trim();
   if (!name || missingName(name) || !isCanonicalUnitType(name)) return "";
+  if (slug === "boulevard-5") {
+    const letter = name.charAt(0).toUpperCase();
+    return letter === "A" || letter === "B" || letter === "C" || letter === "D" || letter === "E" ? letter : "";
+  }
   return name;
-}
-
-function saleModel(raw: string): string {
-  const name = raw.trim();
-  if (!name || missingName(name)) return "";
-  return name;
-}
-
-// Pipedrive's torre. Santa Elena has none. Boulevard 5 is Principal.
-// A letter tower is A–E, whether the source wrote "A" or "Torre A".
-function pipedriveTowerName(slug: string, raw: string): string {
-  if (slug === "santa-elena") return "";
-  if (slug === "boulevard-5") return "Principal";
-  const folded = foldTower(raw);
-  if (!folded || missingName(raw)) return "";
-  const letter = folded.match(/^(?:torre\s+)?([a-e])$/);
-  return letter ? letter[1].toUpperCase() : "";
 }
 
 type Placed = { model: string; towerId: string; towerName: string; code: string };
@@ -709,21 +699,18 @@ function indexAvailability(units: readonly AvailabilityUnit[]): {
   const byTower = new Map<string, Placed | "many">();
   const byToken = new Map<string, Placed | "many">();
   for (const unit of units) {
-    const model = inventoryModel(unit.unitType);
+    const model = modelCategory(unit);
     if (!model) continue;
     if (!SPLIT_PROJECTS.some((project) => project.slug === unit.projectSlug)) continue;
-    const placed: Placed = { model, towerId: unit.towerId, towerName: unit.towerName.trim(), code: unit.code };
+    const tower = placementTower(unit);
+    const placed: Placed = { model, towerId: tower.id, towerName: tower.name, code: unit.code };
     const tokens = new Set<string>();
-    for (const value of [unit.number, unit.unitCode]) {
-      const raw = value.trim();
-      if (raw) tokens.add(raw);
-      const stripped = unitToken(value);
-      if (stripped) tokens.add(stripped);
-    }
-    const identity = pipedriveTowerName(unit.projectSlug, unit.towerName);
+    const numberToken = unitToken(unit.number);
+    const codeToken = unitToken(unit.unitCode);
+    if (numberToken) tokens.add(numberToken);
+    if (codeToken) tokens.add(codeToken);
     for (const token of tokens) {
       putPlaced(byToken, `${unit.projectSlug}|${token}`, placed);
-      if (identity) putPlaced(byTower, `${unit.projectSlug}|${foldTower(identity)}|${token}`, placed);
       if (unit.towerName.trim()) putPlaced(byTower, `${unit.projectSlug}|${foldTower(unit.towerName)}|${token}`, placed);
     }
   }
@@ -877,43 +864,25 @@ async function buildModeloSplit(
 
   function locate(deal: DealFact, slug: string): { model: string; towerId: string; towerName: string; unit: string } {
     const sale = deal.unitId ? saleUnits.get(deal.unitId) : undefined;
-    const storedModel = sale ? saleModel(dims.models.get(sale.modelId) ?? "") : "";
-    const storedTowerRaw = sale ? (dims.torres.get(sale.towerId) ?? "") : "";
-    const saleTower = pipedriveTowerName(slug, storedTowerRaw);
-    let towerName = saleTower;
-    let towerId = "";
-    if (sale && towerName && !missingName(storedTowerRaw)) towerId = sale.towerId;
-    const needsTower = towerName === "" && slug !== "santa-elena" && slug !== "boulevard-5";
-    let model = storedModel;
-    if (!storedModel || needsTower) {
-      const tokens = sale
-        ? [...new Set([sale.canonical, sale.token2].flatMap((value) => {
-            const raw = value.trim();
-            const stripped = unitToken(value);
-            return [raw, stripped].filter((token) => token !== "");
-          }))]
-        : [];
-      const placed = lookupPlaced(index, slug, saleTower || storedTowerRaw, tokens);
-      if (placed) {
-        if (!model) {
-          const found = inventoryModel(placed.model);
-          if (found) model = found;
-        }
-        if (needsTower) {
-          const found = pipedriveTowerName(slug, placed.towerName);
-          if (found) {
-            towerName = found;
-            towerId = placed.towerId;
-          }
-        }
-      }
+    const towerName = sale ? (dims.torres.get(sale.towerId) ?? "") : "";
+    const tokens = sale ? [unitToken(sale.canonical), unitToken(sale.token2)].filter((token, index, list) => token && list.indexOf(token) === index) : [];
+    const placed = lookupPlaced(index, slug, towerName, tokens);
+    const hardcoded = slug === "santa-elena"
+      ? santaElenaModelo(placed?.code ?? "", sale?.canonical ?? "", sale?.token2 ?? "")
+      : null;
+    if (placed) {
+      return {
+        model: hardcoded || placed.model,
+        towerId: placed.towerId,
+        towerName: placed.towerName,
+        unit: placed.code || sale?.canonical || "",
+      };
     }
-    return {
-      model: model || "Sin dato",
-      towerId,
-      towerName,
-      unit: sale?.canonical.trim() || "",
-    };
+    const namedTower = missingName(towerName) || (slug === "santa-elena" && foldTower(towerName) === "principal")
+      ? { id: "", name: "" }
+      : { id: sale?.towerId ?? "", name: towerName.trim() };
+    const model = hardcoded || modelFromDim(slug, sale ? (dims.models.get(sale.modelId) ?? "") : "");
+    return { model, towerId: namedTower.id, towerName: namedTower.name, unit: sale?.canonical.trim() || "" };
   }
 
   // Period. Reserva uses fact_comprobante.comprobante_on: the Guatemala day
@@ -961,14 +930,14 @@ async function buildModeloSplit(
   const units: SplitUnit[] = [];
   for (const unit of inventory) {
     if (!allowed.has(unit.projectSlug)) continue;
-    const model = inventoryModel(unit.unitType);
+    const model = modelCategory(unit);
     const status = availabilityStatus(unit.status);
     if (!model || !status) continue;
-    const towerName = pipedriveTowerName(unit.projectSlug, unit.towerName);
+    const tower = placementTower(unit);
     units.push({
       projectSlug: unit.projectSlug,
-      towerId: towerName ? unit.towerId : "",
-      towerName,
+      towerId: tower.id,
+      towerName: tower.name,
       model,
       code: unit.code,
       status: status satisfies SplitStatus,
