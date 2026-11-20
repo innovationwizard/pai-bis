@@ -263,20 +263,21 @@
 }
 
 .heroTowers {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  display: flex;
   flex: 1 1 auto;
-  align-content: space-evenly;
-  align-items: center;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 2px;
   width: 100%;
   min-height: 0;
 }
 
 .heroRow {
   display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
+  column-gap: 4px;
+  width: 100%;
   min-width: 0;
 }
 
@@ -291,21 +292,23 @@
 
 .heroTrack {
   display: flex;
-  align-items: stretch;
-  width: 100%;
+  align-items: center;
+  justify-self: stretch;
   min-width: 0;
-  height: 14px;
+  height: 16px;
 }
 
 .heroSeg {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
   min-width: 0;
-  height: 14px;
+  height: 16px;
   margin: 0;
   padding: 0;
+  overflow: hidden;
   border: 0;
   font: inherit;
   font-size: 10px;

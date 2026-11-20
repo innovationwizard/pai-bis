@@ -101,9 +101,9 @@ function figureFits(value: number, scale: number, track: number, fontFamily: str
   return (value / scale) * track >= figureWidth(count(value), fontFamily) + HERO_FIGURE_PAD;
 }
 
-function segmentFlex(value: number, scale: number): string {
-  if (value <= 0 || scale <= 0) return "0 0 0px";
-  return `0 0 ${(value / scale) * 100}%`;
+function segmentWidth(value: number, scale: number): string {
+  if (value <= 0 || scale <= 0) return "0px";
+  return `${(value / scale) * 100}%`;
 }
 
 function samePlacement(
@@ -303,16 +303,16 @@ function HeroTowers({
               const item = statusOf(key);
               const value = tower.counts[key];
               const show = onSegment[placeKey(tower.label, key)] === true;
-              const flex = segmentFlex(value, scale);
+              const width = segmentWidth(value, scale);
               if (!show) {
-                return <span key={key} className={styles.heroSeg} style={{ flex, background: item.color }} aria-hidden="true" />;
+                return <span key={key} className={styles.heroSeg} style={{ width, background: item.color }} aria-hidden="true" />;
               }
               return (
                 <button
                   key={key}
                   type="button"
                   className={styles.heroSeg}
-                  style={{ flex, background: item.color, color: figureInk(item.color) }}
+                  style={{ width, background: item.color, color: figureInk(item.color) }}
                   aria-label={`${project.label}, ${tower.label}, ${item.label}: ${count(value)}`}
                   onClick={() => onOpen(tower, key)}
                 >
