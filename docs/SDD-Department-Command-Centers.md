@@ -224,7 +224,7 @@ This item does not follow the three-level Total → Project → Asesor pattern u
 #### 4.1.3 Precise visual spec — Item 6: Inventario general
 
 **Item Title**  
-Inventario general: Vendido, congelado, disponible
+Inventario general
 
 **Data source**  
 Current unit status counts from `v_rv_units_full`. Same view and the same status enum the Disponibilidad page uses. No period filter. No sales-event tables. No static files.

@@ -14,7 +14,7 @@ import type {
 import styles from "./inventario-general.module.css";
 
 const NAVY = "#0d2041";
-const TITLE = "Inventario general: Vendido, congelado, disponible";
+const TITLE = "Inventario general";
 
 const STATUSES: { key: InventoryStatusKey; status: RvUnitStatus }[] = [
   { key: "disponible", status: "AVAILABLE" },
