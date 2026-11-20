@@ -407,8 +407,6 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
         </div>
       </div>
 
-      {listed ? <hr className={styles.rule} /> : null}
-
       {listed ? (
         <div className={styles.projects}>
           {projects.map((project) => {
