@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { BarShapeProps, YAxisTickContentProps } from "recharts";
 import { UNIT_STATUS_COLORS, UNIT_STATUS_LABELS } from "@/lib/reservas/constants";
@@ -143,7 +143,7 @@ function segmentShape(
     const trackRight = originX + bandWidth;
     const slotX = trackRight + 4 + index * HERO_SLOT + HERO_SLOT;
     const open = () => onOpen(row.tower, key);
-    const onKey = (event: KeyboardEvent<SVGGElement>) => {
+    const onKey = (event: ReactKeyboardEvent<SVGGElement>) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       open();
