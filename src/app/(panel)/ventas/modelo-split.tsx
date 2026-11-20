@@ -154,7 +154,6 @@ function countsFor(project: ProjectView, kind: Kind): ModelCount[] {
 }
 
 type TowerRef = { key: string; label: string };
-type TowerColumn = TowerRef & { moves: SplitMove[] };
 
 function towerIdentity(name: string): string {
   return name
@@ -206,7 +205,22 @@ function preferHouseLabel(current: string, next: string): string {
   return current;
 }
 
-function santaElenaColumns(project: ProjectView, units: readonly SplitUnit[], moves: readonly SplitMove[], kind: Kind): TowerColumn[] {
+type ModelSlice = { model: string; moves: SplitMove[] };
+type TowerCluster = TowerRef & { models: ModelSlice[] };
+
+function modelSlices(project: ProjectView, kind: Kind, match: (move: SplitMove) => boolean): ModelSlice[] {
+  return project.series.map((row) => ({
+    model: row.model,
+    moves: row[kind].filter(match),
+  }));
+}
+
+function houseNumber(key: string, label: string): string {
+  if (key.startsWith("casa-")) return key.slice("casa-".length);
+  return label.replace(/^casa\s*/i, "");
+}
+
+function santaElenaClusters(project: ProjectView, units: readonly SplitUnit[], moves: readonly SplitMove[], kind: Kind): TowerCluster[] {
   const labels = new Map<string, string>();
   const add = (value: string) => {
     const label = value.trim();
@@ -222,33 +236,25 @@ function santaElenaColumns(project: ProjectView, units: readonly SplitUnit[], mo
   for (const move of moves) {
     if (move.projectSlug === project.slug) add(move.unit);
   }
-  const rows = project.series.flatMap((row) => row[kind]);
   return [...labels.entries()]
     .map(([key, label]) => ({
       key,
-      label,
-      moves: rows.filter((move) => houseKey(move.unit) === key),
+      label: houseNumber(key, label),
+      models: modelSlices(project, kind, (move) => houseKey(move.unit) === key),
     }))
-    .sort((a, b) => {
-      const left = Number(a.key.slice("casa-".length));
-      const right = Number(b.key.slice("casa-".length));
-      if (Number.isFinite(left) && Number.isFinite(right)) return left - right;
-      return a.label.localeCompare(b.label, "es");
-    });
+    .sort((a, b) => Number(a.label) - Number(b.label) || a.label.localeCompare(b.label, "es"));
 }
 
-function towerColumns(
+function towerClusters(
   project: ProjectView,
   units: readonly SplitUnit[],
   moves: readonly SplitMove[],
   kind: Kind,
-): TowerColumn[] {
-  if (project.slug === "santa-elena") return santaElenaColumns(project, units, moves, kind);
-  const towers = projectTowers(project.slug, units, moves);
-  const rows = project.series.flatMap((row) => row[kind]);
-  return towers.map((tower) => ({
+): TowerCluster[] {
+  if (project.slug === "santa-elena") return santaElenaClusters(project, units, moves, kind);
+  return projectTowers(project.slug, units, moves).map((tower) => ({
     ...tower,
-    moves: rows.filter((move) => towerIdentity(move.towerName) === tower.key),
+    models: modelSlices(project, kind, (move) => towerIdentity(move.towerName) === tower.key),
   }));
 }
 
@@ -260,7 +266,9 @@ function towerPeak(
 ): number {
   let peak = 0;
   for (const project of projects) {
-    for (const tower of towerColumns(project, units, moves, kind)) peak = Math.max(peak, tower.moves.length);
+    for (const tower of towerClusters(project, units, moves, kind)) {
+      for (const slice of tower.models) peak = Math.max(peak, slice.moves.length);
+    }
   }
   return peak > 0 ? peak : 1;
 }
@@ -310,52 +318,59 @@ function ModelList({
 
 function TowerChart({
   place,
-  columns,
+  clusters,
   scale,
   color,
   dashed,
   onOpen,
 }: {
   place: string;
-  columns: readonly TowerColumn[];
+  clusters: readonly TowerCluster[];
   scale: number;
   color: string;
   dashed: boolean;
-  onOpen: (tower: TowerColumn) => void;
+  onOpen: (tower: TowerCluster, slice: ModelSlice) => void;
 }) {
   const ceiling = scale > 0 ? scale : 1;
   return (
     <div className={styles.towerChart}>
-      {columns.map((tower) => {
-        const value = tower.moves.length;
-        const height = `${(value / ceiling) * 100}%`;
-        const name = tower.label;
-        return (
-          <button
-            key={`${tower.key}:${tower.label}`}
-            type="button"
-            className={styles.towerCol}
-            aria-label={`${place}. ${name}. ${count(value)}`}
-            onClick={() => onOpen(tower)}
-          >
-            <span className={styles.towerPlot}>
-              <span className={styles.towerNum} style={{ bottom: `calc(${height} + 2px)` }}>{count(value)}</span>
-              {value > 0 ? (
-                <span
-                  className={styles.towerBar}
-                  data-dashed={dashed ? "true" : undefined}
-                  style={{
-                    height,
-                    background: dashed ? projectTint(color) : color,
-                    borderColor: color,
-                  }}
-                />
-              ) : null}
-            </span>
-            <span className={styles.towerName}>{name}</span>
-          </button>
-        );
-      })}
+      {clusters.map((tower) => (
+        <div key={`${tower.key}:${tower.label}`} className={styles.towerCluster}>
+          <div className={styles.towerCols}>
+            {tower.models.map((slice) => {
+              const value = slice.moves.length;
+              const height = `${(value / ceiling) * 100}%`;
+              const model = modeloLabel(slice.model);
+              return (
+                <button
+                  key={slice.model}
+                  type="button"
+                  className={styles.towerCol}
+                  aria-label={`${place}. ${tower.label}. ${model}. ${count(value)}`}
+                  onClick={() => onOpen(tower, slice)}
+                >
+                  <span className={styles.towerPlot}>
+                    <span className={styles.towerNum} style={{ bottom: `calc(${height} + 2px)` }}>{count(value)}</span>
+                    {value > 0 ? (
+                      <span
+                        className={styles.towerBar}
+                        data-dashed={dashed ? "true" : undefined}
+                        style={{
+                          height,
+                          background: dashed ? projectTint(color) : color,
+                          borderColor: color,
+                        }}
+                      />
+                    ) : null}
+                  </span>
+                  <span className={styles.towerModel}>{model}</span>
+                </button>
+              );
+            })}
+          </div>
+          <span className={styles.towerName}>{tower.label}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -655,19 +670,19 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
                   <article className={styles.splitCard} aria-label={`Torres de ${project.label}`}>
                     <TowerChart
                       place={project.label}
-                      columns={towerColumns(project, vista.split.units, vista.split.moves, series)}
+                      clusters={towerClusters(project, vista.split.units, vista.split.moves, series)}
                       scale={towerMax}
                       color={projectColor(project.label)}
                       dashed={series === "pcv"}
-                      onOpen={(tower) => {
+                      onOpen={(tower, slice) => {
                         const title = series === "reserva" ? "Reserva" : "PCV";
-                        const where = tower.label ? `${tower.label}. ` : "";
+                        const model = modeloLabel(slice.model);
                         open({
-                          key: `${project.slug}:${series}:${tower.key}`,
-                          title: `${project.label}. ${where}${title} ${count(tower.moves.length)}`,
+                          key: `${project.slug}:${series}:${tower.key}:${slice.model}`,
+                          title: `${project.label}. ${tower.label}. ${model}. ${title} ${count(slice.moves.length)}`,
                           formula: series === "reserva" ? "Actividades Reserva del periodo." : "PCV del periodo.",
                           source: series === "reserva" ? RESERVA_SOURCE : PCV_SOURCE,
-                          rows: tower.moves.map((move) => moveLine(vista, move)),
+                          rows: slice.moves.map((move) => moveLine(vista, move)),
                         });
                       }}
                     />
