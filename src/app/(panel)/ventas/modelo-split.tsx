@@ -7,7 +7,7 @@ import { compareProjectLabels } from "@/lib/projects";
 import type { AnalisisVista, SplitMove, SplitUnit } from "@/lib/ventas/vista-types";
 import styles from "./lower-bands.module.css";
 
-const LABEL_FONT = "700 11px Inter, ui-sans-serif, system-ui, sans-serif";
+const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 
 const PROJECT_COLOR: Record<string, string> = {
   benestare: "#0d2041",
@@ -15,8 +15,6 @@ const PROJECT_COLOR: Record<string, string> = {
   "bosque-las-tapias": "#0573b0",
   "santa-elena": "#1a4a68",
 };
-
-const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 
 type Tip = { key: string; title: string; formula: string; source: string; rows: string[] };
 type Kind = "reserva" | "pcv";
@@ -314,7 +312,7 @@ function TowerChart({
               );
             })}
           </div>
-          <span className={styles.towerModel}>{group.model}</span>
+          <span className={styles.towerModel}>{modeloLabel(group.model)}</span>
         </div>
       ))}
     </div>
@@ -327,66 +325,33 @@ function modelOf(payload: unknown): string {
   return typeof model === "string" ? model : "";
 }
 
-let labelCanvas: HTMLCanvasElement | null = null;
-
-function labelWidth(text: string, fontSize: number): number {
-  if (typeof document === "undefined") return text.length * fontSize * 0.64;
-  labelCanvas ??= document.createElement("canvas");
-  const ctx = labelCanvas.getContext("2d");
-  if (!ctx) return text.length * fontSize * 0.64;
-  ctx.font = LABEL_FONT.replace("11px", `${fontSize}px`);
-  return ctx.measureText(text).width;
+function modeloLabel(label: string): string {
+  return label.replace(/\s*PLUS\b/gi, "+");
 }
 
-function longestLabel(labels: readonly string[]): string {
-  return labels.reduce((best, label) => (label.length > best.length ? label : best), "");
-}
-
-function paddedWidth(text: string, fontSize: number): number {
-  return labelWidth(text, fontSize) * 1.12 + 6;
-}
-
-function fitLabel(labels: readonly string[], room: number): { font: number; axis: number } {
-  const longest = longestLabel(labels);
-  const full = longest ? paddedWidth(longest, 11) : 16;
-  if (!longest || room >= full) return { font: 11, axis: Math.max(16, Math.ceil(full)) };
-  if (room <= 6) return { font: 1, axis: Math.max(0, room) };
-  let font = 11 * ((room - 6) / Math.max(full - 6, 1));
-  let width = paddedWidth(longest, font);
-  if (width > room && width > 0) font *= room / width;
-  return { font: Math.max(font, 1), axis: room };
-}
-
-function chartSlots(box: number, countFont: number, labels: readonly string[]): { top: number; font: number; axis: number } {
+function chartSlots(box: number, countFont: number): { top: number; axis: number } {
   const topWanted = countFont + 6;
-  const fitted = fitLabel(labels, Number.POSITIVE_INFINITY);
-  const minPlot = 16;
-  if (box >= topWanted + fitted.axis + minPlot) {
-    return { top: topWanted, font: 11, axis: fitted.axis };
-  }
-  const available = Math.max(0, box - minPlot);
-  const top = Math.max(11, Math.min(topWanted, Math.floor(available * 0.34)));
-  const axis = Math.max(0, available - top);
-  const squeezed = fitLabel(labels, axis);
-  return { top, font: squeezed.font, axis };
+  const axis = 22;
+  if (box >= topWanted + axis + 16) return { top: topWanted, axis };
+  const available = Math.max(0, box - 16);
+  const top = Math.max(11, Math.min(topWanted, Math.floor(available * 0.4)));
+  return { top, axis: Math.max(16, available - top) };
 }
 
-function VerticalTick({ x, y, payload, fontSize }: XAxisTickContentProps & { fontSize: number }) {
+function HorizontalTick({ x, y, payload }: XAxisTickContentProps) {
   const anchorX = typeof x === "number" ? x : Number(x);
   const anchorY = typeof y === "number" ? y : Number(y);
   if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) return null;
-  const label = payload?.value == null ? "" : String(payload.value);
-  const yText = anchorY + 2;
+  const label = payload?.value == null ? "" : modeloLabel(String(payload.value));
   return (
     <text
       x={anchorX}
-      y={yText}
+      y={anchorY + 12}
       fill="#0d2041"
-      fontSize={fontSize}
+      fontSize={11}
       fontWeight={700}
       fontFamily="Inter, ui-sans-serif, system-ui, sans-serif"
-      textAnchor="end"
-      transform={`rotate(-90 ${anchorX} ${yText})`}
+      textAnchor="middle"
     >
       {label}
     </text>
@@ -483,13 +448,11 @@ function ModelChart({
     return () => observer.disconnect();
   }, []);
   const fontSize = countSize(series.length);
-  const labels = series.map((row) => row.model);
-  const slots = chartSlots(box, fontSize, labels);
+  const slots = chartSlots(box, fontSize);
   const data = series.map((row) => ({ model: row.model, value: row[kind].length }));
   const open = (model: string) => onOpen(model, kind, place);
   const name = kind === "reserva" ? "Reserva" : "PCV";
   const color = projectColor(place);
-  const tick = (props: XAxisTickContentProps) => <VerticalTick {...props} fontSize={slots.font} />;
   return (
     <div ref={host} className={styles.splitChart}>
       {box > 0 ? (
@@ -499,15 +462,13 @@ function ModelChart({
               dataKey="model"
               interval={0}
               minTickGap={0}
-              angle={-90}
-              textAnchor="end"
               height={slots.axis}
               tickSize={0}
               tickMargin={0}
               tickLine={false}
-              padding={{ left: 6, right: 6 }}
+              padding={{ left: 4, right: 4 }}
               axisLine={{ stroke: "rgba(13, 32, 65, 0.28)" }}
-              tick={tick}
+              tick={HorizontalTick}
             />
             <YAxis hide width={0} domain={[0, yMax]} allowDecimals={false} />
             <Bar

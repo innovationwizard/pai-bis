@@ -413,6 +413,7 @@ async function buildAnalisis(
 type AvailabilityUnit = {
   projectSlug: string;
   unitType: string;
+  areaTotal: number | null;
   status: string;
   towerId: string;
   towerName: string;
@@ -437,16 +438,18 @@ async function loadRvUnits(): Promise<AvailabilityUnit[]> {
   for (let offset = 0; offset < CAP; offset += PAGE) {
     const { data, error } = await client
       .from("v_rv_units_full")
-      .select("project_slug, unit_type, status, tower_id, tower_name, tower_is_default, unit_number, unit_code")
+      .select("project_slug, unit_type, area_total, status, tower_id, tower_name, tower_is_default, unit_number, unit_code")
       .range(offset, offset + PAGE - 1);
     if (error) throw new Error(error.message);
     const batch = (data ?? []) as unknown as Record<string, unknown>[];
     for (const row of batch) {
+      const area = row.area_total == null || row.area_total === "" ? null : Number(row.area_total);
       const number = String(row.unit_number ?? "");
       const unitCode = String(row.unit_code ?? "");
       units.push({
         projectSlug: String(row.project_slug ?? ""),
         unitType: String(row.unit_type ?? ""),
+        areaTotal: area != null && Number.isFinite(area) ? area : null,
         status: String(row.status ?? ""),
         towerId: String(row.tower_id ?? ""),
         towerName: String(row.tower_name ?? ""),
@@ -529,12 +532,48 @@ function isCanonicalUnitType(value: string): boolean {
 }
 
 function modelCategory(unit: AvailabilityUnit): string | null {
+  if (unit.projectSlug === "santa-elena") {
+    return santaElenaModelo(unit.number, unit.unitCode, unit.code, unit.areaTotal);
+  }
   if (!isCanonicalUnitType(unit.unitType)) return null;
   if (unit.projectSlug === "boulevard-5") {
     const letter = unit.unitType.trim().charAt(0).toUpperCase();
     return letter === "A" || letter === "B" || letter === "C" || letter === "D" || letter === "E" ? letter : null;
   }
   return unit.unitType.trim();
+}
+
+// Temporary until the Santa Elena modelo sync is fixed.
+// A: Casa 1, 2, 5, 10, 11 (491.91 m²). B: Casa 3, 4, 6, 7, 8, 9 (581 m²).
+const SANTA_ELENA_A = new Set([1, 2, 5, 10, 11]);
+const SANTA_ELENA_B = new Set([3, 4, 6, 7, 8, 9]);
+
+function santaElenaHouse(value: string): number | null {
+  const text = value.trim();
+  const casa = text.match(/casa\s*(\d+)/i);
+  if (casa) return Number(casa[1]);
+  if (/^\d+$/.test(text)) {
+    const house = Number(text);
+    if (house >= 1 && house <= 11) return house;
+  }
+  return null;
+}
+
+function santaElenaModelo(...marks: (string | number | null)[]): string | null {
+  for (const mark of marks) {
+    if (typeof mark === "number" && Number.isFinite(mark)) {
+      if (Math.abs(mark - 491.91) <= 0.05) return "A";
+      if (Math.abs(mark - 581) <= 0.05) return "B";
+      continue;
+    }
+    if (typeof mark !== "string") continue;
+    const house = santaElenaHouse(mark);
+    if (house != null && SANTA_ELENA_A.has(house)) return "A";
+    if (house != null && SANTA_ELENA_B.has(house)) return "B";
+    if (Math.abs(Number(mark.replace(/m²|m2/gi, "").trim()) - 491.91) <= 0.05) return "A";
+    if (Math.abs(Number(mark.replace(/m²|m2/gi, "").trim()) - 581) <= 0.05) return "B";
+  }
+  return null;
 }
 
 function modelRowsFromUnits(units: readonly AvailabilityUnit[], filters: VistaFilters, dims: Dims): InventarioVista["byModel"] {
@@ -858,11 +897,21 @@ async function buildModeloSplit(
     const towerName = sale ? (dims.torres.get(sale.towerId) ?? "") : "";
     const tokens = sale ? [unitToken(sale.canonical), unitToken(sale.token2)].filter((token, index, list) => token && list.indexOf(token) === index) : [];
     const placed = lookupPlaced(index, slug, towerName, tokens);
-    if (placed) return { model: placed.model, towerId: placed.towerId, towerName: placed.towerName, unit: placed.code || sale?.canonical || "" };
+    const hardcoded = slug === "santa-elena"
+      ? santaElenaModelo(placed?.code ?? "", sale?.canonical ?? "", sale?.token2 ?? "")
+      : null;
+    if (placed) {
+      return {
+        model: hardcoded || placed.model,
+        towerId: placed.towerId,
+        towerName: placed.towerName,
+        unit: placed.code || sale?.canonical || "",
+      };
+    }
     const namedTower = missingName(towerName) || (slug === "santa-elena" && foldTower(towerName) === "principal")
       ? { id: "", name: "" }
       : { id: sale?.towerId ?? "", name: towerName.trim() };
-    const model = modelFromDim(slug, sale ? (dims.models.get(sale.modelId) ?? "") : "");
+    const model = hardcoded || modelFromDim(slug, sale ? (dims.models.get(sale.modelId) ?? "") : "");
     return { model, towerId: namedTower.id, towerName: namedTower.name, unit: sale?.canonical.trim() || "" };
   }
 
