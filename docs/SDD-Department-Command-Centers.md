@@ -226,7 +226,7 @@ This item does not follow the three-level Total → Project → Asesor pattern u
 | # | Checklist item | Visualization |
 |---|----------------|---------------|
 | 4 | Ventas por canales | Ranked horizontal bars or small multiples by Fuente |
-| 5 | Análisis de inventario: Split de ventas por modelo | See precise spec below (4.2.1). Compact Hero + Expanded Hero + Project Bands (modelos alphabetical as Member Columns). Single series at a time via Reserva/PCV toggle. |
+| 5 | Split de ventas por modelo y por torre | See precise spec below (4.2.1). Compact Hero + Expanded Hero (one column per torre; Santa Elena one column per modelo) + Project Bands. Single series at a time via the Reserva/PCV toggle. |
 | 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Composed chart or small multiples showing price trajectory and discount impact |
 | 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Bars or small multiples for financial impact (reembolso / retención) |
 | 10 | Control de descuentos | Compact visual summary (indicators or bars) with amounts shown |
@@ -244,11 +244,15 @@ Split de ventas por modelo y por torre
 Design is complete and correct as of 19 November 2026. Do not reopen the layout, the hierarchy, or the labels of this item unless a new decision is recorded here.  
 The data underneath is not complete and is not correct. Fixing the sync, the modelo field, and the torre names is a separate mission.
 
+**Counts**  
+Every number is a count of the period’s sales events, classified by modelo and by torre the way Pipedrive classifies them. No inventory rewrites.
+
 **Purpose**  
 Show, at a glance, how the period’s Reservas and PCVs are distributed by modelo. Units only. No monetary values. No inventory-status composition (that is Item 6).
 
 **Time and filters**  
-- Counts respect the existing period filter (and all other active filters: project pills, asesor, torre, modelo).  
+- Counts respect the period filter, the project pills, and the asesor filter.  
+- This item has no Torre filter and no Modelo filter.  
 - Zero modelos are always shown. Never hide zeros.
 
 **Ordering**  
@@ -275,13 +279,12 @@ One Project Band per project, in canonical order.
 - Right: Project Detail Card. Each block is one modelo. Inside it, one vertical column per torre, including zeros. Benestare’s modelo B therefore shows five columns, TA through TE, and those columns sum to that modelo’s total. The torre total itself is not repeated here; it is the Expanded Hero column. Modelo names under the blocks use the same “A+” spelling as before. Numbers stay on or above every column. Shared y-scale across all Project Detail Cards. Zeros remain visible.  
   A torre is one building even when the two source tables spell it differently. `v_rv_units_full.tower_name` says “Torre A”. `ventas.dim_tower.name` often says “A”. Those are the same torre, and the sale is counted on that one column.  
   Display follows the Odoo 19 convention. A bare letter and a “Torre …” name show as T plus that letter, with no space: “A” and “Torre A” both display as “TA”. A name that is not a torre letter, such as Principal, stays as written.  
-  Each block is one modelo, alphabetical. Inside it, one vertical column per torre, including zeros. Benestare’s modelo B therefore shows five columns, TA through TE, and those columns sum to that modelo’s total. The torre names use the Odoo 19 form. Modelo names under the blocks use the same “A+” spelling as the Expanded Hero.  
   Santa Elena’s Project Detail Card stays one column per modelo, A and B. It does not repeat the Expanded Hero.  
 - Fixed, consistent band height; no large empty gaps.  
 - **The full item fits on the page.** Compact Hero + Expanded Hero + all Project Bands must be visible together without requiring scroll beyond what Items 1 and 2 currently require. Reduce band height as needed.
 
 **Single series at a time** (Reserva / PCV toggle)  
-- Toggle location: on the same row as the Torre and Modelo filters, aligned to the right of that filters band.  
+- The toggle is the only control on this item. It sits on its own row above the Compact Hero.  
 - Toggle options: Reserva | PCV.  
 - When Reserva is selected: solid columns.  
 - When PCV is selected: dashed-outline columns.  
@@ -299,7 +302,7 @@ Project Detail Card modelo labels are horizontal. “PLUS” is written as “+�
 - Reserva columns are solid. PCV columns use a dashed outline.  
 - Orientation is vertical columns only.  
 - No extra titles or explanatory text beyond the minimum section label.  
-- Existing Torre and Modelo filters remain available for focus.  
+- No Torre filter. No Modelo filter.  
 - No static files as data sources. All numbers from the live database.  
 - Anti-clutter: readable numbers, no truncated labels, consistent bar height. Denser than Items 1–2 is acceptable; the current wall of mini-charts is not.
 
@@ -315,18 +318,48 @@ The dual-gate concept (recibo publicado + promesa firmada) is recorded only as a
 
 ## 5. Other Department Command Centers (high-level)
 
-These follow the same pattern. All items from each department’s Operativo checklist are 0-click graphics on a single scrollable page. Detailed visual specs can be refined after Ventas is validated.
+Cobros, Créditos, and Entregas follow the same pattern. All items from each of those Operativo checklists are 0-click graphics on a single scrollable page. Their visual specs can be refined after Ventas is validated. Mercadeo is specified as built in §5.1. It is the Performance Ads page, not the Operativo checklist.
 
 **Note on Créditos:** The SSOT received from the CEO mixes Créditos + Entregas + Legal (Internal) + Legal (External). For this SDD the entire mush is placed under Créditos. Untangling the workflows is deferred until after this SDD is designed and built.
 
 ### 5.1 Mercadeo
-Operativo items (all 0-click):
-- 1 Reporte maestro (with 1.1 Meta mensual de lead, 1.2 Meta diaria de lead, 1.3 Uso de presupuesto diario de pauta, 1.4 Uso de presupuesto mensual de pauta, 1.5 ROAS / ROI, 1.6 Costo por cierre / medio de venta)
-- 2 Efectividad de campañas
-- 3 Evolución de costos por lead de manera mensual
-- 4 Evolución de inversiones en pauta acumulada mensual
-- 5 Operatividad de todos los canales digitales en la aplicación
-- 6 Gestión de pauta - Multiplataforma
+
+**Status**  
+The page on screen as of 20 November 2026 is the Marketing Manager’s Performance Ads report. It does not follow the Ventas three-level names (Compact Hero, Expanded Hero, Project Bands, Member Columns). It does not yet draw the Operativo checklist in `docs/Checklists-Authoritative.md`. Those checklist rows stay the CEO’s list. They are not bands on this page.
+
+**What the page is**  
+One scroll. The Item Title is “Performance Ads”. The left rail has that one item and scrolls to it. The page ends at the Campañas band. Performance S, Reporte Reservas, Integración de Inventarios, Presupuesto Mercadeo, and Página 1 are not on the page and are not in the rail.
+
+**Filters**  
+Project pills: Todos, Boulevard 5, Benestare, Bosque Las Tapias, Santa Elena. Puerta Abierta is an account in the report, not a pill.  
+Periodo: Este mes, Mes anterior, Este trimestre, Este año, Personalizado. The stored default is Personalizado, 1 January 2026 through 31 July 2026.  
+Asesor is on the bar and offers only Todos. It does not change the report.  
+Restablecer returns the stored default. The period text and the freshness stamp share one line. Freshness reads the grain’s loaded-through date.
+
+**Column rule**  
+Every split row uses the same two columns. The left column is the width of the three KPI cards. The right column takes the remaining width. A card that is alone takes the full width.
+
+**Bands, top to bottom**
+
+1. **KPI cards and Detalle de Pauta.** Three stacked cards on the left: Alcance, Importe gastado, Clientes potenciales. Each card shows a compact figure and the exact figure under it. Importe gastado is United States dollars. On the right, Detalle de Pauta is a table: Cuenta, Alcance, Impresiones, Clientes potenciales, Frecuencia, plus a Total row. Accounts are ordered by alcance, largest first. Frecuencia is blank on the total.
+
+2. **Costo por lead, then Tendencia del costo por cliente potencial.** Left: vertical columns, one per account that has a cost, ordered by that cost, largest first. The number sits on the column, in dollars and cents. Account names are turned 90 degrees. Long names are shortened only here: Bosque Las Tapias reads “Bosque”, Puerta Abierta reads “P. Abierta”. Right: one line of the daily cost and a dashed straight trend. The horizontal axis marks the first of each month with its short name. Both cards are 210px tall.
+
+3. **Clientes potenciales por día, then Clientes potenciales por proyecto.** Left: vertical columns, one per weekday that has leads in the period, ordered by leads, largest first. Day names are turned 90 degrees. The chart is 220px tall, a quarter more than the 176px chart it replaced, so those names fit. Right: a pie of leads by account, in the project colors, with the count and the share beside it. The pie fills the remaining width.
+
+4. **Inversión en pauta, then Gestión de presupuesto.** Left: vertical columns of dollars spent, ordered by spend, largest first. The full account name is turned 90 degrees. The column keeps the same narrow width as the KPI cards. Right: one line of spend by month. Month names are written out. The line fills the remaining width. The card title stays “Gestión de presupuesto”.
+
+5. **Campañas.** One card, full width. A treemap of campaigns by leads. A campaign with no leads in the period is omitted. The tile shows the short campaign name and the lead count when the tile is large enough. Tile color is the account color.
+
+**Account colors**  
+Benestare `#0d2041`, Boulevard 5 `#3d6f8f`, Bosque Las Tapias `#0573b0`, Santa Elena `#1a4a68`, Puerta Abierta `#94a3b8`. The pie and the treemap use these colors. Costo por lead, Clientes potenciales por día, and Inversión en pauta are drawn in navy.
+
+**Numbers**  
+The report is United States dollars, as the Meta export states them. This page does not convert those dollars to quetzales.  
+The figures are summed from the compiled grain in `src/lib/mercadeo/performance-ads-grain.ts` (loaded through 4 August 2026). That grain is a snapshot carried in the repository. It is not `mercadeo.ad_day`, and it is not a live query. This conflicts with the hard rule in §2 until the page reads the database. Do not treat the grain as the allowed source for any new chart.
+
+**Empty period**  
+When the selected pills and dates contain no accounts, the page says “Sin pauta en el periodo.”
 
 ### 5.2 Cobros
 Operativo items (all 0-click):
