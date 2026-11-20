@@ -18,7 +18,7 @@ import {
   YAxis,
 } from "recharts";
 import type { TreemapNode } from "recharts";
-import { performanceAds } from "@/lib/mercadeo/performance-ads-data";
+import type { PerformanceAdsReport } from "@/lib/mercadeo/performance-ads-data";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
@@ -147,8 +147,7 @@ function CampaignTile(props: TreemapNode): ReactElement {
   );
 }
 
-export default function PerformanceAdsView() {
-  const report = performanceAds;
+export default function PerformanceAdsView({ report }: { report: PerformanceAdsReport }) {
   const pie = useMemo(
     () => [...report.accounts].sort((a, b) => b.leads - a.leads),
     [report.accounts],
@@ -176,8 +175,8 @@ export default function PerformanceAdsView() {
   const monthTicks = report.days.filter((day) => day.date.endsWith("-01")).map((day) => day.date);
 
   return (
-    <div className="mk-board">
-      <div className="mk-col">
+    <div className="mk-ads">
+      <div className="mk-hero">
         <div className="mk-kpis">
           <p aria-label={`Alcance ${count(report.alcance)}`}>
             <strong>{compactCount(report.alcance)}</strong>
@@ -195,7 +194,6 @@ export default function PerformanceAdsView() {
             <small>{count(report.leads)}</small>
           </p>
         </div>
-
         <Panel title="Detalle de Pauta">
           <table className="mk-table">
             <thead>
@@ -227,7 +225,10 @@ export default function PerformanceAdsView() {
             </tbody>
           </table>
         </Panel>
+      </div>
 
+      <div className="mk-board">
+      <div className="mk-col">
         <Panel title="Tendencia del costo por cliente potencial">
           <div className="mk-chart">
             <ResponsiveContainer width="100%" height="100%">
@@ -396,6 +397,7 @@ export default function PerformanceAdsView() {
             </ResponsiveContainer>
           </div>
         </Panel>
+      </div>
       </div>
     </div>
   );

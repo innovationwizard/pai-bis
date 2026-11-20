@@ -1599,7 +1599,21 @@ main:has(.section-page) > .section-page > .section-sidebar {
 }
 .vc-referidos li + li { margin-top: 2px; }
 .mk-band {
-  scroll-margin-top: 64px;
+  scroll-margin-top: 156px;
+}
+
+.mk-ads {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mk-hero {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
 }
 
 .mk-board {
@@ -1639,12 +1653,18 @@ main:has(.section-page) > .section-page > .section-sidebar {
 }
 
 .mk-kpis {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+  min-width: 0;
+  min-height: 100%;
 }
 
 .mk-kpis p {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   margin: 0;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -1745,6 +1765,7 @@ main:has(.section-page) > .section-page > .section-sidebar {
 .mk-chart-lg { height: 280px; }
 
 @media (max-width: 1100px) {
+  .mk-hero,
   .mk-board,
   .mk-pair,
   .mk-pie { grid-template-columns: 1fr; }
