@@ -528,10 +528,14 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
     () => towerPeak(view.projects, vista.split.units, vista.split.moves, series),
     [view.projects, vista.split.units, vista.split.moves, series],
   );
-  const heroTowerMax = useMemo(
-    () => torreTotalPeak(view.projects, vista.split.units, vista.split.moves, series),
-    [view.projects, vista.split.units, vista.split.moves, series],
-  );
+  const heroTowerMax = useMemo(() => {
+    let peak = torreTotalPeak(view.projects, vista.split.units, vista.split.moves, series);
+    for (const project of view.projects) {
+      if (project.slug !== "santa-elena") continue;
+      for (const row of project.series) peak = Math.max(peak, row[series].length);
+    }
+    return peak > 0 ? peak : 1;
+  }, [view.projects, vista.split.units, vista.split.moves, series]);
 
   useEffect(() => {
     if (!tip) return;
@@ -619,15 +623,16 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
             <article key={project.slug} className={styles.splitCard} aria-label={project.label}>
               <h3 className={styles.splitProject}>{project.label}</h3>
               {(() => {
-                const towers = torreTotals(project, vista.split.units, vista.split.moves);
-                if (towers.length === 0) return null;
+                const byModelo = project.slug === "santa-elena";
+                const columns = byModelo ? project.series : torreTotals(project, vista.split.units, vista.split.moves);
+                if (columns.length === 0) return null;
                 return (
                   <ModelChart
                     place={project.label}
-                    series={towers}
+                    series={columns}
                     kind={series}
                     yMax={heroTowerMax}
-                    onOpen={(label, kind, place) => {
+                    onOpen={byModelo ? openCount : (label, kind, place) => {
                       const found = view.projects.find((item) => item.label === place);
                       const matched = found
                         ? found.series.flatMap((row) => row[kind]).filter((move) => odooTowerLabel(move.towerName) === label)
