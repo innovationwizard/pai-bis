@@ -133,15 +133,17 @@
 }
 
 .statusPlot {
+  position: relative;
   height: 8px;
   min-width: 0;
   background: rgba(13, 32, 65, 0.08);
 }
 
 .statusBar {
+  position: absolute;
+  top: 0;
   display: block;
   height: 100%;
-  max-width: 100%;
 }
 
 .statusCount {

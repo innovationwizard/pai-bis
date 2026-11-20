@@ -24,6 +24,8 @@ const STATUSES: { key: InventoryStatusKey; status: RvUnitStatus }[] = [
   { key: "vendido", status: "SOLD" },
 ];
 
+const WATERFALL: InventoryStatusKey[] = ["congelado", "disponible", "revision", "reservado", "vendido"];
+
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 
 type Tip = {
@@ -52,13 +54,6 @@ function scaleOf(projects: readonly InventoryProject[]): number {
   return peak > 0 ? peak : 1;
 }
 
-function listPeak(counts: InventoryCounts, includeTotal: boolean): number {
-  let peak = 0;
-  for (const item of STATUSES) peak = Math.max(peak, counts[item.key]);
-  if (includeTotal) peak = Math.max(peak, counts.total);
-  return peak;
-}
-
 function linesFor(projects: readonly InventoryProject[], status: InventoryStatusKey | null): string[] {
   const lines: string[] = [];
   for (const project of projects) {
@@ -83,41 +78,53 @@ function formulaFor(status: InventoryStatusKey | null): string {
 function StatusList({
   counts,
   includeTotal,
-  scale,
   onOpen,
 }: {
   counts: InventoryCounts;
   includeTotal: boolean;
-  scale: number;
   onOpen: (status: InventoryStatusKey | null) => void;
 }) {
-  const ceiling = scale > 0 ? scale : 1;
-  const rows: { key: string; label: string; value: number; color: string; status: InventoryStatusKey | null }[] = STATUSES.map((item) => ({
-    key: item.key,
-    label: UNIT_STATUS_LABELS[item.status],
-    value: counts[item.key],
-    color: UNIT_STATUS_COLORS[item.status],
-    status: item.key,
-  }));
+  const ceiling = counts.total > 0 ? counts.total : 1;
+  const rows: { key: string; label: string; value: number; color: string; status: InventoryStatusKey | null; start: number; summary: boolean }[] = [];
+  let start = 0;
+  for (const key of WATERFALL) {
+    const item = STATUSES.find((entry) => entry.key === key);
+    if (!item) continue;
+    const value = counts[key];
+    rows.push({
+      key,
+      label: UNIT_STATUS_LABELS[item.status],
+      value,
+      color: UNIT_STATUS_COLORS[item.status],
+      status: key,
+      start,
+      summary: false,
+    });
+    start += value;
+  }
   if (includeTotal) {
-    rows.push({ key: "total", label: "Total", value: counts.total, color: NAVY, status: null });
+    rows.push({ key: "total", label: "Total", value: counts.total, color: NAVY, status: null, start: 0, summary: true });
   }
   return (
     <ul className={styles.statusList}>
-      {rows.map((row) => (
-        <li key={row.key}>
-          <span className={styles.statusName}>{row.label}</span>
-          <button type="button" className={styles.statusTrack} onClick={() => onOpen(row.status)}>
-            <span className={styles.statusPlot}>
-              <span
-                className={styles.statusBar}
-                style={{ width: `${(row.value / ceiling) * 100}%`, background: row.color }}
-              />
-            </span>
-            <span className={styles.statusCount} style={{ color: row.color }}>{count(row.value)}</span>
-          </button>
-        </li>
-      ))}
+      {rows.map((row) => {
+        const width = row.summary ? (row.value > 0 ? 100 : 0) : (row.value / ceiling) * 100;
+        const left = row.summary ? 0 : (row.start / ceiling) * 100;
+        return (
+          <li key={row.key}>
+            <span className={styles.statusName}>{row.label}</span>
+            <button type="button" className={styles.statusTrack} onClick={() => onOpen(row.status)}>
+              <span className={styles.statusPlot}>
+                <span
+                  className={styles.statusBar}
+                  style={{ left: `${left}%`, width: `${width}%`, background: row.color }}
+                />
+              </span>
+              <span className={styles.statusCount} style={{ color: row.color }}>{count(row.value)}</span>
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -178,8 +185,6 @@ export function InventarioGeneral({
   const board: InventoryBoard | null = vista?.board ?? null;
   const projects = board?.projects ?? [];
   const scale = useMemo(() => scaleOf(projects), [projects]);
-  const heroScale = Math.max(board ? listPeak(board.counts, true) : 0, 1);
-  const projectScale = Math.max(...projects.map((project) => listPeak(project.counts, false)), 1);
   const [tip, setTip] = useState<Tip | null>(null);
 
   useEffect(() => {
@@ -236,7 +241,6 @@ export function InventarioGeneral({
               <StatusList
                 counts={board.counts}
                 includeTotal
-                scale={heroScale}
                 onOpen={(status) => openScope(status, "todos", projects)}
               />
             </article>
@@ -260,7 +264,6 @@ export function InventarioGeneral({
                     <StatusList
                       counts={project.counts}
                       includeTotal={false}
-                      scale={projectScale}
                       onOpen={(status) => openScope(status, project.label, [project])}
                     />
                   </article>
