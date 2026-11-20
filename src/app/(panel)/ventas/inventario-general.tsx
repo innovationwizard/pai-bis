@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { UNIT_STATUS_COLORS, UNIT_STATUS_LABELS } from "@/lib/reservas/constants";
 import type { RvUnitStatus } from "@/lib/reservas/types";
 import type {
@@ -52,6 +52,68 @@ function scaleOf(projects: readonly InventoryProject[]): number {
     for (const tower of project.towers) peak = Math.max(peak, tower.counts.total);
   }
   return peak > 0 ? peak : 1;
+}
+
+const HERO_FIGURE_PAD = 6;
+
+function placeKey(label: string, status: InventoryStatusKey): string {
+  return `${label}:${status}`;
+}
+
+function figureInk(hex: string): string {
+  const raw = hex.replace("#", "");
+  const red = Number.parseInt(raw.slice(0, 2), 16);
+  const green = Number.parseInt(raw.slice(2, 4), 16);
+  const blue = Number.parseInt(raw.slice(4, 6), 16);
+  if (!Number.isFinite(red) || !Number.isFinite(green) || !Number.isFinite(blue)) return "#ffffff";
+  const y = (red * 299 + green * 587 + blue * 114) / 1000;
+  return y >= 120 ? "#0d2041" : "#ffffff";
+}
+
+const figureWidths = new Map<string, number>();
+
+function figureWidth(text: string, fontFamily: string): number {
+  const key = `${fontFamily}\0${text}`;
+  const cached = figureWidths.get(key);
+  if (cached != null) return cached;
+  const probe = document.createElement("span");
+  probe.textContent = text;
+  probe.style.position = "fixed";
+  probe.style.left = "-9999px";
+  probe.style.top = "0";
+  probe.style.visibility = "hidden";
+  probe.style.pointerEvents = "none";
+  probe.style.whiteSpace = "nowrap";
+  probe.style.fontFamily = fontFamily;
+  probe.style.fontSize = "10px";
+  probe.style.fontWeight = "700";
+  probe.style.fontVariantNumeric = "tabular-nums";
+  probe.style.lineHeight = "1";
+  document.body.appendChild(probe);
+  const width = probe.getBoundingClientRect().width;
+  probe.remove();
+  figureWidths.set(key, width);
+  return width;
+}
+
+function figureFits(value: number, scale: number, track: number, fontFamily: string): boolean {
+  if (value <= 0 || scale <= 0 || track <= 0) return false;
+  return (value / scale) * track >= figureWidth(count(value), fontFamily) + HERO_FIGURE_PAD;
+}
+
+function segmentFlex(value: number, scale: number): string {
+  if (value <= 0 || scale <= 0) return "0 0 0px";
+  return `0 0 ${(value / scale) * 100}%`;
+}
+
+function samePlacement(
+  current: Readonly<Record<string, boolean>>,
+  next: Readonly<Record<string, boolean>>,
+): boolean {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+  if (currentKeys.length !== nextKeys.length) return false;
+  return nextKeys.every((key) => current[key] === next[key]);
 }
 
 function linesFor(projects: readonly InventoryProject[], status: InventoryStatusKey | null): string[] {
@@ -175,6 +237,116 @@ function TowerRows({
   );
 }
 
+function HeroTowers({
+  project,
+  scale,
+  onOpen,
+}: {
+  project: InventoryProject;
+  scale: number;
+  onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void;
+}) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const tracks = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [onSegment, setOnSegment] = useState<Readonly<Record<string, boolean>>>({});
+
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    let cancelled = false;
+
+    const measure = () => {
+      if (cancelled) return;
+      const first = tracks.current.values().next().value;
+      if (!first) return;
+      const fontFamily = getComputedStyle(first).fontFamily;
+      const next: Record<string, boolean> = {};
+      for (const tower of project.towers) {
+        const track = tracks.current.get(tower.label);
+        if (!track) return;
+        const width = track.clientWidth;
+        for (const key of WATERFALL) {
+          next[placeKey(tower.label, key)] = figureFits(tower.counts[key], scale, width, fontFamily);
+        }
+      }
+      setOnSegment((current) => (samePlacement(current, next) ? current : next));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    for (const node of tracks.current.values()) observer.observe(node);
+    if ("fonts" in document) {
+      void document.fonts.ready.then(() => {
+        measure();
+      });
+    }
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [project, scale]);
+
+  return (
+    <div ref={gridRef} className={styles.heroTowers}>
+      {project.towers.map((tower) => (
+        <div key={`${project.slug}:${tower.label}`} className={styles.heroRow}>
+          <span className={styles.heroName}>{tower.label}</span>
+          <div
+            className={styles.heroTrack}
+            ref={(node) => {
+              if (node) tracks.current.set(tower.label, node);
+              else tracks.current.delete(tower.label);
+            }}
+          >
+            {WATERFALL.map((key) => {
+              const item = statusOf(key);
+              const value = tower.counts[key];
+              const show = onSegment[placeKey(tower.label, key)] === true;
+              const flex = segmentFlex(value, scale);
+              if (!show) {
+                return <span key={key} className={styles.heroSeg} style={{ flex, background: item.color }} aria-hidden="true" />;
+              }
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={styles.heroSeg}
+                  style={{ flex, background: item.color, color: figureInk(item.color) }}
+                  aria-label={`${project.label}, ${tower.label}, ${item.label}: ${count(value)}`}
+                  onClick={() => onOpen(tower, key)}
+                >
+                  <span className={styles.heroFig}>{count(value)}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className={styles.heroNums}>
+            {WATERFALL.map((key) => {
+              const item = statusOf(key);
+              const value = tower.counts[key];
+              if (onSegment[placeKey(tower.label, key)] === true) {
+                return <span key={key} className={styles.heroCell} aria-hidden="true" />;
+              }
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  style={{ color: item.color }}
+                  aria-label={`${project.label}, ${tower.label}, ${item.label}: ${count(value)}`}
+                  onClick={() => onOpen(tower, key)}
+                >
+                  {count(value)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function InventarioGeneral({
   vista,
   pending,
@@ -249,7 +421,7 @@ export function InventarioGeneral({
                 {projects.map((project) => (
                   <article key={project.slug} className={styles.card} aria-label={project.label}>
                     <span className={styles.cardName}>{project.label}</span>
-                    <TowerRows project={project} scale={scale} onOpen={(tower, status) => openTower(project, tower, status)} />
+                    <HeroTowers project={project} scale={scale} onOpen={(tower, status) => openTower(project, tower, status)} />
                   </article>
                 ))}
               </div>
