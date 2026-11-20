@@ -52,6 +52,13 @@ function scaleOf(projects: readonly InventoryProject[]): number {
   return peak > 0 ? peak : 1;
 }
 
+function listPeak(counts: InventoryCounts, includeTotal: boolean): number {
+  let peak = 0;
+  for (const item of STATUSES) peak = Math.max(peak, counts[item.key]);
+  if (includeTotal) peak = Math.max(peak, counts.total);
+  return peak;
+}
+
 function linesFor(projects: readonly InventoryProject[], status: InventoryStatusKey | null): string[] {
   const lines: string[] = [];
   for (const project of projects) {
@@ -73,30 +80,45 @@ function formulaFor(status: InventoryStatusKey | null): string {
   return `Unidades en v_rv_units_full con estado ${item.label} (${item.status}).`;
 }
 
-function Counts({
+function StatusList({
   counts,
+  includeTotal,
+  scale,
   onOpen,
 }: {
   counts: InventoryCounts;
+  includeTotal: boolean;
+  scale: number;
   onOpen: (status: InventoryStatusKey | null) => void;
 }) {
+  const ceiling = scale > 0 ? scale : 1;
+  const rows: { key: string; label: string; value: number; color: string; status: InventoryStatusKey | null }[] = STATUSES.map((item) => ({
+    key: item.key,
+    label: UNIT_STATUS_LABELS[item.status],
+    value: counts[item.key],
+    color: UNIT_STATUS_COLORS[item.status],
+    status: item.key,
+  }));
+  if (includeTotal) {
+    rows.push({ key: "total", label: "Total", value: counts.total, color: NAVY, status: null });
+  }
   return (
-    <div className={styles.counts}>
-      {STATUSES.map((item) => (
-        <div key={item.key} className={styles.count}>
-          <span>{UNIT_STATUS_LABELS[item.status]}</span>
-          <button type="button" style={{ color: UNIT_STATUS_COLORS[item.status] }} onClick={() => onOpen(item.key)}>
-            {count(counts[item.key])}
+    <ul className={styles.statusList}>
+      {rows.map((row) => (
+        <li key={row.key}>
+          <span className={styles.statusName}>{row.label}</span>
+          <button type="button" className={styles.statusTrack} onClick={() => onOpen(row.status)}>
+            <span className={styles.statusPlot}>
+              <span
+                className={styles.statusBar}
+                style={{ width: `${(row.value / ceiling) * 100}%`, background: row.color }}
+              />
+            </span>
+            <span className={styles.statusCount} style={{ color: row.color }}>{count(row.value)}</span>
           </button>
-        </div>
+        </li>
       ))}
-      <div className={styles.count}>
-        <span>Total</span>
-        <button type="button" style={{ color: NAVY }} onClick={() => onOpen(null)}>
-          {count(counts.total)}
-        </button>
-      </div>
-    </div>
+    </ul>
   );
 }
 
@@ -156,6 +178,8 @@ export function InventarioGeneral({
   const board: InventoryBoard | null = vista?.board ?? null;
   const projects = board?.projects ?? [];
   const scale = useMemo(() => scaleOf(projects), [projects]);
+  const heroScale = Math.max(board ? listPeak(board.counts, true) : 0, 1);
+  const projectScale = Math.max(...projects.map((project) => listPeak(project.counts, false)), 1);
   const [tip, setTip] = useState<Tip | null>(null);
 
   useEffect(() => {
@@ -209,7 +233,12 @@ export function InventarioGeneral({
           <div className={styles.heroBand}>
             <article className={styles.kpi} aria-label="Todos los Proyectos">
               <span className={styles.kpiName}>Todos los Proyectos</span>
-              <Counts counts={board.counts} onOpen={(status) => openScope(status, "todos", projects)} />
+              <StatusList
+                counts={board.counts}
+                includeTotal
+                scale={heroScale}
+                onOpen={(status) => openScope(status, "todos", projects)}
+              />
             </article>
             <div className={styles.expanded}>
               <div className={styles.cards}>
@@ -228,7 +257,12 @@ export function InventarioGeneral({
                 <div key={project.slug} className={styles.band}>
                   <article className={styles.kpi} aria-label={project.label}>
                     <span className={styles.kpiName}>{project.label}</span>
-                    <Counts counts={project.counts} onOpen={(status) => openScope(status, project.label, [project])} />
+                    <StatusList
+                      counts={project.counts}
+                      includeTotal={false}
+                      scale={projectScale}
+                      onOpen={(status) => openScope(status, project.label, [project])}
+                    />
                   </article>
                   <div className={styles.detail}>
                     <TowerRows project={project} scale={scale} onOpen={(tower, status) => openTower(project, tower, status)} />
