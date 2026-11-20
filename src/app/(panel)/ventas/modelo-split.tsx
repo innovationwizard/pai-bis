@@ -217,8 +217,6 @@ function santaElenaColumns(project: ProjectView, units: readonly SplitUnit[], mo
   };
   for (const unit of units) {
     if (unit.projectSlug !== project.slug) continue;
-    add(unit.number);
-    add(unit.unitCode);
     add(unit.code);
   }
   for (const move of moves) {
