@@ -347,44 +347,33 @@ export default function PerformanceAdsView({ report }: { report: PerformanceAdsR
         </Panel>
       </div>
 
-      <div className="mk-board">
+      <div className="mk-split">
         <Panel title="Inversión en pauta">
           <div className="mk-chart">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={bySpend} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 0 }}>
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="name" width={118} tick={{ fill: NAVY, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <BarChart data={bySpend} margin={{ top: 18, right: 4, left: 0, bottom: 4 }}>
+                <XAxis
+                  dataKey="name"
+                  tick={{ fill: NAVY, fontSize: 10 }}
+                  interval={0}
+                  angle={-90}
+                  textAnchor="end"
+                  height={96}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis hide />
                 <Tooltip formatter={(value) => {
                   const amount = asNumber(value);
                   return [amount == null ? "—" : usdFormat.format(amount), "Importe gastado"];
                 }} />
-                <Bar dataKey="spendUsd" fill={NAVY} radius={[0, 3, 3, 0]} barSize={16}>
-                  <LabelList dataKey="spendUsd" position="right" formatter={(value) => {
+                <Bar dataKey="spendUsd" fill={NAVY} radius={[3, 3, 0, 0]} barSize={18}>
+                  <LabelList dataKey="spendUsd" position="top" formatter={(value) => {
                     const amount = asNumber(value);
                     return amount == null ? "" : thousandUsd(amount);
-                  }} fill={NAVY} fontSize={11} />
+                  }} fill={NAVY} fontSize={10} />
                 </Bar>
               </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-        <Panel title="Campañas">
-          <div className="mk-chart mk-chart-lg">
-            <ResponsiveContainer width="100%" height="100%">
-              <Treemap
-                data={campaigns}
-                dataKey="leads"
-                nameKey="name"
-                stroke="#fff"
-                fill={NAVY}
-                content={CampaignTile}
-                isAnimationActive={false}
-              >
-                <Tooltip formatter={(value, name) => {
-                  const amount = asNumber(value);
-                  return [amount == null ? "—" : count(amount), String(name)];
-                }} />
-              </Treemap>
             </ResponsiveContainer>
           </div>
         </Panel>
@@ -410,6 +399,27 @@ export default function PerformanceAdsView({ report }: { report: PerformanceAdsR
           </div>
         </Panel>
       </div>
+
+      <Panel title="Campañas">
+        <div className="mk-chart mk-chart-lg">
+          <ResponsiveContainer width="100%" height="100%">
+            <Treemap
+              data={campaigns}
+              dataKey="leads"
+              nameKey="name"
+              stroke="#fff"
+              fill={NAVY}
+              content={CampaignTile}
+              isAnimationActive={false}
+            >
+              <Tooltip formatter={(value, name) => {
+                const amount = asNumber(value);
+                return [amount == null ? "—" : count(amount), String(name)];
+              }} />
+            </Treemap>
+          </ResponsiveContainer>
+        </div>
+      </Panel>
     </div>
   );
 }

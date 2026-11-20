@@ -1,13 +1,12 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ProjectPillRow } from "@/components/project-pill-row";
 import { formatDataAsOf } from "@/app/pabi/data-as-of";
 import { projectPillOptions } from "@/lib/projects";
 import { buildPerformanceAds } from "@/lib/mercadeo/performance-ads-data";
 import { resolveRange, windowLabel, type PeriodPreset } from "@/lib/ventas/period";
 import PerformanceAdsView from "./performance-ads-view";
-import { MERCADEO_SECTIONS } from "./sections";
 
 const PILL_CHOICES = [
   { id: "boulevard-5", label: "Boulevard 5" },
@@ -139,15 +138,10 @@ export default function MercadeoReport() {
         {empty ? <p className="op-note">Sin pauta en el periodo.</p> : null}
         <hr className="op-filter-rule" />
       </header>
-      {MERCADEO_SECTIONS.map((section, index) => (
-        <Fragment key={section.slug}>
-          {index > 0 ? <hr className="op-filter-rule vc-band-rule" /> : null}
-          <section id={section.slug} className="mk-band" aria-labelledby={`${section.slug}-title`}>
-            <h2 id={`${section.slug}-title`}>{section.title}</h2>
-            {section.slug === "performance-ads" ? <PerformanceAdsView report={report} /> : null}
-          </section>
-        </Fragment>
-      ))}
+      <section id="performance-ads" className="mk-band" aria-labelledby="performance-ads-title">
+        <h2 id="performance-ads-title">Performance Ads</h2>
+        <PerformanceAdsView report={report} />
+      </section>
     </div>
   );
 }
