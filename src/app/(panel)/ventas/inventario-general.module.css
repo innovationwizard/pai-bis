@@ -1,0 +1,287 @@
+.page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.title {
+  margin: 0;
+  color: rgba(13, 32, 65, 0.75);
+  font-size: calc(26px * 0.75);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.heroBand,
+.band {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.heroBand {
+  height: 18dvh;
+  min-height: calc(168px * 18 / 22);
+}
+
+.bands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.band {
+  height: 156px;
+  min-height: 156px;
+  max-height: 156px;
+}
+
+.kpi,
+.expanded,
+.detail {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-card);
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 14px;
+  overflow: hidden;
+}
+
+.band .kpi {
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.kpiName {
+  color: rgba(13, 32, 65, 0.75);
+  font-size: calc(26px * 0.75);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.counts {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.count {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 8px;
+  min-width: 0;
+}
+
+.count button,
+.nums button,
+.tipHead button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.count button {
+  font-size: 12px;
+  line-height: 1;
+  text-align: right;
+}
+
+.band .count button {
+  font-size: 13px;
+}
+
+.count button:focus-visible,
+.nums button:focus-visible,
+.tipHead button:focus-visible {
+  outline: 2px solid #0573b0;
+  outline-offset: 1px;
+}
+
+.count span {
+  color: rgba(13, 32, 65, 0.72);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.expanded,
+.detail {
+  display: flex;
+  height: 100%;
+  padding: 6px;
+  overflow: hidden;
+}
+
+.cards {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.card {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 4px;
+  border: 1px solid rgba(13, 32, 65, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cardName {
+  flex: none;
+  color: #0d2041;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.towers {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 1px;
+  width: 100%;
+  min-height: 0;
+}
+
+.tower {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  column-gap: 4px;
+  min-width: 0;
+}
+
+.towerName {
+  color: #0d2041;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  height: 8px;
+  min-width: 0;
+}
+
+.seg {
+  display: block;
+  flex: none;
+  height: 8px;
+}
+
+.nums {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.nums button {
+  flex: none;
+  min-width: 0.75rem;
+  font-size: 10px;
+  line-height: 1;
+  text-align: right;
+}
+
+.tip {
+  position: fixed;
+  z-index: 30;
+  right: 24px;
+  bottom: 24px;
+  width: min(560px, calc(100vw - 48px));
+  max-height: min(360px, 50vh);
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(13, 32, 65, 0.12);
+}
+
+.tipHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: #0d2041;
+  font-size: 13px;
+}
+
+.tipHead button {
+  font-size: 12px;
+}
+
+.tip p {
+  margin: 0 0 6px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.tip ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #0d2041;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 800px) {
+  .heroBand,
+  .band {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    max-height: none;
+  }
+
+  .heroBand {
+    min-height: 220px;
+  }
+
+  .band {
+    min-height: 180px;
+  }
+}

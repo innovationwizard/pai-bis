@@ -24,6 +24,7 @@ import {
 } from "@/lib/ventas/vista-types";
 import { ProjectPillRow } from "@/components/project-pill-row";
 import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
+import { InventarioGeneral } from "./inventario-general";
 import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
 import { StatusLifetime } from "./status-bands";
 import { ControlesGrid, DesistimientosBands, ModeloBand, ReferidosBand, TasaBand, ValorBand } from "./lower-bands";
@@ -519,6 +520,12 @@ export default function CommandCenter() {
       <ModeloBand
         vista={vistaOf(vistas, "analisis-de-inventario")}
         pending={<StatusLine section="analisis-de-inventario" errors={errors} busy={busy} />}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
+
+      <InventarioGeneral
+        vista={inventario}
+        pending={<StatusLine section="inventario-general" errors={errors} busy={busy} />}
       />
       <hr className="op-filter-rule vc-band-rule" />
 

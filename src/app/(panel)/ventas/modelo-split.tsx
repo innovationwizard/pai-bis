@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { BarShapeProps, XAxisTickContentProps } from "recharts";
 import { compareProjectLabels } from "@/lib/projects";
+import { odooTowerLabel, towerIdentity } from "@/lib/ventas/tower-label";
 import type { AnalisisVista, SplitMove, SplitUnit } from "@/lib/ventas/vista-types";
 import styles from "./lower-bands.module.css";
 
@@ -22,7 +23,7 @@ type Series = { model: string; reserva: SplitMove[]; pcv: SplitMove[] };
 type ProjectView = { slug: string; label: string; series: Series[] };
 
 const RESERVA_SOURCE = "Actividades Reserva finalizadas en el periodo. Una fila por actividad. Fuente: ventas.fact_comprobante.comprobante_on.";
-const PCV_SOURCE = "Promesa emitida cuya fecha cae en el periodo. La fecha es la de emisión, o la del primer comprobante si es posterior. Entra solo si el trato tiene comprobante. Fuente: ventas.fact_pcv_issuance.clock_on y ventas.fact_comprobante.";
+const PCV_SOURCE = "Promesa emitida cuya fecha cae en el periodo. La fecha es el día del reloj de emisión. Fuente: ventas.fact_pcv_issuance.clock_on.";
 
 function count(value: number): string {
   return countFormat.format(value);
@@ -112,7 +113,7 @@ function seriesFor(
 
 function moveLine(vista: AnalisisVista, move: SplitMove): string {
   const who = move.unit || move.id;
-  const model = move.model ? ` · ${move.model}` : "";
+  const model = move.model ? ` · ${modeloLabel(move.model)}` : "";
   return `${projectLabel(vista, move.projectSlug)} · ${who} · ${dotted(move.day)}${model}`;
 }
 
@@ -154,24 +155,6 @@ function countsFor(project: ProjectView, kind: Kind): ModelCount[] {
 }
 
 type TowerRef = { key: string; label: string };
-
-function towerIdentity(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^torre\s+/, "");
-}
-
-function odooTowerLabel(name: string): string {
-  const trimmed = name.trim();
-  const body = trimmed.replace(/^torre\s+/i, "").trim();
-  if (!body || body === trimmed && !/^[A-Za-z0-9]{1,3}$/.test(body)) return trimmed;
-  if (/^[A-Za-z0-9]{1,3}$/.test(body)) return `T${body.toUpperCase()}`;
-  return trimmed;
-}
 
 function projectTowers(slug: string, units: readonly SplitUnit[], moves: readonly SplitMove[]): TowerRef[] {
   const labels = new Map<string, string>();
@@ -270,7 +253,7 @@ function ModelList({
         const width = `${(value / ceiling) * 100}%`;
         return (
           <li key={row.model}>
-            <span className={styles.splitModelName}>{row.model}</span>
+            <span className={styles.splitModelName}>{modeloLabel(row.model)}</span>
             <button type="button" className={styles.splitModelTrack} onClick={() => onOpen(row)}>
               <span className={styles.splitModelPlot}>
                 <span

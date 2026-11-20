@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { projectKey } from "@/lib/projects";
+import { odooTowerLabel, towerIdentity } from "./tower-label";
 import { EMBUDO_PIPELINES, embudoFunnel, type EmbudoInput } from "./embudo";
 import { monthEnd, monthStart, monthsTouched, resolveRange, windowLabel, guatemalaToday, type DateWindow } from "./period";
 import { creditedAsesor, factComprobanteHasAsesor } from "./reserva-asesor";
@@ -12,6 +13,9 @@ import type {
   DescuentoVista,
   DesistenciaVista,
   InventarioVista,
+  InventoryCounts,
+  InventoryStatusKey,
+  InventoryUnitRef,
   ModeloSplit,
   NamedBar,
   PrecioVista,
@@ -276,14 +280,14 @@ export async function buildStockVista(section: StockSection, filters: VistaFilte
   const range = resolveRange(filters.preset, filters.customFrom, filters.customTo, today);
   const client = db();
   if (section === "tasa-de-conversion") return buildConversion(client, filters, range);
+  if (section === "inventario-general") {
+    const [dims, units] = await Promise.all([loadDims(client), loadRvUnits()]);
+    return buildInventory(range, dims, units, filters, today);
+  }
   const dims = await loadDims(client);
   const [stock, unitIds] = await Promise.all([stockAt(client, range.to), searchUnits(client, filters.buscar)]);
   const rows = filterStock(stock, filters, unitIds);
   if (section === "analisis-de-inventario") return buildAnalisis(client, filters, range, dims, rows);
-  if (section === "inventario-general") {
-    const units = await loadRvUnits();
-    return buildGeneral(range, dims, rows, stock.length === 0, units, filters);
-  }
   return buildValor(client, filters, range, dims, rows, stock.length === 0);
 }
 
@@ -576,29 +580,6 @@ function santaElenaModelo(...marks: (string | number | null)[]): string | null {
   return null;
 }
 
-function modelRowsFromUnits(units: readonly AvailabilityUnit[], filters: VistaFilters, dims: Dims): InventarioVista["byModel"] {
-  const allowed = allowedSlugs(filters, dims);
-  const groups = new Map<string, InventarioVista["byModel"][number]>();
-  for (const unit of units) {
-    if (allowed && !allowed.has(unit.projectSlug)) continue;
-    const label = modelCategory(unit);
-    const kind = availabilityStatus(unit.status);
-    if (!label || !kind) continue;
-    const key = `${unit.projectSlug}|${label}`;
-    const current = groups.get(key) ?? {
-      projectId: ventasProjectId(dims, unit.projectSlug),
-      projectSlug: unit.projectSlug,
-      model: label,
-      vendido: 0,
-      reservado: 0,
-      congelado: 0,
-      disponible: 0,
-    };
-    current[kind] += 1;
-    groups.set(key, current);
-  }
-  return [...groups.values()];
-}
 
 function hiddenSaleTower(unit: AvailabilityUnit): boolean {
   if (unit.projectSlug !== "santa-elena") return false;
@@ -682,9 +663,29 @@ function missingName(label: string): boolean {
   return key === "" || key === "sin dato" || key === "sin torre" || key === "sin modelo";
 }
 
-function placementTower(unit: AvailabilityUnit): { id: string; name: string } {
-  if (hiddenSaleTower(unit) || missingName(unit.towerName)) return { id: "", name: "" };
-  return { id: unit.towerId, name: unit.towerName.trim() };
+// Prices, headers, and blank cells are not modelos. A name already stored on
+// dim_model does not pass through here, so a Pipedrive modelo is not dropped.
+function inventoryModel(raw: string): string {
+  const name = raw.trim();
+  if (!name || missingName(name) || !isCanonicalUnitType(name)) return "";
+  return name;
+}
+
+function saleModel(raw: string): string {
+  const name = raw.trim();
+  if (!name || missingName(name)) return "";
+  return name;
+}
+
+// Pipedrive's torre. Santa Elena has none. Boulevard 5 is Principal.
+// A letter tower is A–E, whether the source wrote "A" or "Torre A".
+function pipedriveTowerName(slug: string, raw: string): string {
+  if (slug === "santa-elena") return "";
+  if (slug === "boulevard-5") return "Principal";
+  const folded = foldTower(raw);
+  if (!folded || missingName(raw)) return "";
+  const letter = folded.match(/^(?:torre\s+)?([a-e])$/);
+  return letter ? letter[1].toUpperCase() : "";
 }
 
 type Placed = { model: string; towerId: string; towerName: string; code: string };
@@ -708,18 +709,21 @@ function indexAvailability(units: readonly AvailabilityUnit[]): {
   const byTower = new Map<string, Placed | "many">();
   const byToken = new Map<string, Placed | "many">();
   for (const unit of units) {
-    const model = modelCategory(unit);
+    const model = inventoryModel(unit.unitType);
     if (!model) continue;
     if (!SPLIT_PROJECTS.some((project) => project.slug === unit.projectSlug)) continue;
-    const tower = placementTower(unit);
-    const placed: Placed = { model, towerId: tower.id, towerName: tower.name, code: unit.code };
+    const placed: Placed = { model, towerId: unit.towerId, towerName: unit.towerName.trim(), code: unit.code };
     const tokens = new Set<string>();
-    const numberToken = unitToken(unit.number);
-    const codeToken = unitToken(unit.unitCode);
-    if (numberToken) tokens.add(numberToken);
-    if (codeToken) tokens.add(codeToken);
+    for (const value of [unit.number, unit.unitCode]) {
+      const raw = value.trim();
+      if (raw) tokens.add(raw);
+      const stripped = unitToken(value);
+      if (stripped) tokens.add(stripped);
+    }
+    const identity = pipedriveTowerName(unit.projectSlug, unit.towerName);
     for (const token of tokens) {
       putPlaced(byToken, `${unit.projectSlug}|${token}`, placed);
+      if (identity) putPlaced(byTower, `${unit.projectSlug}|${foldTower(identity)}|${token}`, placed);
       if (unit.towerName.trim()) putPlaced(byTower, `${unit.projectSlug}|${foldTower(unit.towerName)}|${token}`, placed);
     }
   }
@@ -745,16 +749,6 @@ function lookupPlaced(
   return null;
 }
 
-function modelFromDim(slug: string, modelName: string): string {
-  const name = modelName.trim();
-  if (!name || missingName(name) || !isCanonicalUnitType(name)) return "";
-  if (slug === "boulevard-5") {
-    const letter = name.charAt(0).toUpperCase();
-    return letter === "A" || letter === "B" || letter === "C" || letter === "D" || letter === "E" ? letter : "";
-  }
-  return name;
-}
-
 type DealFact = { projectId: string; asesorId: string; unitId: string };
 
 async function readPages(
@@ -773,7 +767,7 @@ async function readPages(
 
 async function rowsByIds(
   client: Db,
-  table: "dim_deal" | "dim_unit" | "fact_comprobante",
+  table: "dim_deal" | "dim_unit",
   column: string,
   ids: readonly string[],
   select: string,
@@ -838,22 +832,11 @@ async function buildModeloSplit(
   if (reservaPage.capped) notes.push("La lectura de reservas se detuvo en 20000 filas.");
   const notRep = new Set(((roles.data ?? []) as unknown as { asesor_id: unknown }[]).map((row) => String(row.asesor_id)));
 
-  const pcvDealIds = [...new Set(pcvPage.rows.flatMap((row) => {
+  const dealIds = new Set<string>();
+  for (const row of pcvPage.rows) {
     const id = row.deal_id == null || row.deal_id === "" ? "" : String(row.deal_id);
-    return id ? [id] : [];
-  }))];
-  const earliestPage = await rowsByIds(client, "fact_comprobante", "deal_id", pcvDealIds, "id,deal_id,comprobante_on");
-  if (earliestPage.capped) notes.push("La lectura del primer comprobante se detuvo en 20000 filas.");
-  const earliest = new Map<string, string>();
-  for (const row of earliestPage.rows) {
-    const dealId = row.deal_id == null ? "" : String(row.deal_id);
-    const day = dayOf(row.comprobante_on);
-    if (!dealId || !day) continue;
-    const known = earliest.get(dealId);
-    if (!known || day < known) earliest.set(dealId, day);
+    if (id) dealIds.add(id);
   }
-
-  const dealIds = new Set<string>(pcvDealIds);
   for (const row of reservaPage.rows) {
     const id = row.deal_id == null || row.deal_id === "" ? "" : String(row.deal_id);
     if (id) dealIds.add(id);
@@ -894,27 +877,54 @@ async function buildModeloSplit(
 
   function locate(deal: DealFact, slug: string): { model: string; towerId: string; towerName: string; unit: string } {
     const sale = deal.unitId ? saleUnits.get(deal.unitId) : undefined;
-    const towerName = sale ? (dims.torres.get(sale.towerId) ?? "") : "";
-    const tokens = sale ? [unitToken(sale.canonical), unitToken(sale.token2)].filter((token, index, list) => token && list.indexOf(token) === index) : [];
-    const placed = lookupPlaced(index, slug, towerName, tokens);
-    const hardcoded = slug === "santa-elena"
-      ? santaElenaModelo(placed?.code ?? "", sale?.canonical ?? "", sale?.token2 ?? "")
-      : null;
-    if (placed) {
-      return {
-        model: hardcoded || placed.model,
-        towerId: placed.towerId,
-        towerName: placed.towerName,
-        unit: placed.code || sale?.canonical || "",
-      };
+    const storedModel = sale ? saleModel(dims.models.get(sale.modelId) ?? "") : "";
+    const storedTowerRaw = sale ? (dims.torres.get(sale.towerId) ?? "") : "";
+    const saleTower = pipedriveTowerName(slug, storedTowerRaw);
+    let towerName = saleTower;
+    let towerId = "";
+    if (sale && towerName && !missingName(storedTowerRaw)) towerId = sale.towerId;
+    const needsTower = towerName === "" && slug !== "santa-elena" && slug !== "boulevard-5";
+    let model = storedModel;
+    if (!storedModel || needsTower) {
+      const tokens = sale
+        ? [...new Set([sale.canonical, sale.token2].flatMap((value) => {
+            const raw = value.trim();
+            const stripped = unitToken(value);
+            return [raw, stripped].filter((token) => token !== "");
+          }))]
+        : [];
+      const placed = lookupPlaced(index, slug, saleTower || storedTowerRaw, tokens);
+      if (placed) {
+        if (!model) {
+          const found = inventoryModel(placed.model);
+          if (found) model = found;
+        }
+        if (needsTower) {
+          const found = pipedriveTowerName(slug, placed.towerName);
+          if (found) {
+            towerName = found;
+            towerId = placed.towerId;
+          }
+        }
+      }
     }
-    const namedTower = missingName(towerName) || (slug === "santa-elena" && foldTower(towerName) === "principal")
-      ? { id: "", name: "" }
-      : { id: sale?.towerId ?? "", name: towerName.trim() };
-    const model = hardcoded || modelFromDim(slug, sale ? (dims.models.get(sale.modelId) ?? "") : "");
-    return { model, towerId: namedTower.id, towerName: namedTower.name, unit: sale?.canonical.trim() || "" };
+    return {
+      model: model || "Sin dato",
+      towerId,
+      towerName,
+      unit: sale?.canonical.trim() || "",
+    };
   }
 
+  // Period. Reserva uses fact_comprobante.comprobante_on: the Guatemala day
+  // of the Pipedrive due date (a due time is UTC; a date with no time stays
+  // on that date). That is the day Pipedrive's Reserva report uses, so the
+  // rule stays.
+  // PCV used max(clock_on, earliest comprobante_on) and skipped a row with
+  // no comprobante. Pipedrive's issuance day is clock_on alone (Envío de
+  // documentación, or Envía PCV - Asesor when that activity is absent). The
+  // later-comprobante rule moved rows into another period and dropped
+  // issuances Pipedrive counts. The period day is now clock_on.
   const moves: SplitMove[] = [];
   for (const row of reservaPage.rows) {
     const id = row.id == null ? "" : String(row.id);
@@ -936,10 +946,7 @@ async function buildModeloSplit(
     const id = row.id == null ? "" : String(row.id);
     const dealId = row.deal_id == null || row.deal_id === "" ? "" : String(row.deal_id);
     if (!id || !dealId) continue;
-    const reservaOn = earliest.get(dealId);
-    const clock = dayOf(row.clock_on);
-    if (!reservaOn || !clock) continue;
-    const day = clock > reservaOn ? clock : reservaOn;
+    const day = dayOf(row.clock_on);
     if (!inPeriod(day, range)) continue;
     const deal = deals.get(dealId);
     if (!deal) continue;
@@ -954,14 +961,14 @@ async function buildModeloSplit(
   const units: SplitUnit[] = [];
   for (const unit of inventory) {
     if (!allowed.has(unit.projectSlug)) continue;
-    const model = modelCategory(unit);
+    const model = inventoryModel(unit.unitType);
     const status = availabilityStatus(unit.status);
     if (!model || !status) continue;
-    const tower = placementTower(unit);
+    const towerName = pipedriveTowerName(unit.projectSlug, unit.towerName);
     units.push({
       projectSlug: unit.projectSlug,
-      towerId: tower.id,
-      towerName: tower.name,
+      towerId: towerName ? unit.towerId : "",
+      towerName,
       model,
       code: unit.code,
       status: status satisfies SplitStatus,
@@ -971,91 +978,151 @@ async function buildModeloSplit(
   return { projects, units, moves, scope, notice: notes.length > 0 ? notes.join(" ") : null };
 }
 
-function buildGeneral(
+const INVENTORY_STATUS_KEYS = ["disponible", "revision", "reservado", "congelado", "vendido"] as const satisfies readonly InventoryStatusKey[];
+
+function emptyInventoryCounts(): InventoryCounts {
+  return { disponible: 0, revision: 0, reservado: 0, congelado: 0, vendido: 0, total: 0 };
+}
+
+function addInventoryCounts(target: InventoryCounts, source: InventoryCounts) {
+  for (const key of INVENTORY_STATUS_KEYS) target[key] += source[key];
+  target.total += source.total;
+}
+
+function inventoryStatus(status: string): InventoryStatusKey | null {
+  if (status === "AVAILABLE") return "disponible";
+  if (status === "SOFT_HOLD") return "revision";
+  if (status === "RESERVED") return "reservado";
+  if (status === "FROZEN") return "congelado";
+  if (status === "SOLD") return "vendido";
+  return null;
+}
+
+function inventoryTowerLabel(name: string): string {
+  const identity = towerIdentity(name);
+  if (identity === "Principal") return "Principal";
+  if (identity) return `T${identity}`;
+  const label = odooTowerLabel(name);
+  return label.trim() ? label : "—";
+}
+
+function inventoryTowerKey(name: string): string {
+  const identity = towerIdentity(name);
+  if (identity) return identity;
+  return `raw:${inventoryTowerLabel(name)}`;
+}
+
+function inventoryCode(unit: AvailabilityUnit): string {
+  const code = unit.code.trim();
+  return code || "sin número";
+}
+
+function inventoryScope(filters: VistaFilters, labels: readonly string[]): string {
+  if (filters.projectIds === null) return "Proyectos: todos.";
+  if (filters.projectIds.length === 0 || labels.length === 0) return "Proyectos: ninguno.";
+  return `Proyectos: ${labels.join(", ")}.`;
+}
+
+function buildInventory(
   range: DateWindow,
   dims: Dims,
-  stock: StockRow[],
-  empty: boolean,
   units: readonly AvailabilityUnit[],
   filters: VistaFilters,
+  today: string,
 ): InventarioVista {
-  const groups = {
-    vendido: stock.filter((row) => bucket(row.pageStatus) === "vendido"),
-    congelado: stock.filter((row) => bucket(row.pageStatus) === "congelado"),
-    disponible: stock.filter((row) => bucket(row.pageStatus) === "disponible"),
-  };
-  const otros = stock.filter((row) => bucket(row.pageStatus) === "otro").length;
-  const projectIds = new Set<string>(stock.map((row) => row.projectId));
-  if (empty) {
-    for (const project of dims.projects) if (!project.sin) projectIds.add(project.id);
-  }
-  const byProject = [...projectIds]
-    .map((id) => {
-      const mine = stock.filter((row) => row.projectId === id);
-      const disponible = mine.filter((row) => bucket(row.pageStatus) === "disponible");
-      const list = prices(disponible);
-      return {
-        id,
-        label: dims.projects.find((project) => project.id === id)?.name ?? "Sin dato",
-        vendido: mine.filter((row) => bucket(row.pageStatus) === "vendido").length,
-        reservado: mine.filter((row) => bucket(row.pageStatus) === "reservado").length,
-        congelado: mine.filter((row) => bucket(row.pageStatus) === "congelado").length,
-        disponible: disponible.length,
-        disponibleGtq: list.gtq,
-        disponibleUsd: list.usd,
-      };
-    })
-    .sort((a, b) => b.disponible - a.disponible || a.label.localeCompare(b.label, "es"));
-  const towers = new Map<string, InventarioVista["byTower"][number]>();
-  for (const row of stock) {
-    const key = `${row.projectId}|${row.towerId}`;
+  const allowed = allowedSlugs(filters, dims);
+  const selected = SPLIT_PROJECTS.filter((project) => allowed === null || allowed.has(project.slug));
+  const towersByProject = new Map<string, Map<string, { label: string; counts: InventoryCounts; units: InventoryUnitRef[] }>>();
+  for (const project of selected) towersByProject.set(project.slug, new Map());
+  let otros = 0;
+  for (const unit of units) {
+    const towers = towersByProject.get(unit.projectSlug);
+    if (!towers) continue;
+    const status = inventoryStatus(unit.status);
+    if (!status) {
+      otros += 1;
+      continue;
+    }
+    const key = inventoryTowerKey(unit.towerName);
     const current = towers.get(key) ?? {
-      projectId: row.projectId,
-      tower: dims.torres.get(row.towerId) ?? "Sin dato",
-      vendido: 0,
-      reservado: 0,
-      congelado: 0,
-      disponible: 0,
+      label: inventoryTowerLabel(unit.towerName),
+      counts: emptyInventoryCounts(),
+      units: [],
     };
-    const kind = bucket(row.pageStatus);
-    if (kind !== "otro") current[kind] += 1;
+    current.counts[status] += 1;
+    current.counts.total += 1;
+    current.units.push({ code: inventoryCode(unit), status });
     towers.set(key, current);
   }
-  const byModel = modelRowsFromUnits(units, filters, dims);
-  const vendidoPrice = prices(groups.vendido);
-  const congeladoPrice = prices(groups.congelado);
-  const disponiblePrice = prices(groups.disponible);
-  const choices = emptyChoices();
-  choices.torre = countChoices(stock.map((row) => row.towerId), dims.torres);
-  choices.estadoUnidad = [...new Set(stock.map((row) => row.pageStatus))]
-    .sort((a, b) => a.localeCompare(b, "es"))
-    .map((status) => ({ id: status, label: status }));
-  const dotted = range.to.split("-").reverse().join(".");
+  const projects = selected.map((project) => {
+    const towers = [...(towersByProject.get(project.slug)?.values() ?? [])]
+      .map((tower) => ({
+        label: tower.label,
+        counts: tower.counts,
+        units: [...tower.units].sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true }) || a.status.localeCompare(b.status)),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es"));
+    const counts = emptyInventoryCounts();
+    for (const tower of towers) addInventoryCounts(counts, tower.counts);
+    return {
+      id: ventasProjectId(dims, project.slug),
+      slug: project.slug,
+      label: project.label,
+      counts,
+      towers,
+    };
+  });
+  const counts = emptyInventoryCounts();
+  for (const project of projects) addInventoryCounts(counts, project.counts);
+  const framed = base(
+    "¿Cuánto inventario está vendido, congelado y disponible?",
+    range,
+    "",
+    null,
+    dims,
+    emptyChoices(),
+  );
   return {
-    ...base(
-      "¿Cuánto inventario está vendido, congelado y disponible?",
-      range,
-      `Inventario al ${dotted}. El precio de lista de Santa Elena queda en dólares. No se suma con los quetzales.`,
-      empty ? NO_STOCK : otros > 0 ? `${otros} unidades están en otro estado.` : null,
-      dims,
-      choices,
-    ),
+    ...framed,
+    periodLabel: "Inventario vigente",
+    rangeLabel: "sin periodo",
     section: "inventario-general",
-    asOf: range.to,
-    vendido: groups.vendido.length,
-    reservado: stock.filter((row) => bucket(row.pageStatus) === "reservado").length,
-    congelado: groups.congelado.length,
-    disponible: groups.disponible.length,
-    vendidoGtq: vendidoPrice.gtq,
-    vendidoUsd: vendidoPrice.usd,
-    congeladoGtq: congeladoPrice.gtq,
-    congeladoUsd: congeladoPrice.usd,
-    disponibleGtq: disponiblePrice.gtq,
-    disponibleUsd: disponiblePrice.usd,
+    asOf: today,
+    vendido: counts.vendido,
+    reservado: counts.reservado,
+    congelado: counts.congelado,
+    disponible: counts.disponible,
+    vendidoGtq: null,
+    vendidoUsd: null,
+    congeladoGtq: null,
+    congeladoUsd: null,
+    disponibleGtq: null,
+    disponibleUsd: null,
     otros,
-    byProject,
-    byTower: [...towers.values()],
-    byModel,
+    byProject: projects.map((project) => ({
+      id: project.id,
+      label: project.label,
+      vendido: project.counts.vendido,
+      reservado: project.counts.reservado,
+      congelado: project.counts.congelado,
+      disponible: project.counts.disponible,
+      disponibleGtq: null,
+      disponibleUsd: null,
+    })),
+    byTower: projects.flatMap((project) => project.towers.map((tower) => ({
+      projectId: project.id,
+      tower: tower.label,
+      vendido: tower.counts.vendido,
+      reservado: tower.counts.reservado,
+      congelado: tower.counts.congelado,
+      disponible: tower.counts.disponible,
+    }))),
+    byModel: [],
+    board: {
+      counts,
+      projects,
+      scope: inventoryScope(filters, projects.map((project) => project.label)),
+    },
   };
 }
 

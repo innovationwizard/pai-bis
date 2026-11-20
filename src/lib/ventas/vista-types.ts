@@ -364,6 +364,42 @@ export type StockProject = {
   disponibleUsd: number | null;
 };
 
+export type InventoryStatusKey = "disponible" | "revision" | "reservado" | "congelado" | "vendido";
+
+export type InventoryCounts = {
+  disponible: number;
+  revision: number;
+  reservado: number;
+  congelado: number;
+  vendido: number;
+  total: number;
+};
+
+export type InventoryUnitRef = {
+  code: string;
+  status: InventoryStatusKey;
+};
+
+export type InventoryTower = {
+  label: string;
+  counts: InventoryCounts;
+  units: InventoryUnitRef[];
+};
+
+export type InventoryProject = {
+  id: string;
+  slug: string;
+  label: string;
+  counts: InventoryCounts;
+  towers: InventoryTower[];
+};
+
+export type InventoryBoard = {
+  counts: InventoryCounts;
+  projects: InventoryProject[];
+  scope: string;
+};
+
 export type InventarioVista = VistaBase & {
   section: "inventario-general";
   asOf: string;
@@ -381,6 +417,7 @@ export type InventarioVista = VistaBase & {
   byProject: StockProject[];
   byTower: { projectId: string; tower: string; vendido: number; reservado: number; congelado: number; disponible: number }[];
   byModel: { projectId: string; projectSlug: string; model: string; vendido: number; reservado: number; congelado: number; disponible: number }[];
+  board: InventoryBoard;
 };
 
 export type ValorVista = VistaBase & {

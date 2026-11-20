@@ -147,10 +147,10 @@ All 14 Operativo checklist items are 0-click.
 
 | # | Checklist item | Visualization |
 |---|----------------|---------------|
-| 1 | Ventas totales | Canonical three-level pattern: Compact Hero + Expanded Hero (Project Summary Columns) + Project Bands (Project KPI Cards + Project Detail Cards with Member Columns). |
+| 1 | Ventas totales | Canonical three-level pattern: Compact Hero + Expanded Hero (Project Summary Columns) + Project Bands (Project KPI Cards + Project Detail Cards with Member Columns). No horizontal rule between the Hero Band and the Project Bands. |
 | 2 | Objetivos de ventas | Canonical three-level pattern (see precise spec below). |
 | 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por torre | Lifetime cumulative pace per project (and per torre). See precise spec below. No all-projects band. No per-asesor band. |
-| 6 | Inventario general: Vendido, congelado, disponible | Stacked horizontal bars by proyecto/torre |
+| 6 | Inventario general: Vendido, congelado, disponible | Canonical three-level pattern. See precise spec below (§4.1.3). |
 | 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
 
 #### 4.1.1 Precise visual spec — Item 2: Objetivos de ventas
@@ -220,6 +220,56 @@ Below the project bands: one band per torre (same structure, inheriting start an
 - Placeholder fecha de cierre is clearly labeled as temporary.
 
 This item does not follow the three-level Total → Project → Asesor pattern used by items 1 and 2. It is a lifetime pace view per project and per torre.
+
+#### 4.1.3 Precise visual spec — Item 6: Inventario general
+
+**Item Title**  
+Inventario general: Vendido, congelado, disponible
+
+**Data source**  
+Current unit status counts from `v_rv_units_full`. Same view and the same status enum the Disponibilidad page uses. No period filter. No sales-event tables. No static files.
+
+**Statuses**  
+Exactly these five, in this order, with the Disponibilidad labels:  
+Disponible (`AVAILABLE`), En revisión (`SOFT_HOLD`), Reservado (`RESERVED`), Congelado (`FROZEN`), Vendido (`SOLD`).  
+Always include the total. Never hide a status that is zero.
+
+**Color**  
+Taken from `UNIT_STATUS_COLORS`, the same mapping as the Disponibilidad legend and §2:  
+green = Disponible,  
+orange = En revisión,  
+blue = Reservado,  
+purple = Congelado,  
+gray = Vendido.
+
+**Filters**  
+Project pills only. Periodo, asesor, and modelo do not change this item. NINGUNO leaves the Compact Hero at zero and draws no project cards. The page stays up.
+
+**Structure**  
+Full canonical three-level pattern. On the Ventas page the item is `#inventario-general`, after Split de ventas por modelo y por torre and before Valor del proyecto. Projects in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena), limited to the pills that are on. A selected project with no units stays visible.
+
+The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. Each Project Band is fixed at 156px, the Item 2 band height. The Compact Hero card uses the Item 1 / Item 2 card chrome: 8px radius, 1px border, padding 12px 14px, title `calc(26px * 0.75)` at weight 700. Project KPI cards use the Item 1 project-row padding, 10px 12px. The sum is shorter than Item 2’s hero plus four bands, so the item does not ask for more page scroll than Items 1 and 2.
+
+**Compact Hero**  
+Title: always “Todos los Proyectos”.  
+The five status counts and the total, for the current project-pill scope. Every number is visible. The six figures replace the single hero number of Items 1 and 2; the card box does not.
+
+**Expanded Hero**  
+The right-hand card of the Hero Band. Inside it, one card per project in scope.  
+Each inner card is stacked horizontal bars, one row per torre. Torre labels use the Odoo-style short form already locked in §4.2.1 (“TA”, “Principal”). Torres are alphabetical by that label. A torre with units is shown even when some statuses are zero.  
+Shared scale across these cards and the Project Detail Cards: the bar track is the largest torre total (sum of the five statuses) in the current scope.  
+The number for every segment sits beside the bar, in that status color, including zero. No percentages.
+
+**Project Bands**  
+One band per project in scope.  
+- Project KPI Card: project name, the five status counts, and the total.  
+- Project Detail Card: the same stacked horizontal bars by torre, same shared scale, same beside-numbers, zeros kept.
+
+**Explicit rules**  
+- Numbers are always visible. The tooltip is click-only and only for provenance: `v_rv_units_full` (`status`, `project_slug`, `tower_name`, `unit_number`), the status counted, the active project pills, and the full list of units in that count. Hover does not open it.  
+- No percentages. No extra titles or explanatory text. The Item Title, “Todos los Proyectos”, and the project names are the only headings.  
+- No period, asesor, or modelo filter on this item.  
+- The total is a sixth figure on the Compact Hero and on each Project KPI Card. It is not a sixth segment on the bars.
 
 ### 4.2 Band B — Analytical and control graphics (0 clicks)
 
