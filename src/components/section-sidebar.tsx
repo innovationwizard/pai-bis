@@ -160,6 +160,8 @@ export function DepartmentSectionSidebar() {
   const pathname = usePathname();
   const { tier } = useDashboardTier();
   const department = departmentFromPath(pathname);
+  // Side menu hidden on Mercadeo for now.
+  if (department === "mercadeo") return null;
   const icons = department ? iconsFor(department, tier) : [];
   if (!department || icons.length === 0) return null;
   return <SectionSidebar label={DEPARTMENT_LABEL[department]} items={icons} />;

@@ -1612,7 +1612,7 @@ main:has(.section-page) > .section-page > .section-sidebar {
 .mk-hero,
 .mk-split {
   display: grid;
-  grid-template-columns: minmax(calc(220px * 0.6), calc(320px * 0.6)) minmax(0, 1fr);
+  grid-template-columns: minmax(calc(220px * 0.9), calc(320px * 0.9)) minmax(0, 1fr);
   gap: 10px;
   align-items: stretch;
 }
