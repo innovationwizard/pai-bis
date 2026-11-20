@@ -35,56 +35,95 @@ Take what the CEO and Managers already have in mind and are already familiar wit
 4. **Progressive disclosure via visual hierarchy, not text.** Top of page = most important graphics. Middle = explanatory pipelines and comparisons. Lower = supporting detail that is still fully visible without a click. Interactions (click a chart element) may filter a table lower on the same page.
 5. **Familiarity.** Use the labels, groupings, and mental models the users already recognize. Do not re-label or re-define.
 6. **Semantic color and density.** Use color for meaning (compliance, deficit, blocked stages). Additionally, use dark, corporate shades of blue to visually identify different projects. Keep the current project colors for now. Future consideration: a configuration to assign or change project colors. Prefer compact, high-information-density charts.
+
+**Inventory status color mapping (research-backed)**  
+What the research shows  
+There is no single industry-standard color set for real-estate inventory status in internal operational dashboards. Buyer-facing portals (Zillow, RPR, MLS systems) use inconsistent schemes (red for active/under contract, yellow for sold, blue for pending, gray for closed, etc.). Internal tools vary even more.  
+What does exist is a well-established semantic vocabulary for status in operational and monitoring dashboards (IBM Carbon, ColorFYI, RAG systems, enterprise UI patterns):  
+Green = available / active / operational / good  
+Blue = in progress / reserved / processing / pending  
+Purple (or a distinct non-traffic-light hue) = special / blocked / frozen / outlier  
+Gray = completed / inactive / closed / sold  
+Your current mapping matches this vocabulary almost exactly.  
+
+**Note:** The project owner feels unsure about the purple. Exploring the replacement of purple with another non-traffic-light hue is not hard-out-of-scope.
 7. **Single source of truth.** Same page for executive and operative users. Executives stop at the upper charts; operatives scroll.
 8. **Anti-clutter.** Managers have consistently criticized “too cluttered” and “too much text.” Do not add explanatory captions, definition statements, or redundant labels. Every graphical element that represents an amount must still display its corresponding number (bars, columns, points, segments). Data labels on charts are required; surrounding prose is not.
 9. **No conversational-question titles.** Chart titles are descriptive and concise, or omitted when the visual is self-evident.
 10. **Freshness.** Freshness stamp is always visible, placed per the General Rules (same line as period description, same font weight, not bold, not its own row).
-11. **Growth.** All design must support company growth without breaking. Example targets: 2× simultaneous projects, 10× sales reps.
-12. **Project order.** Canonical project display order is BOULEVARD 5, BENESTARE, BOSQUE LAS TAPIAS, SANTA ELENA (by date of birth). It is defined in the shared constant `src/lib/projects.ts` so reordering is a config change.
+11. **Provenance on click.** Every number displayed in the UI that represents a metric, amount, count, percentage, or ratio (including data labels on charts, hero values, and table cells) must display a tooltip with full provenance when the user clicks that number. Hover is not required. Full provenance includes: (a) source system and specific table/field (or equivalent), (b) exact calculation or aggregation formula/rule used, (c) active filters applied, and (d) when the number is a count or aggregate, the full list of contributing records (not a sample). The tooltip is the only place definitional or calculation detail appears; it does not add static text to the page. Numbers themselves are always visible on or directly above the graphical element; the tooltip is reserved exclusively for provenance.
 
-Per permanent scope:
-Any name containing “Cobán” or “Coban” is out of scope.
-Explicit note: development on hold indefinitely.
-In-scope projects remain only: Boulevard 5, Benestare, Bosque Las Tapias, Santa Elena.
+12. **HARD RULE — No static files as data sources.** It is absolutely forbidden to use CSV, XLSX, or any other kind of static file as a source of information for any section, any sub-section, any band, any chart, or any graph of this whole project. All numbers and series must come from the live application database or its connected sources. Static files may exist in the repository only as historical reference or documentation; they must never be read or parsed to populate UI elements.
 
-13. **Audience chart preference.** Horizontal bars are among the least preferred types of charts by the audience (CEO and Managers). Prefer vertical bars, bullets, funnels, composed charts, or other forms whenever they can communicate the same information with equal or better density and clarity. Use horizontal bars only when they are the clearest option for the data (for example, long category labels or stacked status mixes) and always apply the visual-density continuity rules so they do not appear thin or sparse.
+**Cursor agent prompt rules (reference)**  
+Every prompt sent to a Cursor agent that operates on the repository must begin with the full block from `artifacts/Cursor-Agent-Repository-Boundary-and-Safety-Rules.md`. That file is the authoritative source for repository boundary, safety rules, and the prohibition on local tests, servers, and browsers. Do not use only the shortened “no local server” ending.
 
-### Missing-data labels
-
-Do not display the text “Sin dato”, “Sin asesor”, “Asesor pending”, “Meta pending”, “Sin torre”, “Sin modelo”, or any equivalent placeholder. If a required breakdown has no rows (for example a project with no asesores, a project with no towers, or a channel with no reservas), omit the row or the block entirely. The absence is communicated by the missing element, not by a label that explains the absence.
-
-### Inventory status colours
-
-Status colours for inventory (Disponible, Congelado, Reservado, Vendido, etc.) must be identical to those already used on the unit availability grid (/disponibilidad). Do not introduce a new palette on the command centre. Source of truth: UNIT_STATUS_COLORS in src/lib/reservas/constants.ts (Disponible #22c55e, En revisión #f59e0b, Reservado #3b82f6, Congelado #a855f7, Vendido #6b7280).
-
-### Visual density continuity
-
-On every Command Center (Mercadeo, Ventas, Cobros, Créditos, Entregas) and inside every sub-section, adjacent bands must not produce an abrupt drop in visual density.
-
-**Justification**
-
-Research on dashboard density and visual hierarchy shows that a sudden change from high-ink, filled areas to large empty fields is perceived as a break in continuity, even when the data is correct. The first viewport of Ventas uses thick vertical bars that occupy most of the available height; the next band uses thin horizontal bars in large white fields. This contrast forces the eye to re-adjust and makes the second band feel unfinished. Consistent density keeps the page readable as one continuous surface.
-
-**Operational rules**
-
-1. **Bar weight.** Horizontal bars that follow a dense vertical-bar band must be thick enough to occupy a substantial fraction of their row height. Thin bars in large empty fields are not permitted.
-2. **Row padding.** Vertical space between rows inside a band must be tight enough that the bars, not the gaps, dominate the visual weight. Generous padding is reserved for the dividers that separate distinct bands.
-3. **Containment.** Each band that sits after a high-density section receives a subtle background tint or light card surface so it reads as a contained unit rather than floating elements in white space.
-4. **Shared scale.** When a grid is used, it must be a regular, self-explanatory scale (for example, unitary when the maximum is small). Arbitrary or sparse lines that do not correspond to round values are not permitted.
-5. **Growth.** These density rules apply regardless of the number of projects or asesores. Adding more rows must not re-introduce large empty fields or thin bars.
-6. **Vertical scale headroom.** When vertical columns or bars are used, the y-axis must include modest padding above the highest value (approximately 10–15 %) so the chart does not look cramped, but must not leave large empty regions above the columns. The bars, not the empty scale, must dominate the visual weight.
-
-These rules apply to every department Command Center and to every sub-section within them.
-
-### Abstraction order and visual hierarchy
-
-The abstraction order is the stronger principle. Higher-level aggregates (project) appear before lower-level aggregates (asesor). This order is not reversed for layout convenience.
-
-Visual weight communicates the same order without text. Elements that represent a higher level of abstraction use greater thickness or area than elements that represent a lower level. In the Objetivos bands, project bars are thicker than asesor bars so the hierarchy is readable at a glance. The same principle applies to every department Command Center and every sub-section: when two levels of the same measure appear together, the higher level occupies more visual mass.
 
 ---
 
-## 3. Shared Layout Pattern (applied to every department page)
+## 2.1 Mandatory Visual Nomenclature (locked)
+
+**Why this exists and why it is mandatory**  
+On 18–19 November 2026 we lost multiple hours because the same visual region was referred to by different names in prompts versus in the local agent’s interpretation. The resulting mis-edits forced repeated rework. To prevent that class of failure permanently, the following names are now the **only** official terms for these regions. They must be used in every future prompt, SDD update, and code comment that refers to layout. No synonyms, no “the left card”, no “the top section”, no quadrant labels.
+
+Research basis (dashboard and data-visualization literature):
+- “Hero” / “Hero Row” / “Hero KPI strip” is the established term for the top band that holds the primary number and its immediate breakdown.
+- “KPI card” is the standard name for a card whose primary job is to display one or a very small set of key numbers.
+- “Band” / “Row” is the common term for a horizontal grouping of related cards.
+- “Small multiples” (Tufte) / facets / panels describe the repeated identical columns that appear inside both the Expanded Hero and the Project Detail Cards.
+- “Compact Hero” is deliberately novel. Its lack of prior use in the literature or the codebase is the reason it was retained: it cannot be confused with any existing term.
+
+**The ten mandatory names**
+
+| Official name | What it is | Notes |
+|---------------|------------|-------|
+| **Item Title** | The heading of the checklist item (e.g. “Split de ventas por modelo y por torre”). | Does not yet exist as a named element in the codebase; must be treated as a first-class region. |
+| **Page** | The entire vertically scrollable content area that belongs to one checklist item. | One Item per Page. |
+| **Hero Band** | The top horizontal band of the Page. Contains the Compact Hero on the left and the Expanded Hero on the right. | Matches the widely used “Hero Row”. |
+| **Compact Hero** | The single left-hand card inside the Hero Band. | Always titled “Todos los Proyectos”. Holds the overall number(s) for the current filter scope. |
+| **Expanded Hero** | The single right-hand card inside the Hero Band. | Contains the Project Summary Columns. |
+| **Project Summary Columns** | The individual project columns that live inside the Expanded Hero. | Canonical project order. |
+| **Project Bands** | The set of horizontal bands that appear below the Hero Band, one per project. | |
+| **Project KPI Cards** | The left-hand cards inside each Project Band. | Each shows that project’s aggregate number. |
+| **Project Detail Cards** | The right-hand cards inside each Project Band. | Contain the Member Columns. |
+| **Member Columns** | The individual secondary/tertiary columns (asesor, modelo, torre, etc.) that live inside each Project Detail Card. | Asesores: sorted descending by the metric. Modelos: always alphabetical. Other members follow the item’s locked rule. |
+
+**Rules**
+- These names are mandatory. Any prompt or specification that uses a different label for one of these regions is incorrect and must be rewritten before it is sent to an agent.
+- The title inside the Compact Hero is always “Todos los Proyectos” unless a future locked exception is explicitly recorded here.
+- Canonical project order, never-hide-zeros rule, and all other existing principles continue to apply unchanged.
+- When a new visual region appears that does not fit the table above, it must be added to this table before it is referenced in any prompt.
+
+---
+
+## 3. Canonical Three-Level Pattern (locked for all 14 Ventas items and the same cadence for other departments)
+
+Every checklist item answers three successive questions with graphics, on a single page, with zero clicks in the default view:
+
+1. **Compact Hero** — large number on the left, always titled “Todos los Proyectos”.
+2. **Expanded Hero** — graphical breakdown immediately to the right of the Compact Hero (Project Summary Columns for Ventas).
+3. **Project Bands** — one band per member of the previous level (one per project), each containing a Project KPI Card on the left and a Project Detail Card on the right (Member Columns, e.g. asesor bars, inside the Project Detail Card).
+
+**Rules that lock this pattern**
+- **The full item fits on the page.** Compact Hero + Expanded Hero + all Project Bands must be visible together without requiring scroll beyond what Items 1 and 2 currently require. Reduce band height and empty space as needed to achieve this. This is a hard constraint.
+- **Vertical category labels when density requires it.** When a chart has many categories whose names are longer than the available column width, rotate the category labels to a fully vertical orientation (90 degrees). This is the only reliably truncation-free solution observed across multiple attempts. Horizontal or angled (e.g. 45°) labels truncate under realistic densities. Apply this technique wherever the same constraint appears.
+
+
+- Numbers are always visible on or directly above every bar / column / segment. Never rely on a tooltip for the value itself. Tooltips are reserved exclusively for provenance (click only).
+- Projects are always shown in the canonical order: Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena (order by project Date of Birth). This order is fixed and is not sorted by the metric.
+- **Default ordering rule (when a specific order has not been locked for an item):** Respect canonical order for projects. Then order towers alphabetically. Then order modelos alphabetically. This applies wherever a specific order for a specific item has not been ruled.
+- Member Columns of asesores are always sorted descending by the metric value so the eye lands on the largest contributors first. Modelos are always alphabetical. Other member types follow the item’s locked rule.
+- The Project Detail Card that holds the Member Columns (asesor bars, etc.) has a fixed size. Columns are squeezed as necessary so that every member fits in a single row with no wrap, no overflow, and no internal scroll.
+- Zero projects (or zero members) remain visible. Do not hide empty rows or zero values. Hiding zeros creates stark visual inconsistencies between periods and damages transparency (a core value of the project). Managers need to see the absence.
+- Visual separation is provided by the existing card structure. No extra headings or explanatory text. If the page grows long, a very light background or slightly tighter grouping under the total block is sufficient.
+- The legacy “Total › Proyecto › Asesor” breadcrumb/label is dead weight and must be removed.
+- Project filter pills sit above the content: TODOS + the four projects in canonical order + a NINGUNO pill on the right. Selecting NINGUNO deselects all projects. The page must remain stable and not crash or go blank when zero projects are selected. Default state is TODOS (full three-level view, 0-click).
+
+This pattern is the canon. All 14 Ventas Operativo items follow it. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
+
+---
+
+## 4. Shared Layout Pattern (applied to every department page)
 
 Each department page is a vertical stack of visual bands. Exact content varies by department; the pattern does not.
 
@@ -92,11 +131,9 @@ Each department page is a vertical stack of visual bands. Exact content varies b
 - **Band B — Analytical and control graphics (0 clicks):** Remaining checklist items as charts, small multiples, or compact visual summaries. Still fully visible without navigation.
 - **Band C — Operative detail (optional filter target):** Tables or lists that can be filtered by clicking a chart element above. Not required for checklist coverage.
 
-Optional lightweight filters (Periodo, Proyecto, Asesor) sit in a compact header. Default state already shows the useful view (current month / all projects). Freshness stamp is always visible, on the same line as the period description.
+Optional lightweight filters (Periodo, Proyecto, Asesor, Torre) sit in a compact header. Default state already shows the useful view (current month / all projects). Freshness stamp is always visible, on the same line as the period description.
 
 After the filter controls and the period + freshness line, mark the transition into page content with a line break and an elegant horizontal separator.
-
-On single long-scroll Command Center pages the entire filter battery (project pills + Periodo / Asesor / Restablecer) must remain sticky at full height directly under the top navigation. No collapse or compact mode. Implemented first on Mercadeo and Ventas.
 
 ---
 
@@ -110,22 +147,86 @@ All 14 Operativo checklist items are 0-click.
 
 | # | Checklist item | Visualization |
 |---|----------------|---------------|
-| 1 | Ventas totales | Hero units (reservas) + project bars |
-| 2 | Ventas versus objetivos de proyectos - totales y por asesor | Compact bullet charts or overlapping bars, one set per proyecto + ranked asesor view |
-| 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por asesor | Pace or bullet against expected trajectory, color-coded for deficit/surplus, by proyecto and by asesor |
-| 6 | Inventario general: Vendido, congelado, disponible | Vertical stacked columns in three bands:<br>- “Inventario de todos los proyectos”: one stacked column per project (canonical order).<br>- “Inventario por proyecto”: small multiples — one mini vertical stacked-column chart per project, towers of that project as columns under a project header. All mini-charts share the same y-scale. Column width reduced so the band fits the card without horizontal overflow. “Inventario por proyecto” must display all four projects (BOULEVARD 5, BENESTARE, BOSQUE LAS TAPIAS, SANTA ELENA) simultaneously in canonical order. No project may be omitted to make room for another.<br>- “Inventario por modelo”: small multiples — one mini vertical stacked-column chart per project, models of that project as columns under a project header. Data source is v_rv_units_full grouped by project_slug + unit_type. Same shared y-scale, same width rules, same labeling, same status colors and stack order as “Inventario por proyecto”. For Boulevard 5 use the letter family (A, B, C, D, E) as the category axis in this command-center view (full plan codes remain available for detail elsewhere). For Santa Elena, because every unit_type is A, split the two house sizes by area_total (491.91 m² vs 581 m²) when showing the band. Zero-value or non-canonical rows are omitted. En revisión is omitted.<br>Status colors match the availability-grid palette (Disponible #22c55e, Reservado #3b82f6, Congelado #a855f7, Vendido #6b7280). En revisión is omitted. Numeric labels on every segment. Thick columns, tight gaps inside each mini-chart, slightly larger gaps between project groups, and modest y-axis headroom (~10–15 % above the global maximum) to satisfy visual-density continuity. Wrap long labels onto two lines rather than rotating them. Every column is vertical and shares a common baseline; mixed orientations and floating bars are not permitted. Between project groups inside “Inventario por proyecto” and inside “Inventario por modelo”, draw a stark vertical separator so the boundary where one project ends and the next begins is immediately visible. Santa Elena must appear in every inventory band. It has units and each unit has an Estado. Do not omit the project. Display its actual counts per status. The project remains in canonical order even while sales are paused. |
-| 9 | Tasa de conversión | Vertical columns of the eight positions. Form follows Design Principle 13. |
+| 1 | Ventas totales | Canonical three-level pattern: Compact Hero + Expanded Hero (Project Summary Columns) + Project Bands (Project KPI Cards + Project Detail Cards with Member Columns). |
+| 2 | Objetivos de ventas | Canonical three-level pattern (see precise spec below). |
+| 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por torre | Lifetime cumulative pace per project (and per torre). See precise spec below. No all-projects band. No per-asesor band. |
+| 6 | Inventario general: Vendido, congelado, disponible | Stacked horizontal bars by proyecto/torre |
+| 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
 
-Item 9 is that familiar flow: the Pipedrive creation-week embudo, not a stage-entry history and not reserva → promesa firmada → recibo publicado → venta neta. The cohort is deals whose `add_time` falls in the selected period, in America/Guatemala. For a week that window is Monday 00:00 through the next Monday 00:00, exclusive. Open, lost, and won deals stay. The pipelines are the in-scope projects. Créditos, Eventos, and Marketing stay out. The eight positions join by stage order, not by stage name: Ingreso, Contactado, En Perfilamiento, Calificados, Cita Programada, Visita Efectiva, En Decisión, Reserva. A deal counts in its current position and every position before it. A won deal counts in every position. The percentage beside a bar is the next count divided by that count. The headline on each funnel is won deals divided by deals that reached Ingreso. The first funnel is every in-scope project together. The next funnels repeat it once per project, in canonical order, including a project with no deals created in the period. Santa Elena stays in that list. The fields are stage position, status, add_time, and pipeline. Stage history is not used.
+#### 4.1.1 Precise visual spec — Item 2: Objetivos de ventas
 
-Santa Elena consists of individual houses, not towers. It therefore has no tower breakdown. The data model may still contain a single “Principal” tower row; the UI must not surface that row as a tower. Sales for Santa Elena are currently paused for strategic reasons. Its meta for the current period is zero. It has no asesores assigned. The project remains in the canonical order and is shown with its actual values (including zero) and its meta (including zero). Do not display “Sin meta”, “Sin asesor”, “Asesor pending”, “Sin torre”, “Sin dato”, or any equivalent placeholder text.
+Follows the locked canonical three-level pattern exactly.
+
+**Compact Hero**  
+One large number showing overall actual ventas versus the total objetivo for “Todos los Proyectos”, with variance (units and %) displayed next to it. Semantic color: red for deficit, green for surplus.
+
+**Expanded Hero**  
+Project Summary Columns in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
+Each column shows actual against the objetivo line. The number is always visible on or directly above the column. Variance (units and %) remains in the same visual position as the current charts (to the right of each column). Zero projects remain visible.
+
+**Project Bands**  
+One Project Band per project.  
+- Project KPI Card (left): that project’s actual-vs-objetivo number (with variance).  
+- Project Detail Card (right): fixed-size card containing **only the asesores who belong to that project** (Member Columns). Asesores are sorted descending by the metric. Columns are squeezed as necessary so every asesor fits in a single row (no wrap, no overflow, no scroll). Same actual-vs-objetivo treatment (column + objetivo line + visible number + variance in the same position).
+
+**Explicit rules for this item**
+- Numbers always visible on or above every column. Tooltips reserved exclusively for provenance (click).
+- Projects always in canonical order. Asesores always sorted descending by the metric.
+- Fixed-size card for the asesor columns; squeeze to fit.
+- Keep zero projects visible.
+- Semantic color for variance only (red deficit / green surplus).
+- Remove the current separate flat “Objetivos por asesor” list that mixes all projects.
+- No extra titles beyond the minimum needed to label the total.
+
+This replaces the previous two stacked flat charts with the single hierarchical three-level cadence.
+
+#### 4.1.2 Precise visual spec — Item 3: Status de ventas (lifetime vs fecha de cierre)
+
+**Critical correction:** The concept is the life of the project, not a monthly or period view. There is no all-projects band and no per-asesor band. The secondary level is per torre.
+
+**Start date**  
+First month that appears in each project’s Ritmo de Ventas CSV.
+
+**Fecha de cierre (placeholder)**  
+Linear expected trajectory to a date 24 months after each project’s first CSV month. Replace with the real fecha de cierre when provided. Per-torre bands inherit the project’s start and placeholder close for now.
+
+**Unit totals (live availability)**  
+- Boulevard 5: 298  
+- Benestare: 282  
+- Bosque Las Tapias: 234 (Torre B is 100 % Congelado / not available for normal sale; the 7 sold units are F&F exceptions)  
+- Santa Elena: 11  
+
+**What is shown**  
+One band per project.  
+- Left: project name + current cumulative Reservas and cumulative PCV (both numbers visible) + variance versus the expected cumulative as of today.  
+- Right: lifetime cumulative chart from the project’s start month to the placeholder fecha de cierre.  
+  - Solid line = cumulative Reservas  
+  - Dashed line = cumulative PCV  
+  - Thin gray line = expected linear trajectory  
+  Both series and the expected line appear on the **same chart** (Option A). Numbers visible on the lines or at key points. Semantic color only for the variance (deficit/surplus).  
+
+Below the project bands: one band per torre (same structure, inheriting start and placeholder close). Torre B of Bosque Las Tapias is shown but flagged as Congelado (F&F only).
+
+**Single-tower rule:** If a project has only one torre, do not draw a separate per-torre band. The project band already represents the complete picture; drawing it twice is redundant. Boulevard 5 has only one torre — its per-torre band is omitted.
+
+**Explicit rules**  
+- Skip the all-projects band.  
+- Skip the per-asesor band; use per-torre instead.  
+- Single-tower rule: if a project has only one torre, omit the per-torre band (Boulevard 5).  
+- Both series (Reservas and PCV) are shown.  
+- Ignore the negative “Ritmo de Ventas” numbers in the CSVs until someone explains them.  
+- Numbers always visible. Tooltips only for provenance.  
+- Zero or fully Congelado torres remain visible.  
+- Placeholder fecha de cierre is clearly labeled as temporary.
+
+This item does not follow the three-level Total → Project → Asesor pattern used by items 1 and 2. It is a lifetime pace view per project and per torre.
 
 ### 4.2 Band B — Analytical and control graphics (0 clicks)
 
 | # | Checklist item | Visualization |
 |---|----------------|---------------|
 | 4 | Ventas por canales | Ranked horizontal bars or small multiples by Fuente |
-| 5 | Análisis de inventario: Split de ventas por modelo | Vertical columns (or small multiples) of ventas (RESERVED + SOLD) by modelo.<br>Data source: v_rv_units_full grouped by project_slug + unit_type.<br>Local filters that affect ONLY this band: Torre and Modelo (default = all towers, all models).<br>Boulevard 5 uses letter families (A–E) on this command-center view.<br>Santa Elena splits by area_total (491.91 m² vs 581 m²).<br>Zero-value or polluted rows are omitted (or grouped as “Otros / sin clasificar”).<br>Numeric labels on every bar. Thick columns, tight gaps, and modest y-axis headroom (~10–15 %) apply.<br>En revisión is omitted. Between project groups inside “Ventas por modelo”, draw a stark vertical separator so the boundary where one project ends and the next begins is immediately visible. Santa Elena must appear in this band. It has units and each unit has an Estado. Do not omit the project. Display its actual sales counts (RESERVED + SOLD). The project remains in canonical order even while sales are paused. Use dark corporate shades of blue to visually identify different projects (per Design Principle 6). Do not paint every column the same navy. |
+| 5 | Análisis de inventario: Split de ventas por modelo | See precise spec below (4.2.1). Compact Hero + Expanded Hero + Project Bands (modelos alphabetical as Member Columns). Single series at a time via Reserva/PCV toggle. |
 | 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Composed chart or small multiples showing price trajectory and discount impact |
 | 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Bars or small multiples for financial impact (reembolso / retención) |
 | 10 | Control de descuentos | Compact visual summary (indicators or bars) with amounts shown |
@@ -134,7 +235,77 @@ Santa Elena consists of individual houses, not towers. It therefore has no tower
 | 13 | Control Referidos | Dedicated visual for the referral trail (Referido / Tipo de Referido / Nombre de Referidor): counts broken by proyecto or tipo, plus a short visible list of referidores. Not a filter on the canales chart |
 | 14 | Control de promociones | Compact visual summary (indicators or bars) with amounts shown |
 
-Chart interactions (click a bar, stage, or segment) may filter a detail table lower on the same page. No item requires navigation to another URL.
+#### 4.2.1 Precise visual spec — Item 5: Análisis de inventario: Split de ventas por modelo
+
+**Item Title**  
+Split de ventas por modelo y por torre
+
+**Status**  
+Design is complete and correct as of 19 November 2026. Do not reopen the layout, the hierarchy, or the labels of this item unless a new decision is recorded here.  
+The data underneath is not complete and is not correct. Fixing the sync, the modelo field, and the torre names is a separate mission.
+
+**Purpose**  
+Show, at a glance, how the period’s Reservas and PCVs are distributed by modelo. Units only. No monetary values. No inventory-status composition (that is Item 6).
+
+**Time and filters**  
+- Counts respect the existing period filter (and all other active filters: project pills, asesor, torre, modelo).  
+- Zero modelos are always shown. Never hide zeros.
+
+**Ordering**  
+- Projects: canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
+- Modelos: always alphabetical. (The descending-by-value rule applies only to asesores, not to modelos.)  
+- No per-torre bands on this item. Project Bands are by project only.
+
+**Structure (three-level)**
+
+**Compact Hero**  
+Must use the exact same size, card style, typography, spacing, and visual weight as the Compact Hero in Items 1 and 2.  
+Title: always “Todos los Proyectos”.  
+One large number for the currently selected series (Reserva or PCV, controlled by the existing toggle). Do not show both series at once.  
+No dual titles. No percentages. No ratios.
+
+**Expanded Hero**  
+The four project cards to the right of the Compact Hero. Height matches the Compact Hero.  
+Each card is one vertical column per torre, the total for the selected series across modelos. This is the only place the torre total appears. Torre names sit horizontally under the columns. A bare letter and a “Torre …” name show as T plus that letter, with no space: “A” and “Torre A” both display as “TA”. A name that is not a torre letter, such as Principal, stays as written. Shared y-scale across the four cards. Zeros remain visible. Numbers stay on or above every column.  
+Santa Elena does not use a column per house. Its Expanded Hero is one column per modelo, A and B, including a zero when that modelo has no sale in the selected series.
+
+**Project Bands**  
+One Project Band per project, in canonical order.  
+- Left: Project KPI Card. Project name + a compact alphabetical list of that project’s modelos, each with its unit count for the selected series. Zeros remain visible. No percentages. Do not show both series at once. Do not show only the aggregate total.  
+- Right: Project Detail Card. Each block is one modelo. Inside it, one vertical column per torre, including zeros. Benestare’s modelo B therefore shows five columns, TA through TE, and those columns sum to that modelo’s total. The torre total itself is not repeated here; it is the Expanded Hero column. Modelo names under the blocks use the same “A+” spelling as before. Numbers stay on or above every column. Shared y-scale across all Project Detail Cards. Zeros remain visible.  
+  A torre is one building even when the two source tables spell it differently. `v_rv_units_full.tower_name` says “Torre A”. `ventas.dim_tower.name` often says “A”. Those are the same torre, and the sale is counted on that one column.  
+  Display follows the Odoo 19 convention. A bare letter and a “Torre …” name show as T plus that letter, with no space: “A” and “Torre A” both display as “TA”. A name that is not a torre letter, such as Principal, stays as written.  
+  Each block is one modelo, alphabetical. Inside it, one vertical column per torre, including zeros. Benestare’s modelo B therefore shows five columns, TA through TE, and those columns sum to that modelo’s total. The torre names use the Odoo 19 form. Modelo names under the blocks use the same “A+” spelling as the Expanded Hero.  
+  Santa Elena’s Project Detail Card stays one column per modelo, A and B. It does not repeat the Expanded Hero.  
+- Fixed, consistent band height; no large empty gaps.  
+- **The full item fits on the page.** Compact Hero + Expanded Hero + all Project Bands must be visible together without requiring scroll beyond what Items 1 and 2 currently require. Reduce band height as needed.
+
+**Single series at a time** (Reserva / PCV toggle)  
+- Toggle location: on the same row as the Torre and Modelo filters, aligned to the right of that filters band.  
+- Toggle options: Reserva | PCV.  
+- When Reserva is selected: solid columns.  
+- When PCV is selected: dashed-outline columns.  
+- Only one series visible at a time.  
+
+**Category label orientation**  
+Expanded Hero torre labels are horizontal, in the Odoo 19 form (“TA”, “Principal”).  
+Project Detail Card modelo labels are horizontal. “PLUS” is written as “+” with no space, so “A PLUS” is shown as “A+”. Torre names inside a modelo block use the same Odoo 19 form.
+
+**Explicit rules**  
+- Numbers always visible on or above every bar. Tooltips reserved exclusively for provenance (click only; full list of contributing records).  
+- Never hide zero modelos.  
+- No percentages, ratios, or secondary labels under bars, next to bars, or anywhere else in this item. Only the raw counts.  
+- Only one series is visible at a time, controlled by the Reserva | PCV toggle.  
+- Reserva columns are solid. PCV columns use a dashed outline.  
+- Orientation is vertical columns only.  
+- No extra titles or explanatory text beyond the minimum section label.  
+- Existing Torre and Modelo filters remain available for focus.  
+- No static files as data sources. All numbers from the live database.  
+- Anti-clutter: readable numbers, no truncated labels, consistent bar height. Denser than Items 1–2 is acceptable; the current wall of mini-charts is not.
+
+This replaces the previous incorrect “stacked inventory composition” language. Inventory status stacks belong exclusively to Item 6.
+
+Chart interactions (click a bar) may filter a detail table lower on the same page. No item requires navigation to another URL.
 
 ### 4.3 Deferred future option (not shown on screen, not designed today)
 
@@ -207,7 +378,6 @@ Checklist pending. Will follow the same 0-click single-page pattern once receive
 - Same page for executive and operative roles.
 - Freshness stamp per General Rules.
 - Filter battery ends with a line break and elegant horizontal separator before content.
-- On single long-scroll Command Center pages the entire filter battery (project pills + Periodo / Asesor / Restablecer) must remain sticky at full height directly under the top navigation. No collapse or compact mode. Implemented first on Mercadeo and Ventas.
 
 ---
 
@@ -245,6 +415,7 @@ Checklist pending. Will follow the same 0-click single-page pattern once receive
 - Keep the freshness stamp and filter-to-content separator.
 - Data for all checklist items is considered available for design purposes (even if not yet fully loaded into the production database).
 - Project identification colors: dark corporate blues; keep current palette for now.
+- Canonical three-level pattern locked (see section 3): Compact Hero → Expanded Hero (Project Summary Columns) → Project Bands (each with Project KPI Card + Project Detail Card containing Member Columns). Projects in fixed canonical order. Asesores descending by value; modelos alphabetical. Fixed-size Project Detail Card for Member Columns (squeeze to fit, no wrap/scroll). Numbers always visible; tooltips only for provenance. NINGUNO pill added to project filters. Remove legacy Total › Proyecto › Asesor breadcrumb.
 
 ---
 
