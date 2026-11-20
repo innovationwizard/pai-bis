@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import type { BarShapeProps, YAxisTickContentProps } from "recharts";
 import { UNIT_STATUS_COLORS, UNIT_STATUS_LABELS } from "@/lib/reservas/constants";
 import type { RvUnitStatus } from "@/lib/reservas/types";
 import type {
@@ -54,11 +56,10 @@ function scaleOf(projects: readonly InventoryProject[]): number {
   return peak > 0 ? peak : 1;
 }
 
+const HERO_FONT = "Inter, ui-sans-serif, system-ui, sans-serif";
 const HERO_FIGURE_PAD = 6;
-
-function placeKey(label: string, status: InventoryStatusKey): string {
-  return `${label}:${status}`;
-}
+const HERO_SLOT = 18;
+const HERO_MARGIN_RIGHT = HERO_SLOT * 5 + 6;
 
 function figureInk(hex: string): string {
   const raw = hex.replace("#", "");
@@ -96,24 +97,72 @@ function figureWidth(text: string, fontFamily: string): number {
   return width;
 }
 
-function figureFits(value: number, scale: number, track: number, fontFamily: string): boolean {
-  if (value <= 0 || scale <= 0 || track <= 0) return false;
-  return (value / scale) * track >= figureWidth(count(value), fontFamily) + HERO_FIGURE_PAD;
+type HeroDatum = {
+  label: string;
+  tower: InventoryTower;
+} & Record<InventoryStatusKey, number>;
+
+function TorreTick({ x, y, payload }: YAxisTickContentProps) {
+  const anchorX = typeof x === "number" ? x : Number(x);
+  const anchorY = typeof y === "number" ? y : Number(y);
+  if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) return null;
+  const label = payload?.value == null ? "" : String(payload.value);
+  return (
+    <text x={anchorX - 4} y={anchorY} fill={NAVY} fontSize={10} fontWeight={700} fontFamily={HERO_FONT} textAnchor="end" dominantBaseline="central">
+      {label}
+    </text>
+  );
 }
 
-function segmentWidth(value: number, scale: number): string {
-  if (value <= 0 || scale <= 0) return "0px";
-  return `${(value / scale) * 100}%`;
+function heroDatum(payload: unknown): HeroDatum | null {
+  if (!payload || typeof payload !== "object") return null;
+  const row = payload as Partial<HeroDatum>;
+  if (typeof row.label !== "string" || !row.tower) return null;
+  return row as HeroDatum;
 }
 
-function samePlacement(
-  current: Readonly<Record<string, boolean>>,
-  next: Readonly<Record<string, boolean>>,
-): boolean {
-  const currentKeys = Object.keys(current);
-  const nextKeys = Object.keys(next);
-  if (currentKeys.length !== nextKeys.length) return false;
-  return nextKeys.every((key) => current[key] === next[key]);
+function segmentShape(
+  key: InventoryStatusKey,
+  index: number,
+  color: string,
+  place: string,
+  onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void,
+) {
+  return function Segment(props: BarShapeProps) {
+    const { x, y, width, height } = props;
+    if (x == null || y == null || width == null || height == null) return null;
+    const row = heroDatum(props.payload);
+    if (!row) return null;
+    const value = row[key];
+    const text = count(value);
+    const item = statusOf(key);
+    const inside = width > 0 && height > 0 && width >= figureWidth(text, HERO_FONT) + HERO_FIGURE_PAD;
+    const band = props.background;
+    const originX = band?.x ?? props.parentViewBox.x;
+    const bandWidth = band?.width ?? props.parentViewBox.width;
+    const trackRight = originX + bandWidth;
+    const slotX = trackRight + 4 + index * HERO_SLOT + HERO_SLOT;
+    const open = () => onOpen(row.tower, key);
+    const onKey = (event: KeyboardEvent<SVGGElement>) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      open();
+    };
+    return (
+      <g role="button" tabIndex={0} aria-label={`${place}, ${row.label}, ${item.label}: ${text}`} style={{ cursor: "pointer" }} onClick={open} onKeyDown={onKey}>
+        {width > 0 && height > 0 ? <rect x={x} y={y} width={width} height={height} fill={color} /> : null}
+        {inside ? (
+          <text x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill={figureInk(color)} fontFamily={HERO_FONT} fontSize={10} fontWeight={700}>
+            {text}
+          </text>
+        ) : (
+          <text x={slotX} y={y + height / 2} textAnchor="end" dominantBaseline="central" fill={color} fontFamily={HERO_FONT} fontSize={10} fontWeight={700}>
+            {text}
+          </text>
+        )}
+      </g>
+    );
+  };
 }
 
 function linesFor(projects: readonly InventoryProject[], status: InventoryStatusKey | null): string[] {
@@ -246,103 +295,62 @@ function HeroTowers({
   scale: number;
   onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void;
 }) {
-  const gridRef = useRef<HTMLDivElement>(null);
-  const tracks = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [onSegment, setOnSegment] = useState<Readonly<Record<string, boolean>>>({});
-
-  useLayoutEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-    let cancelled = false;
-
+  const host = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState(0);
+  useEffect(() => {
+    const node = host.current;
+    if (!node) return;
     const measure = () => {
-      if (cancelled) return;
-      const first = tracks.current.values().next().value;
-      if (!first) return;
-      const fontFamily = getComputedStyle(first).fontFamily;
-      const next: Record<string, boolean> = {};
-      for (const tower of project.towers) {
-        const track = tracks.current.get(tower.label);
-        if (!track) return;
-        const width = track.clientWidth;
-        for (const key of WATERFALL) {
-          next[placeKey(tower.label, key)] = figureFits(tower.counts[key], scale, width, fontFamily);
-        }
-      }
-      setOnSegment((current) => (samePlacement(current, next) ? current : next));
+      const next = Math.round(node.clientHeight);
+      setBox((current) => (current === next ? current : next));
     };
-
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(grid);
-    for (const node of tracks.current.values()) observer.observe(node);
-    if ("fonts" in document) {
-      void document.fonts.ready.then(() => {
-        measure();
-      });
-    }
-    return () => {
-      cancelled = true;
-      observer.disconnect();
-    };
-  }, [project, scale]);
-
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const rows: HeroDatum[] = project.towers.map((tower) => ({
+    label: tower.label,
+    tower,
+    congelado: tower.counts.congelado,
+    disponible: tower.counts.disponible,
+    revision: tower.counts.revision,
+    reservado: tower.counts.reservado,
+    vendido: tower.counts.vendido,
+  }));
   return (
-    <div ref={gridRef} className={styles.heroTowers}>
-      {project.towers.map((tower) => (
-        <div key={`${project.slug}:${tower.label}`} className={styles.heroRow}>
-          <span className={styles.heroName}>{tower.label}</span>
-          <div
-            className={styles.heroTrack}
-            ref={(node) => {
-              if (node) tracks.current.set(tower.label, node);
-              else tracks.current.delete(tower.label);
-            }}
-          >
-            {WATERFALL.map((key) => {
+    <div ref={host} className={styles.heroChart}>
+      {box > 0 && rows.length > 0 ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart layout="vertical" data={rows} margin={{ top: 2, right: HERO_MARGIN_RIGHT, left: 0, bottom: 2 }} barCategoryGap="18%">
+            <XAxis type="number" hide domain={[0, scale]} allowDecimals={false} />
+            <YAxis
+              type="category"
+              dataKey="label"
+              width={64}
+              axisLine={false}
+              tickLine={false}
+              interval={0}
+              tick={TorreTick}
+            />
+            {WATERFALL.map((key, index) => {
               const item = statusOf(key);
-              const value = tower.counts[key];
-              const show = onSegment[placeKey(tower.label, key)] === true;
-              const width = segmentWidth(value, scale);
-              if (!show) {
-                return <span key={key} className={styles.heroSeg} style={{ width, background: item.color }} aria-hidden="true" />;
-              }
               return (
-                <button
+                <Bar
                   key={key}
-                  type="button"
-                  className={styles.heroSeg}
-                  style={{ width, background: item.color, color: figureInk(item.color) }}
-                  aria-label={`${project.label}, ${tower.label}, ${item.label}: ${count(value)}`}
-                  onClick={() => onOpen(tower, key)}
-                >
-                  <span className={styles.heroFig}>{count(value)}</span>
-                </button>
+                  dataKey={key}
+                  stackId="status"
+                  fill={item.color}
+                  isAnimationActive={false}
+                  activeBar={false}
+                  maxBarSize={16}
+                  shape={segmentShape(key, index, item.color, project.label, onOpen)}
+                />
               );
             })}
-          </div>
-          <div className={styles.heroNums}>
-            {WATERFALL.map((key) => {
-              const item = statusOf(key);
-              const value = tower.counts[key];
-              if (onSegment[placeKey(tower.label, key)] === true) {
-                return <span key={key} className={styles.heroCell} aria-hidden="true" />;
-              }
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  style={{ color: item.color }}
-                  aria-label={`${project.label}, ${tower.label}, ${item.label}: ${count(value)}`}
-                  onClick={() => onOpen(tower, key)}
-                >
-                  {count(value)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+          </BarChart>
+        </ResponsiveContainer>
+      ) : null}
     </div>
   );
 }
