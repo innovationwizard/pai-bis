@@ -156,27 +156,86 @@ function countsFor(project: ProjectView, kind: Kind): ModelCount[] {
 type TowerRef = { key: string; label: string };
 type TowerColumn = TowerRef & { moves: SplitMove[] };
 
-function towerKey(id: string, name: string): string {
-  return id || name.trim();
+function towerIdentity(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^torre\s+/, "");
+}
+
+function odooTowerLabel(name: string): string {
+  const trimmed = name.trim();
+  const body = trimmed.replace(/^torre\s+/i, "").trim();
+  if (!body || body === trimmed && !/^[A-Za-z0-9]{1,3}$/.test(body)) return trimmed;
+  if (/^[A-Za-z0-9]{1,3}$/.test(body)) return `T${body.toUpperCase()}`;
+  return trimmed;
 }
 
 function projectTowers(slug: string, units: readonly SplitUnit[], moves: readonly SplitMove[]): TowerRef[] {
   const labels = new Map<string, string>();
-  const add = (projectSlug: string, id: string, name: string) => {
+  const add = (projectSlug: string, name: string) => {
     if (projectSlug !== slug) return;
-    const key = towerKey(id, name);
     const label = name.trim();
+    const key = towerIdentity(label);
+    if (!key) return;
     const known = labels.get(key);
-    if (known == null || (known === "" && label !== "")) labels.set(key, label);
+    labels.set(key, known == null ? odooTowerLabel(label) : known);
   };
-  for (const unit of units) add(unit.projectSlug, unit.towerId, unit.towerName);
-  for (const move of moves) add(move.projectSlug, move.towerId, move.towerName);
+  for (const unit of units) add(unit.projectSlug, unit.towerName);
+  for (const move of moves) add(move.projectSlug, move.towerName);
   return [...labels.entries()]
     .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, "es") || a.key.localeCompare(b.key));
+}
+
+function houseKey(value: string): string {
+  const text = value.trim();
+  if (!text) return "";
+  const casa = text.match(/casa\s*(\d+)/i);
+  if (casa) return `casa-${Number(casa[1])}`;
+  if (/^\d+$/.test(text)) return `casa-${Number(text)}`;
+  return "";
+}
+
+function preferHouseLabel(current: string, next: string): string {
+  if (!current) return next;
+  if (/^casa\s/i.test(next) && !/^casa\s/i.test(current)) return next;
+  return current;
+}
+
+function santaElenaColumns(project: ProjectView, units: readonly SplitUnit[], moves: readonly SplitMove[], kind: Kind): TowerColumn[] {
+  const labels = new Map<string, string>();
+  const add = (value: string) => {
+    const label = value.trim();
+    const key = houseKey(label);
+    if (!key) return;
+    const known = labels.get(key);
+    labels.set(key, known == null ? label : preferHouseLabel(known, label));
+  };
+  for (const unit of units) {
+    if (unit.projectSlug !== project.slug) continue;
+    add(unit.number);
+    add(unit.unitCode);
+    add(unit.code);
+  }
+  for (const move of moves) {
+    if (move.projectSlug === project.slug) add(move.unit);
+  }
+  const rows = project.series.flatMap((row) => row[kind]);
+  return [...labels.entries()]
+    .map(([key, label]) => ({
+      key,
+      label,
+      moves: rows.filter((move) => houseKey(move.unit) === key),
+    }))
     .sort((a, b) => {
-      if (a.label === "" && b.label !== "") return 1;
-      if (b.label === "" && a.label !== "") return -1;
-      return a.label.localeCompare(b.label, "es") || a.key.localeCompare(b.key);
+      const left = Number(a.key.slice("casa-".length));
+      const right = Number(b.key.slice("casa-".length));
+      if (Number.isFinite(left) && Number.isFinite(right)) return left - right;
+      return a.label.localeCompare(b.label, "es");
     });
 }
 
@@ -186,11 +245,12 @@ function towerColumns(
   moves: readonly SplitMove[],
   kind: Kind,
 ): TowerColumn[] {
+  if (project.slug === "santa-elena") return santaElenaColumns(project, units, moves, kind);
   const towers = projectTowers(project.slug, units, moves);
   const rows = project.series.flatMap((row) => row[kind]);
   return towers.map((tower) => ({
     ...tower,
-    moves: rows.filter((move) => towerKey(move.towerId, move.towerName) === tower.key),
+    moves: rows.filter((move) => towerIdentity(move.towerName) === tower.key),
   }));
 }
 
