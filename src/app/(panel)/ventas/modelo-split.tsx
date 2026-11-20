@@ -190,72 +190,48 @@ function projectTowers(slug: string, units: readonly SplitUnit[], moves: readonl
     .sort((a, b) => a.label.localeCompare(b.label, "es") || a.key.localeCompare(b.key));
 }
 
-function houseKey(value: string): string {
-  const text = value.trim();
-  if (!text) return "";
-  const casa = text.match(/casa\s*(\d+)/i);
-  if (casa) return `casa-${Number(casa[1])}`;
-  if (/^\d+$/.test(text)) return `casa-${Number(text)}`;
-  return "";
-}
+type TowerSlice = TowerRef & { moves: SplitMove[] };
+type ModelCluster = { model: string; towers: TowerSlice[] };
 
-function preferHouseLabel(current: string, next: string): string {
-  if (!current) return next;
-  if (/^casa\s/i.test(next) && !/^casa\s/i.test(current)) return next;
-  return current;
-}
-
-type ModelSlice = { model: string; moves: SplitMove[] };
-type TowerCluster = TowerRef & { models: ModelSlice[] };
-
-function modelSlices(project: ProjectView, kind: Kind, match: (move: SplitMove) => boolean): ModelSlice[] {
-  return project.series.map((row) => ({
-    model: row.model,
-    moves: row[kind].filter(match),
-  }));
-}
-
-function houseNumber(key: string, label: string): string {
-  if (key.startsWith("casa-")) return key.slice("casa-".length);
-  return label.replace(/^casa\s*/i, "");
-}
-
-function santaElenaClusters(project: ProjectView, units: readonly SplitUnit[], moves: readonly SplitMove[], kind: Kind): TowerCluster[] {
-  const labels = new Map<string, string>();
-  const add = (value: string) => {
-    const label = value.trim();
-    const key = houseKey(label);
-    if (!key) return;
-    const known = labels.get(key);
-    labels.set(key, known == null ? label : preferHouseLabel(known, label));
-  };
-  for (const unit of units) {
-    if (unit.projectSlug !== project.slug) continue;
-    add(unit.code);
-  }
-  for (const move of moves) {
-    if (move.projectSlug === project.slug) add(move.unit);
-  }
-  return [...labels.entries()]
-    .map(([key, label]) => ({
-      key,
-      label: houseNumber(key, label),
-      models: modelSlices(project, kind, (move) => houseKey(move.unit) === key),
-    }))
-    .sort((a, b) => Number(a.label) - Number(b.label) || a.label.localeCompare(b.label, "es"));
-}
-
-function towerClusters(
+function modelClusters(
   project: ProjectView,
   units: readonly SplitUnit[],
   moves: readonly SplitMove[],
   kind: Kind,
-): TowerCluster[] {
-  if (project.slug === "santa-elena") return santaElenaClusters(project, units, moves, kind);
-  return projectTowers(project.slug, units, moves).map((tower) => ({
-    ...tower,
-    models: modelSlices(project, kind, (move) => towerIdentity(move.towerName) === tower.key),
+): ModelCluster[] {
+  const towers = projectTowers(project.slug, units, moves);
+  return project.series.map((row) => ({
+    model: row.model,
+    towers: towers.map((tower) => ({
+      ...tower,
+      moves: row[kind].filter((move) => towerIdentity(move.towerName) === tower.key),
+    })),
   }));
+}
+
+function torreTotals(project: ProjectView, units: readonly SplitUnit[], moves: readonly SplitMove[]): Series[] {
+  const rows = {
+    reserva: project.series.flatMap((row) => row.reserva),
+    pcv: project.series.flatMap((row) => row.pcv),
+  };
+  return projectTowers(project.slug, units, moves).map((tower) => ({
+    model: tower.label,
+    reserva: rows.reserva.filter((move) => towerIdentity(move.towerName) === tower.key),
+    pcv: rows.pcv.filter((move) => towerIdentity(move.towerName) === tower.key),
+  }));
+}
+
+function torreTotalPeak(
+  projects: readonly ProjectView[],
+  units: readonly SplitUnit[],
+  moves: readonly SplitMove[],
+  kind: Kind,
+): number {
+  let peak = 0;
+  for (const project of projects) {
+    for (const tower of torreTotals(project, units, moves)) peak = Math.max(peak, tower[kind].length);
+  }
+  return peak > 0 ? peak : 1;
 }
 
 function towerPeak(
@@ -266,8 +242,8 @@ function towerPeak(
 ): number {
   let peak = 0;
   for (const project of projects) {
-    for (const tower of towerClusters(project, units, moves, kind)) {
-      for (const slice of tower.models) peak = Math.max(peak, slice.moves.length);
+    for (const group of modelClusters(project, units, moves, kind)) {
+      for (const tower of group.towers) peak = Math.max(peak, tower.moves.length);
     }
   }
   return peak > 0 ? peak : 1;
@@ -325,29 +301,28 @@ function TowerChart({
   onOpen,
 }: {
   place: string;
-  clusters: readonly TowerCluster[];
+  clusters: readonly ModelCluster[];
   scale: number;
   color: string;
   dashed: boolean;
-  onOpen: (tower: TowerCluster, slice: ModelSlice) => void;
+  onOpen: (group: ModelCluster, tower: TowerSlice) => void;
 }) {
   const ceiling = scale > 0 ? scale : 1;
   return (
     <div className={styles.towerChart}>
-      {clusters.map((tower) => (
-        <div key={`${tower.key}:${tower.label}`} className={styles.towerCluster}>
+      {clusters.map((group) => (
+        <div key={group.model} className={styles.towerCluster}>
           <div className={styles.towerCols}>
-            {tower.models.map((slice) => {
-              const value = slice.moves.length;
+            {group.towers.map((tower) => {
+              const value = tower.moves.length;
               const height = `${(value / ceiling) * 100}%`;
-              const model = modeloLabel(slice.model);
               return (
                 <button
-                  key={slice.model}
+                  key={`${tower.key}:${tower.label}`}
                   type="button"
                   className={styles.towerCol}
-                  aria-label={`${place}. ${tower.label}. ${model}. ${count(value)}`}
-                  onClick={() => onOpen(tower, slice)}
+                  aria-label={`${place}. ${modeloLabel(group.model)}. ${tower.label}. ${count(value)}`}
+                  onClick={() => onOpen(group, tower)}
                 >
                   <span className={styles.towerPlot}>
                     <span className={styles.towerNum} style={{ bottom: `calc(${height} + 2px)` }}>{count(value)}</span>
@@ -363,12 +338,12 @@ function TowerChart({
                       />
                     ) : null}
                   </span>
-                  <span className={styles.towerModel}>{model}</span>
+                  <span className={styles.towerModel}>{tower.label}</span>
                 </button>
               );
             })}
           </div>
-          <span className={styles.towerName}>{tower.label}</span>
+          <span className={styles.towerName}>{modeloLabel(group.model)}</span>
         </div>
       ))}
     </div>
@@ -553,6 +528,10 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
     () => towerPeak(view.projects, vista.split.units, vista.split.moves, series),
     [view.projects, vista.split.units, vista.split.moves, series],
   );
+  const heroTowerMax = useMemo(
+    () => torreTotalPeak(view.projects, vista.split.units, vista.split.moves, series),
+    [view.projects, vista.split.units, vista.split.moves, series],
+  );
 
   useEffect(() => {
     if (!tip) return;
@@ -639,15 +618,32 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
           {view.projects.map((project) => (
             <article key={project.slug} className={styles.splitCard} aria-label={project.label}>
               <h3 className={styles.splitProject}>{project.label}</h3>
-              {project.series.length > 0 ? (
-                <ModelChart
-                  place={project.label}
-                  series={project.series}
-                  kind={series}
-                  yMax={yMax}
-                  onOpen={openCount}
-                />
-              ) : null}
+              {(() => {
+                const towers = torreTotals(project, vista.split.units, vista.split.moves);
+                if (towers.length === 0) return null;
+                return (
+                  <ModelChart
+                    place={project.label}
+                    series={towers}
+                    kind={series}
+                    yMax={heroTowerMax}
+                    onOpen={(label, kind, place) => {
+                      const found = view.projects.find((item) => item.label === place);
+                      const matched = found
+                        ? found.series.flatMap((row) => row[kind]).filter((move) => odooTowerLabel(move.towerName) === label)
+                        : [];
+                      const title = kind === "reserva" ? "Reserva" : "PCV";
+                      open({
+                        key: `${place}:${kind}:torre:${label}`,
+                        title: `${place}. ${label}. ${title} ${count(matched.length)}`,
+                        formula: kind === "reserva" ? "Actividades Reserva del periodo." : "PCV del periodo.",
+                        source: kind === "reserva" ? RESERVA_SOURCE : PCV_SOURCE,
+                        rows: matched.map((move) => moveLine(vista, move)),
+                      });
+                    }}
+                  />
+                );
+              })()}
             </article>
           ))}
         </div>
@@ -667,25 +663,37 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
                   />
                 </div>
                 <div className={styles.splitCards}>
-                  <article className={styles.splitCard} aria-label={`Torres de ${project.label}`}>
-                    <TowerChart
-                      place={project.label}
-                      clusters={towerClusters(project, vista.split.units, vista.split.moves, series)}
+                  <article className={styles.splitCard} aria-label={project.slug === "santa-elena" ? `Modelos de ${project.label}` : `Torres de ${project.label}`}>
+                    {project.slug === "santa-elena" ? (
+                      project.series.length > 0 ? (
+                        <ModelChart
+                          place={project.label}
+                          series={project.series}
+                          kind={series}
+                          yMax={yMax}
+                          onOpen={openCount}
+                        />
+                      ) : null
+                    ) : (
+                      <TowerChart
+                        place={project.label}
+                      clusters={modelClusters(project, vista.split.units, vista.split.moves, series)}
                       scale={towerMax}
                       color={projectColor(project.label)}
                       dashed={series === "pcv"}
-                      onOpen={(tower, slice) => {
+                      onOpen={(group, tower) => {
                         const title = series === "reserva" ? "Reserva" : "PCV";
-                        const model = modeloLabel(slice.model);
+                        const model = modeloLabel(group.model);
                         open({
-                          key: `${project.slug}:${series}:${tower.key}:${slice.model}`,
-                          title: `${project.label}. ${tower.label}. ${model}. ${title} ${count(slice.moves.length)}`,
+                          key: `${project.slug}:${series}:${group.model}:${tower.key}`,
+                          title: `${project.label}. ${model}. ${tower.label}. ${title} ${count(tower.moves.length)}`,
                           formula: series === "reserva" ? "Actividades Reserva del periodo." : "PCV del periodo.",
                           source: series === "reserva" ? RESERVA_SOURCE : PCV_SOURCE,
-                          rows: slice.moves.map((move) => moveLine(vista, move)),
+                          rows: tower.moves.map((move) => moveLine(vista, move)),
                         });
                       }}
-                    />
+                      />
+                    )}
                   </article>
                 </div>
               </section>
