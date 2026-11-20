@@ -287,12 +287,21 @@ export default function PerformanceAdsView({ report }: { report: PerformanceAdsR
         </Panel>
       </div>
 
-      <div className="mk-split">
+      <div className="mk-split mk-band-3">
         <Panel title="Clientes potenciales por día">
           <div className="mk-chart mk-chart-sm">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={report.weekdays} margin={{ top: 18, right: 4, left: 0, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fill: MUTED, fontSize: 10 }} interval={0} axisLine={false} tickLine={false} />
+              <BarChart data={report.weekdays} margin={{ top: 18, right: 4, left: 0, bottom: 4 }}>
+                <XAxis
+                  dataKey="name"
+                  tick={{ fill: MUTED, fontSize: 10 }}
+                  interval={0}
+                  angle={-90}
+                  textAnchor="end"
+                  height={72}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis hide />
                 <Tooltip formatter={(value) => {
                   const amount = asNumber(value);

@@ -1773,6 +1773,7 @@ main:has(.section-page) > .section-page > .section-sidebar {
 
 .mk-chart { height: 210px; min-width: 0; }
 .mk-chart-sm { height: 176px; }
+.mk-band-3 .mk-chart-sm { height: 220px; }
 .mk-chart-lg { height: 280px; }
 
 @media (max-width: 1100px) {
