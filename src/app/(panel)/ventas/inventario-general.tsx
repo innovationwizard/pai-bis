@@ -56,6 +56,12 @@ function scaleOf(projects: readonly InventoryProject[]): number {
   return peak > 0 ? peak : 1;
 }
 
+function heroScale(project: InventoryProject): number {
+  let peak = 0;
+  for (const tower of project.towers) peak = Math.max(peak, tower.counts.total);
+  return peak > 0 ? peak : 1;
+}
+
 const HERO_FONT = "Inter, ui-sans-serif, system-ui, sans-serif";
 const HERO_FIGURE = 10;
 const HERO_FIGURE_PAD = 2;
@@ -280,13 +286,12 @@ function TowerRows({
 
 function HeroTowers({
   project,
-  scale,
   onOpen,
 }: {
   project: InventoryProject;
-  scale: number;
   onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void;
 }) {
+  const yMax = useMemo(() => heroScale(project), [project]);
   const host = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState(0);
   useEffect(() => {
@@ -327,7 +332,7 @@ function HeroTowers({
               axisLine={{ stroke: "rgba(13, 32, 65, 0.28)" }}
               tick={ColumnTick}
             />
-            <YAxis hide width={0} domain={[0, scale]} allowDecimals={false} />
+            <YAxis hide width={0} domain={[0, yMax]} allowDecimals={false} />
             {WATERFALL.map((key) => {
               const item = statusOf(key);
               return (
@@ -424,7 +429,7 @@ export function InventarioGeneral({
                 {projects.map((project) => (
                   <article key={project.slug} className={styles.card} aria-label={project.label}>
                     <span className={styles.cardName}>{project.label}</span>
-                    <HeroTowers project={project} scale={scale} onOpen={(tower, status) => openTower(project, tower, status)} />
+                    <HeroTowers project={project} onOpen={(tower, status) => openTower(project, tower, status)} />
                   </article>
                 ))}
               </div>
