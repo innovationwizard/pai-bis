@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
-import type { BarShapeProps, YAxisTickContentProps } from "recharts";
+import type { BarShapeProps, XAxisTickContentProps } from "recharts";
 import { UNIT_STATUS_COLORS, UNIT_STATUS_LABELS } from "@/lib/reservas/constants";
 import type { RvUnitStatus } from "@/lib/reservas/types";
 import type {
@@ -57,9 +57,9 @@ function scaleOf(projects: readonly InventoryProject[]): number {
 }
 
 const HERO_FONT = "Inter, ui-sans-serif, system-ui, sans-serif";
-const HERO_FIGURE_PAD = 6;
-const HERO_SLOT = 18;
-const HERO_MARGIN_RIGHT = HERO_SLOT * 5 + 6;
+const HERO_FIGURE = 10;
+const HERO_FIGURE_PAD = 2;
+const HERO_AXIS = 22;
 
 function figureInk(hex: string): string {
   const raw = hex.replace("#", "");
@@ -86,7 +86,7 @@ function figureWidth(text: string, fontFamily: string): number {
   probe.style.pointerEvents = "none";
   probe.style.whiteSpace = "nowrap";
   probe.style.fontFamily = fontFamily;
-  probe.style.fontSize = "10px";
+  probe.style.fontSize = `${HERO_FIGURE}px`;
   probe.style.fontWeight = "700";
   probe.style.fontVariantNumeric = "tabular-nums";
   probe.style.lineHeight = "1";
@@ -102,13 +102,13 @@ type HeroDatum = {
   tower: InventoryTower;
 } & Record<InventoryStatusKey, number>;
 
-function TorreTick({ x, y, payload }: YAxisTickContentProps) {
+function ColumnTick({ x, y, payload }: XAxisTickContentProps) {
   const anchorX = typeof x === "number" ? x : Number(x);
   const anchorY = typeof y === "number" ? y : Number(y);
   if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) return null;
   const label = payload?.value == null ? "" : String(payload.value);
   return (
-    <text x={anchorX - 4} y={anchorY} fill={NAVY} fontSize={10} fontWeight={700} fontFamily={HERO_FONT} textAnchor="end" dominantBaseline="central">
+    <text x={anchorX} y={anchorY + 12} fill={NAVY} fontSize={11} fontWeight={700} fontFamily={HERO_FONT} textAnchor="middle">
       {label}
     </text>
   );
@@ -123,7 +123,6 @@ function heroDatum(payload: unknown): HeroDatum | null {
 
 function segmentShape(
   key: InventoryStatusKey,
-  index: number,
   color: string,
   place: string,
   onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void,
@@ -136,30 +135,23 @@ function segmentShape(
     const value = row[key];
     const text = count(value);
     const item = statusOf(key);
-    const inside = width > 0 && height > 0 && width >= figureWidth(text, HERO_FONT) + HERO_FIGURE_PAD;
-    const band = props.background;
-    const originX = band?.x ?? props.parentViewBox.x;
-    const bandWidth = band?.width ?? props.parentViewBox.width;
-    const trackRight = originX + bandWidth;
-    const slotX = trackRight + 4 + index * HERO_SLOT + HERO_SLOT;
+    const drawn = width > 0 && height > 0;
+    const inside = drawn && height >= HERO_FIGURE + HERO_FIGURE_PAD && width >= figureWidth(text, HERO_FONT) + HERO_FIGURE_PAD;
     const open = () => onOpen(row.tower, key);
     const onKey = (event: ReactKeyboardEvent<SVGGElement>) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       open();
     };
+    if (!drawn && !inside) return null;
     return (
       <g role="button" tabIndex={0} aria-label={`${place}, ${row.label}, ${item.label}: ${text}`} style={{ cursor: "pointer" }} onClick={open} onKeyDown={onKey}>
-        {width > 0 && height > 0 ? <rect x={x} y={y} width={width} height={height} fill={color} /> : null}
+        {drawn ? <rect x={x} y={y} width={width} height={height} fill={color} /> : null}
         {inside ? (
-          <text x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill={figureInk(color)} fontFamily={HERO_FONT} fontSize={10} fontWeight={700}>
+          <text x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill={figureInk(color)} fontFamily={HERO_FONT} fontSize={HERO_FIGURE} fontWeight={700}>
             {text}
           </text>
-        ) : (
-          <text x={slotX} y={y + height / 2} textAnchor="end" dominantBaseline="central" fill={color} fontFamily={HERO_FONT} fontSize={10} fontWeight={700}>
-            {text}
-          </text>
-        )}
+        ) : null}
       </g>
     );
   };
@@ -322,18 +314,21 @@ function HeroTowers({
     <div ref={host} className={styles.heroChart}>
       {box > 0 && rows.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart layout="vertical" data={rows} margin={{ top: 2, right: HERO_MARGIN_RIGHT, left: 0, bottom: 2 }} barCategoryGap="18%">
-            <XAxis type="number" hide domain={[0, scale]} allowDecimals={false} />
-            <YAxis
-              type="category"
+          <BarChart data={rows} margin={{ top: 4, right: 2, left: 2, bottom: 0 }} barCategoryGap="12%">
+            <XAxis
               dataKey="label"
-              width={64}
-              axisLine={false}
-              tickLine={false}
               interval={0}
-              tick={TorreTick}
+              minTickGap={0}
+              height={HERO_AXIS}
+              tickSize={0}
+              tickMargin={0}
+              tickLine={false}
+              padding={{ left: 4, right: 4 }}
+              axisLine={{ stroke: "rgba(13, 32, 65, 0.28)" }}
+              tick={ColumnTick}
             />
-            {WATERFALL.map((key, index) => {
+            <YAxis hide width={0} domain={[0, scale]} allowDecimals={false} />
+            {WATERFALL.map((key) => {
               const item = statusOf(key);
               return (
                 <Bar
@@ -343,8 +338,8 @@ function HeroTowers({
                   fill={item.color}
                   isAnimationActive={false}
                   activeBar={false}
-                  maxBarSize={16}
-                  shape={segmentShape(key, index, item.color, project.label, onOpen)}
+                  maxBarSize={32}
+                  shape={segmentShape(key, item.color, project.label, onOpen)}
                 />
               );
             })}
