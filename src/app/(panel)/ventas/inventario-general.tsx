@@ -48,10 +48,12 @@ function statusOf(key: InventoryStatusKey): { status: RvUnitStatus; label: strin
   return { status, label: UNIT_STATUS_LABELS[status], color: UNIT_STATUS_COLORS[status] };
 }
 
-function scaleOf(projects: readonly InventoryProject[]): number {
+function detailScale(projects: readonly InventoryProject[]): number {
   let peak = 0;
   for (const project of projects) {
-    for (const tower of project.towers) peak = Math.max(peak, tower.counts.total);
+    for (const tower of project.towers) {
+      for (const key of WATERFALL) peak = Math.max(peak, tower.counts[key]);
+    }
   }
   return peak > 0 ? peak : 1;
 }
@@ -248,37 +250,33 @@ function TowerRows({
   onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void;
 }) {
   return (
-    <div className={styles.towers}>
+    <div className={styles.torreBlocks}>
       {project.towers.map((tower) => (
-        <div key={`${project.slug}:${tower.label}`} className={styles.tower}>
-          <span className={styles.towerName}>{tower.label}</span>
-          <div className={styles.track} aria-hidden="true">
-            {STATUSES.map((item) => {
-              const value = tower.counts[item.key];
-              if (value <= 0) return null;
+        <section key={`${project.slug}:${tower.label}`} className={styles.torreBlock} aria-label={tower.label}>
+          <h3 className={styles.torreHeading}>{tower.label}</h3>
+          <ul className={styles.statusList}>
+            {WATERFALL.map((key) => {
+              const item = statusOf(key);
+              const value = tower.counts[key];
               return (
-                <span
-                  key={item.key}
-                  className={styles.seg}
-                  style={{ width: `${(value / scale) * 100}%`, background: UNIT_STATUS_COLORS[item.status] }}
-                />
+                <li key={key}>
+                  <span className={styles.statusName}>{item.label}</span>
+                  <button
+                    type="button"
+                    className={styles.statusTrack}
+                    aria-label={`${project.label}, ${tower.label}, ${item.label}: ${count(value)}`}
+                    onClick={() => onOpen(tower, key)}
+                  >
+                    <span className={styles.statusPlot}>
+                      <span className={styles.statusBar} style={{ left: 0, width: `${(value / scale) * 100}%`, background: item.color }} />
+                    </span>
+                    <span className={styles.statusCount} style={{ color: item.color }}>{count(value)}</span>
+                  </button>
+                </li>
               );
             })}
-          </div>
-          <div className={styles.nums}>
-            {STATUSES.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                style={{ color: UNIT_STATUS_COLORS[item.status] }}
-                aria-label={`${project.label}, ${tower.label}, ${UNIT_STATUS_LABELS[item.status]}: ${count(tower.counts[item.key])}`}
-                onClick={() => onOpen(tower, item.key)}
-              >
-                {count(tower.counts[item.key])}
-              </button>
-            ))}
-          </div>
-        </div>
+          </ul>
+        </section>
       ))}
     </div>
   );
@@ -364,7 +362,7 @@ export function InventarioGeneral({
 }) {
   const board: InventoryBoard | null = vista?.board ?? null;
   const projects = board?.projects ?? [];
-  const scale = useMemo(() => scaleOf(projects), [projects]);
+  const scale = useMemo(() => detailScale(projects), [projects]);
   const [tip, setTip] = useState<Tip | null>(null);
 
   useEffect(() => {

@@ -126,7 +126,6 @@
 }
 
 .statusTrack:focus-visible,
-.nums button:focus-visible,
 .tipHead button:focus-visible {
   outline: 2px solid #0573b0;
   outline-offset: 1px;
@@ -194,52 +193,31 @@
   overflow-wrap: anywhere;
 }
 
-.towers {
+.torreBlocks {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  justify-content: space-evenly;
-  gap: 1px;
+  gap: 8px;
   width: 100%;
   min-height: 0;
+  overflow: auto;
 }
 
-.tower {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
-  align-items: center;
-  column-gap: 4px;
+.torreBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
-.towerName {
+.torreHeading {
+  margin: 0;
   color: #0d2041;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
+  line-height: 1.2;
 }
 
-.track {
-  display: flex;
-  align-items: center;
-  height: 8px;
-  min-width: 0;
-}
-
-.seg {
-  display: block;
-  flex: none;
-  height: 8px;
-}
-
-.nums {
-  display: flex;
-  flex: none;
-  gap: 4px;
-}
-
-.nums button,
 .tipHead button {
   margin: 0;
   padding: 0;
@@ -249,14 +227,6 @@
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
-}
-
-.nums button {
-  flex: none;
-  min-width: 0.75rem;
-  font-size: 10px;
-  line-height: 1;
-  text-align: right;
 }
 
 .heroChart {
