@@ -1,17 +1,6 @@
 "use client";
 
 import { Fragment, type KeyboardEvent, type ReactNode } from "react";
-import {
-  CartesianGrid,
-  LabelList,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { isDisplayProject, projectKey } from "@/lib/projects";
 import { UNIT_STATUS_COLORS } from "@/lib/reservas/constants";
 import type {
@@ -32,7 +21,6 @@ import styles from "./lower-bands.module.css";
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
 const AMBER = "#b45309";
-const GRID = "#e2e8f0";
 
 const moneyFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
 const dollarFormat = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -174,12 +162,6 @@ function columnStep(scale: number): number {
   }
   ranked.sort((a, b) => Math.abs(a.intervals - 4) - Math.abs(b.intervals - 4));
   return ranked[0].step;
-}
-
-function tipNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value !== "" && Number.isFinite(Number(value))) return Number(value);
-  return null;
 }
 
 function emptyNote(_notice: string | null | undefined): ReactNode {
@@ -914,98 +896,6 @@ export function ModeloBand({
       <h2 id="vt-modelo-title" className={styles.title}>Split de ventas por modelo y por torre</h2>
       {!vista ? pending : <ModeloSplit vista={vista} />}
     </section>
-  );
-}
-
-function seriesLive(points: readonly { gtq: number; usd: number }[], key: "gtq" | "usd"): boolean {
-  return points.some((point) => point[key] !== 0);
-}
-
-function pointLabel(value: unknown, format: (n: number) => string): string {
-  const n = tipNumber(value);
-  if (n == null) return "";
-  return format(n);
-}
-
-function CurrencyLine({
-  points,
-  dataKey,
-  name,
-  stroke,
-  format,
-}: {
-  points: PrecioVista["months"];
-  dataKey: "gtq" | "usd";
-  name: string;
-  stroke: string;
-  format: (value: number) => string;
-}) {
-  return (
-    <div className={styles.plotLine}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={points} margin={{ left: 0, right: 12, top: 22, bottom: 8 }}>
-          <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} interval={0} />
-          <YAxis tickFormatter={(value) => format(tipNumber(value) ?? 0)} tick={{ fontSize: 11, fill: "#64748b" }} width={88} axisLine={false} tickLine={false} />
-          <Tooltip formatter={(value) => [format(tipNumber(value) ?? 0), name]} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Line type="monotone" dataKey={dataKey} name={name} stroke={stroke} strokeWidth={4.5} dot={{ r: 3 }} isAnimationActive={false}>
-            <LabelList dataKey={dataKey} position="top" formatter={(value) => pointLabel(value, format)} fill={stroke} fontSize={10} />
-          </Line>
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-export function ValorBand({
-  precios,
-  preciosPending,
-  descuentos,
-  descuentosPending,
-}: {
-  precios: PrecioVista | null;
-  preciosPending: ReactNode;
-  descuentos: DescuentoVista | null;
-  descuentosPending: ReactNode;
-}) {
-  return (
-    <section className={styles.band} aria-labelledby="vt-valor-title">
-      <h2 id="vt-valor-title" className={styles.title}>Valor de proyecto</h2>
-      <h3 className={styles.subTitle}>Trayectoria de precios</h3>
-      {!precios ? preciosPending : <PriceBody vista={precios} />}
-      <h3 className={styles.subTitle}>Impacto del descuento</h3>
-      {!descuentos ? descuentosPending : <DiscountBody vista={descuentos} />}
-    </section>
-  );
-}
-
-function PriceBody({ vista }: { vista: PrecioVista }) {
-  if (vista.months.length === 0) return emptyNote(vista.notice);
-  const gtq = seriesLive(vista.months, "gtq");
-  const usd = seriesLive(vista.months, "usd");
-  const showGtq = gtq || !usd;
-  const showUsd = usd;
-  return (
-    <>
-      {/* {vista.notice ? <p className="op-note">{vista.notice}</p> : null} */}
-      {showGtq ? <CurrencyLine points={vista.months} dataKey="gtq" name="Quetzales" stroke={NAVY} format={money} /> : null}
-      {showUsd ? <CurrencyLine points={vista.months} dataKey="usd" name="Dólares" stroke={BLUE} format={dollars} /> : null}
-    </>
-  );
-}
-
-function DiscountBody({ vista }: { vista: DescuentoVista }) {
-  if (vista.gtq == null && vista.saleGtq == null) return emptyNote(vista.notice);
-  const rows: Mark[] = [
-    { id: "ventas", label: "Ventas con descuento", value: vista.saleGtq ?? 0, tone: "amber" },
-    { id: "descuento", label: "Descuento", value: vista.gtq ?? 0, tone: "amber" },
-  ];
-  return (
-    <>
-      {/* {vista.notice ? <p className="op-note">{vista.notice}</p> : null} */}
-      <MarkColumns rows={rows} format={money} axis="money" />
-    </>
   );
 }
 

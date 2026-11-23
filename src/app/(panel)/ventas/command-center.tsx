@@ -27,7 +27,8 @@ import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/
 import { InventarioGeneral } from "./inventario-general";
 import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
 import { StatusLifetime } from "./status-bands";
-import { ControlesGrid, DesistimientosBands, ModeloBand, PromocionesBand, ReferidosBand, TasaBand, ValorBand } from "./lower-bands";
+import { ControlesGrid, DesistimientosBands, ModeloBand, PromocionesBand, ReferidosBand, TasaBand } from "./lower-bands";
+import { ValorProyecto } from "./valor-proyecto";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
@@ -529,11 +530,9 @@ export default function CommandCenter() {
       />
       <hr className="op-filter-rule vc-band-rule" />
 
-      <ValorBand
-        precios={vistaOf(vistas, "subidas-de-precios")}
-        preciosPending={<StatusLine section="subidas-de-precios" errors={errors} busy={busy} />}
-        descuentos={vistaOf(vistas, "descuentos")}
-        descuentosPending={<StatusLine section="descuentos" errors={errors} busy={busy} />}
+      <ValorProyecto
+        vista={vistaOf(vistas, "valor-del-proyecto")}
+        pending={<StatusLine section="valor-del-proyecto" errors={errors} busy={busy} />}
       />
       <hr className="op-filter-rule vc-band-rule" />
       <DesistimientosBands

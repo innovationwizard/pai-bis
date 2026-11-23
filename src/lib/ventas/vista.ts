@@ -47,7 +47,7 @@ const QUESTIONS: Record<VistaSection, string> = {
   "ventas-por-canales": "¿Qué canales están produciendo las ventas del periodo?",
   "analisis-de-inventario": "¿Qué modelos se están vendiendo y cuáles siguen en inventario?",
   "inventario-general": "¿Cuánto inventario está vendido, congelado y disponible?",
-  "valor-del-proyecto": "¿Cuánto vale el proyecto hoy, y cuánto valor salió por desistimientos?",
+  "valor-del-proyecto": "Valor de proyecto",
   "tasa-de-conversion": "Tasa de conversión",
   desistimientos: "¿Cuánto se desistió, y qué valor sale del proyecto?",
   descuentos: "¿Cuánto descuento se está otorgando, y quién lo concentra?",

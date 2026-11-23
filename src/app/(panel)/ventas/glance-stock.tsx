@@ -8,8 +8,6 @@ import {
   Cell,
   LabelList,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -18,6 +16,7 @@ import {
 import type { AnalisisVista, ConversionVista, InventarioVista, ValorVista, VentasVista } from "@/lib/ventas/vista-types";
 import { isDisplayProject } from "@/lib/projects";
 import { TasaBand } from "./lower-bands";
+import { ValorProyecto } from "./valor-proyecto";
 
 type StockBar = {
   periodo: string;
@@ -85,12 +84,11 @@ export function StockScreens({ vista, bar }: { vista: AnalisisVista | Inventario
     <>
       {vista.section === "analisis-de-inventario" ? <Analisis vista={vista} onModel={(id, label) => setDrill({ title: label, modelo: id, project: "" })} /> : null}
       {vista.section === "inventario-general" ? <General vista={vista} onProject={(id, label) => setDrill({ title: label, modelo: "", project: id })} /> : null}
-      {vista.section === "valor-del-proyecto" ? <Valor vista={vista} onProject={(id, label) => setDrill({ title: label, modelo: "", project: id })} /> : null}
+      {vista.section === "valor-del-proyecto" ? <Valor vista={vista} /> : null}
       {vista.section === "tasa-de-conversion" ? <Conversion vista={vista} /> : null}
       {drill && vista.section !== "tasa-de-conversion" && vista.section !== "valor-del-proyecto" ? (
         <UnitDrawer vista={vista} bar={bar} drill={drill} onClose={() => setDrill(null)} />
       ) : null}
-      {drill && vista.section === "valor-del-proyecto" ? <TraceDrawer vista={vista} projectId={drill.project} title={drill.title} onClose={() => setDrill(null)} /> : null}
     </>
   );
 }
@@ -168,47 +166,8 @@ function General({ vista, onProject }: { vista: InventarioVista; onProject: (id:
   );
 }
 
-function Valor({ vista, onProject }: { vista: ValorVista; onProject: (id: string, label: string) => void }) {
-  const byProject = vista.byProject.filter((row) => isDisplayProject(row.label));
-  return (
-    <>
-      <div className="op-kpis">
-        <Kpi label="Lista en quetzales" value={money(vista.listGtq)} detail="precio de lista vigente" />
-        <Kpi label="Lista en dólares" value={dollars(vista.listUsd)} detail="no se suma con quetzales" />
-        <Kpi label="Desistido" value={count(vista.lossUnits)} detail="unidades del periodo" />
-        <Kpi label="Valor desistido" value={money(vista.lossGtq)} detail="valor del trato" />
-      </div>
-      <section className="op-hero op-hero-budget" aria-label="Valor de ventas y desistimientos">
-        <header className="op-head"><div><h2>Doce meses</h2><p className="op-note">{vista.caption}</p></div></header>
-        <div className="op-chart">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={vista.months} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-              <CartesianGrid stroke="#e2e8f0" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={(value) => money(tipNumber(value))} tick={{ fontSize: 11, fill: "#64748b" }} width={64} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(value, name) => [money(tipNumber(value)), String(name)]} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line type="monotone" dataKey="ventas" name="Ventas" stroke="#0d2041" strokeWidth={2} dot={false} isAnimationActive={false} />
-              <Line type="monotone" dataKey="desistido" name="Desistido" stroke="#b91c1c" strokeWidth={2} dot={false} isAnimationActive={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-      <section className="op-hero" aria-label="Disponible contra desistido" style={{ flex: 1 }}>
-        <header className="op-head"><div><h2>Disponible contra desistido</h2></div></header>
-        <Grouped
-          rows={byProject}
-          bars={[
-            { key: "disponibleGtq", name: "Disponible Q", fill: "#0573b0" },
-            { key: "disponibleUsd", name: "Disponible $", fill: "#3d6f8f" },
-            { key: "desistidoGtq", name: "Desistido", fill: "#b91c1c" },
-          ]}
-          format={money}
-          onPick={(row) => onProject(row.id, row.label)}
-        />
-      </section>
-    </>
-  );
+function Valor({ vista }: { vista: ValorVista }) {
+  return <ValorProyecto vista={vista} pending={null} />;
 }
 
 function Conversion({ vista }: { vista: ConversionVista }) {
@@ -375,34 +334,6 @@ function UnitDrawer({
           </table>
         </div>
       ) : null}
-    </Overlay>
-  );
-}
-
-function TraceDrawer({ vista, projectId, title, onClose }: { vista: ValorVista; projectId: string; title: string; onClose: () => void }) {
-  const rows = vista.traces.filter((row) => row.project === title);
-  return (
-    <Overlay title={title} onClose={onClose}>
-      <p className="op-note">Venta, baja y estado de inventario al fin del periodo. {projectId ? "" : ""}</p>
-      {rows.length === 0 ? <p className="op-note">No hay desistimientos de este proyecto en el periodo.</p> : (
-        <div className="op-modal-scroll" style={{ maxHeight: "60vh" }}>
-          <table>
-            <thead><tr><th>Unidad</th><th>Torre</th><th>Venta</th><th>Baja</th><th>Estado</th><th>Quetzales</th></tr></thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={`${row.unit}-${row.lostOn}`}>
-                  <td>{row.unit}</td>
-                  <td>{row.tower}</td>
-                  <td>{row.saleOn ?? "—"}</td>
-                  <td>{row.lostOn}</td>
-                  <td>{row.status}</td>
-                  <td>{money(row.gtq)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </Overlay>
   );
 }

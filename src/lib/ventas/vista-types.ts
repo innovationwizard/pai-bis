@@ -420,6 +420,46 @@ export type InventarioVista = VistaBase & {
   board: InventoryBoard;
 };
 
+export type ValorUnitLine = {
+  project: string;
+  torre: string;
+  code: string;
+  amount: number | null;
+  currency: string;
+  discountGtq: number;
+};
+
+export type ValorTower = {
+  label: string;
+  listGtq: number;
+  units: ValorUnitLine[];
+};
+
+export type ValorPoint = {
+  date: string;
+  label: string;
+  gtq: number;
+};
+
+export type ValorProject = {
+  id: string;
+  slug: string;
+  label: string;
+  currency: string;
+  listGtq: number;
+  discountGtq: number;
+  listUsd: number;
+  towers: ValorTower[];
+  history: ValorPoint[];
+  units: ValorUnitLine[];
+};
+
+export type ValorBoard = {
+  listGtq: number;
+  discountGtq: number;
+  projects: ValorProject[];
+};
+
 export type ValorVista = VistaBase & {
   section: "valor-del-proyecto";
   listGtq: number | null;
@@ -429,6 +469,7 @@ export type ValorVista = VistaBase & {
   months: { label: string; ventas: number; desistido: number }[];
   byProject: { id: string; label: string; disponibleGtq: number | null; disponibleUsd: number | null; desistidoGtq: number | null }[];
   traces: { unit: string; project: string; tower: string; saleOn: string | null; lostOn: string; gtq: number | null; status: string }[];
+  board: ValorBoard;
 };
 
 export type EmbudoBar = {

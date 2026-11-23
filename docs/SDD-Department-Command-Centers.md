@@ -6,7 +6,7 @@
 **Goal:** Each department is a single, vertically scrollable command center of high-density Recharts and D3 visualizations that cover every required Operativo checklist item with 0 clicks.  
 **Date:** 10 November 2026  
 **Ventas scroll order locked:** 21 November 2026. Operativo items 1 through 14, top to bottom. See §4.1.  
-**23 November 2026:** Item 3 stays per torre. Item 7’s precise spec is §4.1.4; its page changes only when that spec is implemented. Items 8, 10, 11, 12, and 14 stay on the three-level commitment and still wait for a precise spec. The Ventas project pills include NINGUNO.
+**23 November 2026:** Item 3 stays per torre. Item 7 follows §4.1.4. Items 8, 10, 11, 12, and 14 stay on the three-level commitment and still wait for a precise spec. The Ventas project pills include NINGUNO.
 
 ---
 
@@ -170,7 +170,7 @@ The left rail scrolls to these same items in this same order.
 | 13 | Control Referidos | Dedicated visual for the referral trail (Referido / Tipo de Referido / Nombre de Referidor): counts broken by proyecto or tipo, plus a short visible list of referidores. Not a filter on the canales chart |
 | 14 | Control de promociones | Canonical three-level pattern. Precise spec not yet written. |
 
-**Items 8, 10, 11, 12, and 14 (decision 23 November 2026).** These five follow the canonical three-level pattern. Each one gets a precise spec in this section before its band on the page changes. Until that spec is written, the live page keeps the compact summary it already shows. The earlier one-line targets (bars for reembolso and retención, a compact amount) describe that live page only. Item 7 is specified in §4.1.4. Its live compact summary stays until that spec is implemented.
+**Items 8, 10, 11, 12, and 14 (decision 23 November 2026).** These five follow the canonical three-level pattern. Each one gets a precise spec in this section before its band on the page changes. Until that spec is written, the live page keeps the compact summary it already shows. The earlier one-line targets (bars for reembolso and retención, a compact amount) describe that live page only. Item 7 is specified in §4.1.4 and the page follows that spec.
 
 The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.2.1). Those numbers are not a second order.
 
@@ -312,7 +312,7 @@ This section wins for Item 6. The Expanded Hero does not put a number on or abov
 Valor de proyecto
 
 **Decision**  
-23 November 2026. This item follows the canonical three-level pattern. The live page keeps its current compact summary until this spec is implemented.
+23 November 2026. This item follows the canonical three-level pattern. The page implements this spec.
 
 **The number**  
 The snapshot sums the current list price of every unit in scope. The amount is `rv_units.price_list`, the same quetzal amount the stock read exposes as `list_price_amount` when `list_price_currency` is GTQ. `valor_inmueble` is a different column and is not added. A list price in dollars is not converted and is not added. A unit with no quetzal list price adds nothing. When the scope has no quetzal list price, the figure is 0.

@@ -28,7 +28,7 @@ export const VENTAS_SECTIONS: readonly VentasSection[] = [
   { slug: "ventas-por-canales", title: "Ventas por canales", icon: PieChart },
   { slug: "analisis-de-inventario", title: "Análisis de inventario", icon: PackageSearch },
   { slug: "inventario-general", title: "Inventario general", icon: Boxes },
-  { slug: "valor-del-proyecto", title: "Valor del proyecto", icon: Building2 },
+  { slug: "valor-del-proyecto", title: "Valor de proyecto", icon: Building2 },
   { slug: "desistimientos", title: "Desistimientos", icon: Ban },
   { slug: "tasa-de-conversion", title: "Tasa de conversión", icon: Percent },
   { slug: "descuentos", title: "Descuentos", icon: Tags },

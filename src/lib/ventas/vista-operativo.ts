@@ -284,11 +284,14 @@ export async function buildStockVista(section: StockSection, filters: VistaFilte
     const [dims, units] = await Promise.all([loadDims(client), loadRvUnits()]);
     return buildInventory(range, dims, units, filters, today);
   }
+  if (section === "valor-del-proyecto") {
+    const dims = await loadDims(client);
+    return buildValor(client, filters, range, dims);
+  }
   const dims = await loadDims(client);
   const [stock, unitIds] = await Promise.all([stockAt(client, range.to), searchUnits(client, filters.buscar)]);
   const rows = filterStock(stock, filters, unitIds);
-  if (section === "analisis-de-inventario") return buildAnalisis(client, filters, range, dims, rows);
-  return buildValor(client, filters, range, dims, rows, stock.length === 0);
+  return buildAnalisis(client, filters, range, dims, rows);
 }
 
 async function buildAnalisis(
@@ -1103,85 +1106,276 @@ function projectList(filters: VistaFilters): string[] | null {
   return filters.projectIds;
 }
 
+type ValorSourceUnit = {
+  id: string;
+  slug: string;
+  towerName: string;
+  number: string;
+  unitCode: string;
+  price: number | null;
+};
+
+function putValorUnit(map: Map<string, ValorSourceUnit | "many">, key: string, unit: ValorSourceUnit) {
+  const current = map.get(key);
+  if (!current) {
+    map.set(key, unit);
+    return;
+  }
+  if (current === "many" || current.id === unit.id) return;
+  map.set(key, "many");
+}
+
+function valorTokens(number: string, code: string): string[] {
+  const tokens = new Set<string>();
+  const fromNumber = unitToken(number);
+  const fromCode = unitToken(code);
+  if (fromNumber) tokens.add(fromNumber);
+  if (fromCode) tokens.add(fromCode);
+  return [...tokens];
+}
+
+function dottedDay(iso: string): string {
+  const day = iso.slice(0, 10);
+  const [year, month, date] = day.split("-");
+  if (!year || !month || !date) return day;
+  return `${date}.${month}.${year}`;
+}
+
+async function loadValorUnits(): Promise<{ units: ValorSourceUnit[]; capped: boolean }> {
+  const client = createAdminClient();
+  const units: ValorSourceUnit[] = [];
+  for (let offset = 0; offset < SPLIT_READ; offset += PAGE) {
+    const { data, error } = await client
+      .from("v_rv_units_full")
+      .select("id, project_slug, tower_name, unit_number, unit_code, price_list")
+      .order("id")
+      .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as unknown as Record<string, unknown>[];
+    for (const row of batch) {
+      units.push({
+        id: String(row.id ?? ""),
+        slug: String(row.project_slug ?? ""),
+        towerName: String(row.tower_name ?? ""),
+        number: String(row.unit_number ?? ""),
+        unitCode: String(row.unit_code ?? ""),
+        price: num(row.price_list),
+      });
+    }
+    if (batch.length < PAGE) return { units, capped: false };
+  }
+  return { units, capped: true };
+}
+
+async function loadProjectMoney(): Promise<{ currencyBySlug: Map<string, string>; idToSlug: Map<string, string> }> {
+  const client = createAdminClient();
+  const { data, error } = await client.from("projects").select("id, slug, currency");
+  if (error) throw new Error(error.message);
+  const currencyBySlug = new Map<string, string>();
+  const idToSlug = new Map<string, string>();
+  for (const row of data ?? []) {
+    const slug = String(row.slug ?? "");
+    if (!slug) continue;
+    currencyBySlug.set(slug, String(row.currency ?? "GTQ"));
+    idToSlug.set(String(row.id), slug);
+  }
+  return { currencyBySlug, idToSlug };
+}
+
+async function loadPriceHistory(): Promise<{ projectId: string; towerId: string; date: string; avg: number | null }[]> {
+  const client = createAdminClient();
+  const rows: { projectId: string; towerId: string; date: string; avg: number | null }[] = [];
+  for (let offset = 0; offset < SPLIT_READ; offset += PAGE) {
+    const { data, error } = await client
+      .from("rv_price_history")
+      .select("project_id, tower_id, effective_date, new_price_avg")
+      .order("effective_date")
+      .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as unknown as Record<string, unknown>[];
+    for (const row of batch) {
+      const date = typeof row.effective_date === "string" ? row.effective_date.slice(0, 10) : "";
+      if (!date) continue;
+      rows.push({
+        projectId: String(row.project_id ?? ""),
+        towerId: row.tower_id == null ? "" : String(row.tower_id),
+        date,
+        avg: num(row.new_price_avg),
+      });
+    }
+    if (batch.length < PAGE) return rows;
+  }
+  return rows;
+}
+
+async function discountByUnit(
+  client: Db,
+  dims: Dims,
+  units: readonly ValorSourceUnit[],
+): Promise<Map<string, number>> {
+  const loaded = await readPages((from, to) =>
+    client.from("fact_discount").select("deal_id, amount_gtq").order("id").range(from, to),
+  );
+  const totals = new Map<string, number>();
+  if (loaded.rows.length === 0) return totals;
+  const dealIds = [...new Set(loaded.rows.map((row) => String(row.deal_id ?? "")).filter((id) => id))];
+  const deals = await rowsByIds(client, "dim_deal", "id", dealIds, "id, unit_id, project_id");
+  const dealById = new Map(deals.rows.map((row) => [String(row.id), row]));
+  const unitIds = [...new Set(deals.rows.map((row) => (row.unit_id == null ? "" : String(row.unit_id))).filter((id) => id))];
+  const dimUnits = unitIds.length === 0
+    ? { rows: [] as Record<string, unknown>[] }
+    : await rowsByIds(client, "dim_unit", "id", unitIds, "id, project_id, tower_id, canonical_unit, unit_token_2");
+  const dimById = new Map(dimUnits.rows.map((row) => [String(row.id), row]));
+  const byTower = new Map<string, ValorSourceUnit | "many">();
+  const byToken = new Map<string, ValorSourceUnit | "many">();
+  for (const unit of units) {
+    if (!SPLIT_PROJECTS.some((project) => project.slug === unit.slug)) continue;
+    for (const token of valorTokens(unit.number, unit.unitCode)) {
+      putValorUnit(byToken, `${unit.slug}|${token}`, unit);
+      if (unit.towerName.trim()) putValorUnit(byTower, `${unit.slug}|${foldTower(unit.towerName)}|${token}`, unit);
+    }
+  }
+  for (const row of loaded.rows) {
+    const amount = num(row.amount_gtq);
+    if (amount == null) continue;
+    const deal = dealById.get(String(row.deal_id ?? ""));
+    const dimId = deal?.unit_id == null ? "" : String(deal.unit_id);
+    const dim = dimId ? dimById.get(dimId) : undefined;
+    if (!dim) continue;
+    const projectName = dims.projects.find((project) => project.id === String(dim.project_id ?? ""))?.name ?? "";
+    const slug = slugForName(projectName);
+    if (!slug) continue;
+    const towerName = dims.torres.get(String(dim.tower_id ?? "")) ?? "";
+    const tokens = valorTokens(String(dim.canonical_unit ?? ""), String(dim.unit_token_2 ?? ""));
+    const towerKey = foldTower(towerName);
+    let found: ValorSourceUnit | null = null;
+    for (const token of tokens) {
+      const hit = towerKey ? byTower.get(`${slug}|${towerKey}|${token}`) : undefined;
+      if (hit && hit !== "many") {
+        found = hit;
+        break;
+      }
+    }
+    if (!found) {
+      for (const token of tokens) {
+        const hit = byToken.get(`${slug}|${token}`);
+        if (hit && hit !== "many") {
+          found = hit;
+          break;
+        }
+      }
+    }
+    if (!found) continue;
+    totals.set(found.id, (totals.get(found.id) ?? 0) + amount);
+  }
+  return totals;
+}
+
 async function buildValor(
   client: Db,
   filters: VistaFilters,
   range: DateWindow,
   dims: Dims,
-  stock: StockRow[],
-  emptyStock: boolean,
 ): Promise<ValorVista> {
-  const from = monthsBack(range.to, 12);
-  const window = { from, to: range.to };
-  const [sales, losses] = await Promise.all([
-    fetchDated(client, "v_sale", "sale_on", "deal_id,unit_id,project_id,tower_id,sale_on,value_gtq", window.from, window.to, (query) =>
-      scopeProject(query, filters),
-    ),
-    fetchDated(client, "v_sale", "lost_on", "deal_id,unit_id,project_id,tower_id,sale_on,lost_on,value_gtq", window.from, window.to, (query) =>
-      scopeProject(query, filters),
-    ),
-  ]);
-  const inPeriod = (day: unknown) => {
-    const value = typeof day === "string" ? day.slice(0, 10) : "";
-    return value >= range.from && value <= range.to;
-  };
-  if (filters.torreId) {
-    sales.rows = sales.rows.filter((row) => String(row.tower_id) === filters.torreId);
-    losses.rows = losses.rows.filter((row) => String(row.tower_id) === filters.torreId);
-  }
-  const periodLosses = losses.rows.filter((row) => inPeriod(row.lost_on));
-  const months = monthsTouched(from, range.to);
-  const points = months.map((month) => {
-    const end = monthEnd(month);
-    const saleValue = sumGtq(sales.rows.filter((row) => inMonth(row.sale_on, month, end)));
-    const lossValue = sumGtq(losses.rows.filter((row) => inMonth(row.lost_on, month, end)));
-    return { label: shortMonth(month), ventas: saleValue ?? 0, desistido: lossValue ?? 0 };
-  });
-  const disponible = stock.filter((row) => bucket(row.pageStatus) === "disponible");
-  const list = prices(stock);
-  const lossGtq = sumGtq(periodLosses);
-  const projectIds = new Set<string>([
-    ...disponible.map((row) => row.projectId),
-    ...periodLosses.map((row) => String(row.project_id)),
-  ]);
-  const byProject = [...projectIds]
-    .map((id) => {
-      const listPrice = prices(disponible.filter((row) => row.projectId === id));
-      return {
-        id,
-        label: dims.projects.find((project) => project.id === id)?.name ?? "Sin dato",
-        disponibleGtq: listPrice.gtq,
-        disponibleUsd: listPrice.usd,
-        desistidoGtq: sumGtq(periodLosses.filter((row) => String(row.project_id) === id)),
-      };
-    })
-    .sort((a, b) => (b.desistidoGtq ?? 0) - (a.desistidoGtq ?? 0) || a.label.localeCompare(b.label, "es"));
-  const traces = await lossTraces(client, periodLosses.slice(0, 80), dims, stock);
+  const selected = splitProjects(filters, dims);
   const choices = emptyChoices();
-  choices.torre = countChoices(
-    [...sales.rows, ...losses.rows].map((row) => String(row.tower_id)),
-    dims.torres,
-  );
-  const notice = [emptyStock ? NO_STOCK : null, sales.capped || losses.capped ? "La consulta del año llegó a 5.000 filas. Afina el proyecto." : null]
-    .filter(Boolean)
-    .join(" ") || null;
+  const blank = {
+    ...base("Valor de proyecto", range, "", null, dims, choices),
+    section: "valor-del-proyecto" as const,
+    listGtq: 0,
+    listUsd: 0,
+    lossUnits: 0,
+    lossGtq: null,
+    months: [] as { label: string; ventas: number; desistido: number }[],
+    byProject: [] as ValorVista["byProject"],
+    traces: [] as ValorVista["traces"],
+    board: { listGtq: 0, discountGtq: 0, projects: [] as ValorVista["board"]["projects"] },
+  };
+  if (selected.length === 0) return blank;
+
+  const [loaded, money, history] = await Promise.all([
+    loadValorUnits(),
+    loadProjectMoney(),
+    loadPriceHistory(),
+  ]);
+  const discountsReady = await discountByUnit(client, dims, loaded.units);
+  const allowed = new Set(selected.map((project) => project.slug));
+  const historyBySlug = new Map<string, ValorVista["board"]["projects"][number]["history"]>();
+  for (const row of history) {
+    if (row.towerId || row.avg == null) continue;
+    const slug = money.idToSlug.get(row.projectId);
+    if (!slug || !allowed.has(slug)) continue;
+    const list = historyBySlug.get(slug) ?? [];
+    list.push({ date: row.date, label: dottedDay(row.date), gtq: row.avg });
+    historyBySlug.set(slug, list);
+  }
+  for (const points of historyBySlug.values()) points.sort((a, b) => a.date.localeCompare(b.date));
+
+  const projects = selected.map((project) => {
+    const currency = (money.currencyBySlug.get(project.slug) ?? "GTQ").toUpperCase();
+    const towers = new Map<string, { label: string; listGtq: number; units: ValorVista["board"]["projects"][number]["units"] }>();
+    let listGtq = 0;
+    let listUsd = 0;
+    let discountGtq = 0;
+    const units: ValorVista["board"]["projects"][number]["units"] = [];
+    for (const unit of loaded.units) {
+      if (unit.slug !== project.slug) continue;
+      const label = inventoryTowerLabel(unit.towerName);
+      const key = inventoryTowerKey(unit.towerName);
+      const bucket = towers.get(key) ?? { label, listGtq: 0, units: [] };
+      const gtq = currency === "GTQ" && unit.price != null ? unit.price : 0;
+      const discount = discountsReady.get(unit.id) ?? 0;
+      if (currency === "GTQ" && unit.price != null) listGtq += unit.price;
+      if (currency === "USD" && unit.price != null) listUsd += unit.price;
+      discountGtq += discount;
+      bucket.listGtq += gtq;
+      const line = {
+        project: project.label,
+        torre: label,
+        code: unit.number.trim() || unit.unitCode.trim() || "sin número",
+        amount: unit.price,
+        currency,
+        discountGtq: discount,
+      };
+      bucket.units.push(line);
+      units.push(line);
+      towers.set(key, bucket);
+    }
+    const towerRows = [...towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es"));
+    return {
+      id: ventasProjectId(dims, project.slug),
+      slug: project.slug,
+      label: project.label,
+      currency,
+      listGtq,
+      discountGtq,
+      listUsd,
+      towers: towerRows,
+      history: historyBySlug.get(project.slug) ?? [],
+      units,
+    };
+  });
+  const listGtq = projects.reduce((sum, project) => sum + project.listGtq, 0);
+  const discountGtq = projects.reduce((sum, project) => sum + project.discountGtq, 0);
+  const listUsd = projects.reduce((sum, project) => sum + project.listUsd, 0);
+  const notice = loaded.capped ? "La lectura de unidades se detuvo en 20000 filas." : null;
   return {
-    ...base(
-      "¿Cuánto vale el proyecto hoy, y cuánto valor salió por desistimientos?",
-      range,
-      "La línea cubre doce meses. El valor desistido del recuadro es solo el periodo. No hay reembolso en la base: no se inventa.",
-      notice,
-      dims,
-      choices,
-    ),
+    ...base("Valor de proyecto", range, "", notice, dims, choices),
     section: "valor-del-proyecto",
-    listGtq: list.gtq,
-    listUsd: list.usd,
-    lossUnits: periodLosses.length,
-    lossGtq,
-    months: points,
-    byProject,
-    traces,
+    listGtq,
+    listUsd,
+    lossUnits: 0,
+    lossGtq: null,
+    months: [],
+    byProject: projects.map((project) => ({
+      id: project.id,
+      label: project.label,
+      disponibleGtq: project.listGtq,
+      disponibleUsd: project.listUsd,
+      desistidoGtq: null,
+    })),
+    traces: [],
+    board: { listGtq, discountGtq, projects },
   };
 }
 
@@ -1206,29 +1400,6 @@ function sumGtq(rows: Record<string, unknown>[]): number | null {
     seen = true;
   }
   return seen ? total : null;
-}
-
-async function lossTraces(
-  client: Db,
-  rows: Record<string, unknown>[],
-  dims: Dims,
-  stock: StockRow[],
-): Promise<ValorVista["traces"]> {
-  const ids = [...new Set(rows.map((row) => String(row.unit_id)))];
-  const names = await unitNames(client, ids);
-  const status = new Map(stock.map((row) => [row.unitId, row.pageStatus]));
-  return rows.map((row) => {
-    const unitId = String(row.unit_id);
-    return {
-      unit: names.get(unitId) ?? unitId,
-      project: dims.projects.find((project) => project.id === String(row.project_id))?.name ?? "Sin dato",
-      tower: dims.torres.get(String(row.tower_id)) ?? "Sin dato",
-      saleOn: typeof row.sale_on === "string" ? row.sale_on.slice(0, 10) : null,
-      lostOn: String(row.lost_on).slice(0, 10),
-      gtq: num(row.value_gtq),
-      status: status.get(unitId) ?? "Sin inventario",
-    };
-  });
 }
 
 async function unitNames(client: Db, ids: string[]): Promise<Map<string, string>> {
