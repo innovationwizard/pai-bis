@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { StatusBand, StatusPoint, StatusVista } from "@/lib/ventas/vista-types";
+import band from "./landing-blocks.module.css";
 import styles from "./status-bands.module.css";
 
 const RESERVAS = "#0d2041";
@@ -335,6 +336,48 @@ function StatusRow({ band }: { band: StatusBand }) {
   );
 }
 
+function towerName(label: string): string {
+  const split = label.split(" · ");
+  return split.length > 1 ? split.slice(1).join(" · ") : label;
+}
+
+function towersOf(vista: StatusVista, projectId: string): StatusBand[] {
+  return vista.byTower.filter((row) => row.id.startsWith(`${projectId}|`));
+}
+
+function sumOf(rows: readonly StatusBand[], key: "reservas" | "pcv" | "gap"): number {
+  return rows.reduce((sum, row) => sum + row[key], 0);
+}
+
+function ColumnSet({
+  columns,
+  peak,
+  label,
+}: {
+  columns: readonly { key: string; name: string; reservas: number; pcv: number; gap: number; flagged: boolean }[];
+  peak: number;
+  label: string;
+}) {
+  return (
+    <div className={styles.cols} role="group" aria-label={label} style={{ gridTemplateColumns: `repeat(${Math.max(columns.length, 1)}, minmax(0, 1fr))` }}>
+      {columns.map((column) => {
+        const height = peak > 0 ? (column.reservas / peak) * 100 : 0;
+        return (
+          <div key={column.key} className={styles.col} aria-label={`${column.name}: ${formatUnits(column.reservas)} reservas, PCV ${formatUnits(column.pcv)}, ${formatGap(column.gap)}`}>
+            <span className={styles.num}>{formatUnits(column.reservas)}</span>
+            <span className={styles.extra}>PCV {formatUnits(column.pcv)}</span>
+            <span className={`${styles.extra} ${gapClass(column.gap)}`}>{formatGap(column.gap)}</span>
+            <span className={styles.plot} aria-hidden="true">
+              <span className={styles.fill} style={{ height: `${height}%` }} />
+            </span>
+            <span className={styles.colName}>{column.flagged ? `${column.name} · Congelado` : column.name}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function StatusLifetime({
   vista,
   pending,
@@ -343,13 +386,74 @@ export function StatusLifetime({
   pending: ReactNode;
 }) {
   if (!vista) return <>{pending}</>;
+  const projects = vista.byProject;
+  const totalReservas = sumOf(projects, "reservas");
+  const totalPcv = sumOf(projects, "pcv");
+  const totalGap = sumOf(projects, "gap");
+  const heroPeak = Math.max(1, ...projects.map((project) => project.reservas));
+  const memberPeak = Math.max(1, ...projects.flatMap((project) => {
+    const towers = towersOf(vista, project.id);
+    return (towers.length > 0 ? towers : [project]).map((row) => row.reservas);
+  }));
   return (
-    <div className={styles.stack}>
+    <div className={band.fold}>
       {vista.notice ? <p className={styles.warn}>{vista.notice}</p> : null}
-      {vista.byProject.map((band) => <StatusRow key={band.id} band={band} />)}
-      {vista.byTower.length > 0 ? (
-        <div className={styles.towers}>
-          {vista.byTower.map((band) => <StatusRow key={band.id} band={band} />)}
+      <div className={`${band.top} ${band.overview}`}>
+        <div className={band.rail}>
+          <div className={band.kpi} aria-label={`Todos los Proyectos: ${formatUnits(totalReservas)} reservas`}>
+            <span className={band.kpiName}>Todos los Proyectos</span>
+            <span className={styles.figure}>{formatUnits(totalReservas)}</span>
+            <span className={styles.extra}>PCV {formatUnits(totalPcv)}</span>
+            <span className={`${styles.extra} ${gapClass(totalGap)}`}>{formatGap(totalGap)}</span>
+          </div>
+        </div>
+        <div className={band.hero}>
+          <ColumnSet
+            label="Proyectos"
+            peak={heroPeak}
+            columns={projects.map((project) => ({
+              key: project.id,
+              name: project.label,
+              reservas: project.reservas,
+              pcv: project.pcv,
+              gap: project.gap,
+              flagged: false,
+            }))}
+          />
+        </div>
+      </div>
+      {projects.length > 0 ? (
+        <div className={band.projects}>
+          {projects.map((project) => {
+            const towers = towersOf(vista, project.id);
+            const members = towers.length > 0 ? towers : [project];
+            return (
+              <div key={project.id} className={band.top}>
+                <div className={band.rail}>
+                  <div className={band.kpi} aria-label={`${project.label}: ${formatUnits(project.reservas)} reservas`}>
+                    <span className={band.kpiName}>{project.label}</span>
+                    <span className={styles.figure}>{formatUnits(project.reservas)}</span>
+                    <span className={styles.extra}>PCV {formatUnits(project.pcv)}</span>
+                    <span className={`${styles.extra} ${gapClass(project.gap)}`}>{formatGap(project.gap)}</span>
+                  </div>
+                </div>
+                <div className={band.hero}>
+                  <ColumnSet
+                    label={`Torres de ${project.label}`}
+                    peak={memberPeak}
+                    columns={members.map((member) => ({
+                      key: member.id,
+                      name: member.kind === "torre" ? towerName(member.label) : member.label,
+                      reservas: member.reservas,
+                      pcv: member.pcv,
+                      gap: member.gap,
+                      flagged: member.congelado,
+                    }))}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : null}
     </div>

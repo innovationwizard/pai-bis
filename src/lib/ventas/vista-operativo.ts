@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { projectKey } from "@/lib/projects";
+import { compareProjectLabels, isDisplayProject, projectKey } from "@/lib/projects";
 import { odooTowerLabel, towerIdentity } from "./tower-label";
 import { EMBUDO_PIPELINES, embudoFunnel, type EmbudoInput } from "./embudo";
 import { resolveRange, windowLabel, guatemalaToday, type DateWindow } from "./period";
@@ -2307,6 +2307,19 @@ function referralScopeNote(filters: VistaFilters): string {
   return `Estos tratos son los de créditos. ${limit}`;
 }
 
+async function creditosProjectNames(): Promise<Map<string, string>> {
+  const db = createAdminClient().schema("creditos");
+  const { data, error } = await db.from("dim_project").select("id,name");
+  if (error) throw new Error(error.message);
+  const names = new Map<string, string>();
+  for (const row of data ?? []) {
+    const id = String((row as { id: unknown }).id ?? "");
+    const name = String((row as { name: unknown }).name ?? "");
+    if (id && name) names.set(id, name);
+  }
+  return names;
+}
+
 async function creditosProjectIds(names: string[]): Promise<Set<string>> {
   const db = createAdminClient().schema("creditos");
   const { data, error } = await db.from("dim_project").select("id,name").in("name", names);
@@ -2356,6 +2369,7 @@ async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Di
       byTipo: [],
       nombres: [],
       nombresTotal: null,
+      board: [],
     };
   }
   const loaded = await loadReferralDeals();
@@ -2366,6 +2380,7 @@ async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Di
   let sinTipo = 0;
   const tipos = new Map<string, number>();
   const nombres = new Set<string>();
+  const tiposByProject = new Map<string, Map<string, number>>();
   for (const row of rows) {
     const id = String(row.pipedrive_deal_id ?? "");
     if (id === "" || seen.has(id)) continue;
@@ -2378,12 +2393,36 @@ async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Di
       if (referido === "Si") {
         si += 1;
         if (tipo == null) sinTipo += 1;
-        else tipos.set(tipo, (tipos.get(tipo) ?? 0) + 1);
+        else {
+          tipos.set(tipo, (tipos.get(tipo) ?? 0) + 1);
+          const projectId = String(row.project_id ?? "");
+          if (projectId) {
+            const bucket = tiposByProject.get(projectId) ?? new Map<string, number>();
+            bucket.set(tipo, (bucket.get(tipo) ?? 0) + 1);
+            tiposByProject.set(projectId, bucket);
+          }
+        }
       }
     }
     if (nombre != null) nombres.add(nombre);
   }
   const listed = [...nombres].sort((a, b) => a.localeCompare(b, "es"));
+  const tipoLabels = [...tipos.keys()].sort((a, b) => a.localeCompare(b, "es"));
+  const projectNames = await creditosProjectNames();
+  const allowedNames = names === null ? null : new Set(names);
+  const board = [...projectNames.entries()]
+    .filter(([, label]) => isDisplayProject(label) && (allowedNames === null || allowedNames.has(label)))
+    .map(([id, label]) => {
+      const bucket = tiposByProject.get(id) ?? new Map<string, number>();
+      const projectTipos = tipoLabels.map((tipo) => ({ id: tipo, label: tipo, units: bucket.get(tipo) ?? 0 }));
+      return {
+        id,
+        label,
+        units: projectTipos.reduce((sum, tipo) => sum + tipo.units, 0),
+        tipos: projectTipos,
+      };
+    })
+    .sort((a, b) => compareProjectLabels(a.label, b.label));
   const notes = [
     loaded.rows.length === 0
       ? "Todavía no hay tratos de créditos."
@@ -2410,5 +2449,6 @@ async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Di
       .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es")),
     nombres: listed.slice(0, NAME_CAP),
     nombresTotal: listed.length === 0 ? null : listed.length,
+    board,
   };
 }
