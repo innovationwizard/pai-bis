@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { projectKey } from "@/lib/projects";
 import { odooTowerLabel, towerIdentity } from "./tower-label";
 import { EMBUDO_PIPELINES, embudoFunnel, type EmbudoInput } from "./embudo";
-import { monthEnd, monthStart, monthsTouched, resolveRange, windowLabel, guatemalaToday, type DateWindow } from "./period";
+import { resolveRange, windowLabel, guatemalaToday, type DateWindow } from "./period";
 import { creditedAsesor, factComprobanteHasAsesor } from "./reserva-asesor";
 import type { VistaFilters } from "./vista";
 import type {
@@ -85,18 +85,6 @@ function num(value: unknown): number | null {
 
 function projectOk(projectId: string, filters: VistaFilters): boolean {
   return filters.projectIds === null || filters.projectIds.includes(projectId);
-}
-
-function shortMonth(iso: string): string {
-  const names = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-  return `${names[Number(iso.slice(5, 7)) - 1]} ${iso.slice(2, 4)}`;
-}
-
-function monthsBack(to: string, count: number): string {
-  const start = monthStart(to);
-  const [year, month] = start.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1 - (count - 1), 1));
-  return date.toISOString().slice(0, 10);
 }
 
 function emptyChoices(): AnalisisVista["choices"] {
@@ -1385,11 +1373,6 @@ function scopeProject(query: DatedQuery, filters: VistaFilters): DatedQuery {
   return query;
 }
 
-function inMonth(value: unknown, month: string, end: string): boolean {
-  const day = typeof value === "string" ? value.slice(0, 10) : "";
-  return day >= month && day <= end;
-}
-
 function sumGtq(rows: Record<string, unknown>[]): number | null {
   let total = 0;
   let seen = false;
@@ -2184,71 +2167,117 @@ async function buildCasos(client: Db, filters: VistaFilters, range: DateWindow, 
 }
 
 async function buildPromos(client: Db, filters: VistaFilters, range: DateWindow, dims: Dims): Promise<PromoVista> {
-  const from = monthsBack(range.to, 6);
-  const trail = await fetchDated(
+  const selected = splitProjects(filters, dims);
+  const choices = emptyChoices();
+  const emptyBoard = { units: 0, gtq: 0, projects: [] as PromoVista["board"]["projects"] };
+  const blank = {
+    ...base("Control de promociones", range, "", null, dims, choices),
+    section: "promociones" as const,
+    units: 0,
+    promoted: 0,
+    gtq: 0,
+    leader: null,
+    leaderShare: null,
+    tipos: [] as PromoVista["tipos"],
+    months: [] as PromoVista["months"],
+    series: [] as PromoVista["series"],
+    byAsesor: [] as PromoVista["byAsesor"],
+    board: emptyBoard,
+  };
+  if (selected.length === 0) return blank;
+
+  const roster = await loadTowerRoster();
+  const projects = selected.map((project) => {
+    const towers = new Map<string, PromoVista["board"]["projects"][number]["towers"][number]>();
+    for (const tower of roster.get(project.slug) ?? []) {
+      towers.set(tower.key, { label: tower.label, units: 0, gtq: 0, applications: [] });
+    }
+    return {
+      id: ventasProjectId(dims, project.slug),
+      slug: project.slug,
+      label: project.label,
+      units: 0,
+      gtq: 0,
+      towers,
+      applications: [] as PromoVista["board"]["projects"][number]["applications"],
+    };
+  });
+
+  const sales = await fetchDated(
     client,
     "v_sale",
     "sale_on",
-    "deal_id,project_id,asesor_id,promotion_type_id,sale_on,value_gtq",
-    from,
+    "deal_id,unit_id,project_id,tower_id,promotion_type_id,sale_on",
+    range.from,
     range.to,
-    (query) => {
-      let next = scopeProject(query, filters);
-      if (filters.asesorId) next = next.eq("asesor_id", filters.asesorId);
-      return next;
-    },
+    (query) => scopeProject(query, filters),
   );
-  const period = trail.rows.filter((row) => {
-    const day = String(row.sale_on).slice(0, 10);
-    return day >= range.from && day <= range.to && (!filters.promocionId || String(row.promotion_type_id) === filters.promocionId);
-  });
-  const named = period.filter((row) => dims.promotions.get(String(row.promotion_type_id))?.sin !== true);
-  const tipos = barsFrom(period, "promotion_type_id", (id) => dims.promotions.get(id)?.name ?? "Sin dato");
-  const ranked = tipos.filter((row) => dims.promotions.get(row.id)?.sin !== true);
-  const leader = ranked[0] ?? null;
-  const months = monthsTouched(from, range.to);
-  const series = ranked.slice(0, 4).map((row) => ({
-    id: row.id,
-    label: row.label,
-    units: months.map((month) => trail.rows.filter((sale) => String(sale.promotion_type_id) === row.id && inMonth(sale.sale_on, month, monthEnd(month) < range.to ? monthEnd(month) : range.to)).length),
-  }));
-  const asesorGroups = new Map<string, Record<string, unknown>[]>();
-  for (const row of named) {
-    const key = `${row.asesor_id}|${row.promotion_type_id}`;
-    const list = asesorGroups.get(key) ?? [];
-    list.push(row);
-    asesorGroups.set(key, list);
+  const dealIds = [...new Set(sales.rows.map((row) => String(row.deal_id ?? "")).filter((id) => id))];
+  const deals = dealIds.length === 0
+    ? []
+    : await rowsIn(client, "dim_deal", "id,valor_vale_gtq", "id", dealIds);
+  const valeByDeal = new Map(deals.map((row) => [String(row.id), num(row.valor_vale_gtq)]));
+  const names = await unitNames(client, sales.rows.map((row) => String(row.unit_id ?? "")).filter((id) => id));
+  const allowed = new Set(selected.map((project) => project.slug));
+  const bySlug = new Map(projects.map((project) => [project.slug, project]));
+  for (const row of sales.rows) {
+    const promo = dims.promotions.get(String(row.promotion_type_id ?? ""));
+    if (!promo || promo.sin) continue;
+    const projectName = dims.projects.find((project) => project.id === String(row.project_id ?? ""))?.name ?? "";
+    const slug = slugForName(projectName);
+    if (!slug || !allowed.has(slug)) continue;
+    const project = bySlug.get(slug);
+    if (!project) continue;
+    const towerName = dims.torres.get(String(row.tower_id ?? "")) ?? "";
+    const named = !missingName(towerName);
+    const torre = named ? inventoryTowerLabel(towerName) : "";
+    const torreLabel = torre && torre !== "—" ? torre : "sin torre";
+    const vale = valeByDeal.get(String(row.deal_id ?? "")) ?? null;
+    const application = {
+      dealId: String(row.deal_id ?? ""),
+      project: project.label,
+      torre: torreLabel,
+      unit: names.get(String(row.unit_id ?? "")) || "sin unidad",
+      saleOn: typeof row.sale_on === "string" ? row.sale_on.slice(0, 10) : "",
+      name: promo.name,
+      valeGtq: vale,
+    };
+    project.units += 1;
+    if (vale != null) project.gtq += vale;
+    project.applications.push(application);
+    if (!named || !torre || torre === "—") continue;
+    const key = inventoryTowerKey(towerName);
+    const tower = project.towers.get(key) ?? { label: torre, units: 0, gtq: 0, applications: [] };
+    tower.units += 1;
+    if (vale != null) tower.gtq += vale;
+    tower.applications.push(application);
+    project.towers.set(key, tower);
   }
-  const choices = emptyChoices();
-  choices.promocion = countChoices(period.map((row) => String(row.promotion_type_id)), new Map([...dims.promotions].map(([id, row]) => [id, row.name])));
-  choices.asesor = countChoices(period.map((row) => String(row.asesor_id)), new Map([...dims.asesores].map(([id, row]) => [id, row.name])));
+  const boardProjects = projects.map((project) => ({
+    id: project.id,
+    slug: project.slug,
+    label: project.label,
+    units: project.units,
+    gtq: project.gtq,
+    towers: [...project.towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es")),
+    applications: project.applications,
+  }));
+  const units = boardProjects.reduce((sum, project) => sum + project.units, 0);
+  const gtq = boardProjects.reduce((sum, project) => sum + project.gtq, 0);
+  const notice = sales.capped ? "La consulta del periodo llegó a 5.000 filas. Afina proyecto o periodo." : null;
   return {
-    ...base(
-      "¿Qué promociones están cerrando ventas, y qué peso tienen?",
-      range,
-      "Sin promoción queda en su propia barra. La línea son las cuatro promociones con más ventas.",
-      trail.capped ? "La consulta llegó a 5.000 filas. Afina el proyecto." : period.length === 0 ? NO_SALES : null,
-      dims,
-      choices,
-    ),
+    ...base("Control de promociones", range, "", notice, dims, choices),
     section: "promociones",
-    units: period.length,
-    promoted: named.length,
-    gtq: sumGtq(named),
-    leader: leader?.label ?? null,
-    leaderShare: period.length && leader ? leader.units / period.length : null,
-    tipos,
-    months: months.map(shortMonth),
-    series,
-    byAsesor: [...asesorGroups.entries()].map(([key, list]) => {
-      const [asesorId, promoId] = key.split("|");
-      return {
-        asesor: dims.asesores.get(asesorId)?.name ?? "Sin dato",
-        promocion: dims.promotions.get(promoId)?.name ?? "Sin dato",
-        units: list.length,
-        gtq: sumGtq(list),
-      };
-    }).sort((a, b) => b.units - a.units).slice(0, 20),
+    units,
+    promoted: units,
+    gtq,
+    leader: null,
+    leaderShare: null,
+    tipos: [],
+    months: [],
+    series: [],
+    byAsesor: [],
+    board: { units, gtq, projects: boardProjects },
   };
 }
 

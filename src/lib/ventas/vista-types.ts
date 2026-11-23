@@ -676,6 +676,39 @@ export type CasoVista = VistaBase & {
   board: CasoBoard;
 };
 
+export type PromoApplication = {
+  dealId: string;
+  project: string;
+  torre: string;
+  unit: string;
+  saleOn: string;
+  name: string;
+  valeGtq: number | null;
+};
+
+export type PromoTower = {
+  label: string;
+  units: number;
+  gtq: number;
+  applications: PromoApplication[];
+};
+
+export type PromoProject = {
+  id: string;
+  slug: string;
+  label: string;
+  units: number;
+  gtq: number;
+  towers: PromoTower[];
+  applications: PromoApplication[];
+};
+
+export type PromoBoard = {
+  units: number;
+  gtq: number;
+  projects: PromoProject[];
+};
+
 export type PromoVista = VistaBase & {
   section: "promociones";
   units: number;
@@ -687,6 +720,7 @@ export type PromoVista = VistaBase & {
   months: string[];
   series: { id: string; label: string; units: number[] }[];
   byAsesor: { asesor: string; promocion: string; units: number; gtq: number | null }[];
+  board: PromoBoard;
 };
 
 export type ReferidosVista = VistaBase & {

@@ -34,7 +34,7 @@ export const VENTAS_SECTIONS: readonly VentasSection[] = [
   { slug: "descuentos", title: "Control de descuentos", icon: Tags },
   { slug: "subidas-de-precios", title: "Control de subidas de precios", icon: TrendingUp },
   { slug: "ff-y-casos-especiales", title: "F&F y casos especiales", icon: Users },
-  { slug: "promociones", title: "Promociones", icon: Megaphone },
+  { slug: "promociones", title: "Control de promociones", icon: Megaphone },
 ];
 
 export function ventasSectionPath(slug: string): string {

@@ -7,8 +7,6 @@ import type {
   AnalisisVista,
   ConversionVista,
   InventarioVista,
-  NamedBar,
-  PromoVista,
   ReferidosVista,
 } from "@/lib/ventas/vista-types";
 import { ModeloSplit } from "./modelo-split";
@@ -18,7 +16,6 @@ const NAVY = "#0d2041";
 const BLUE = "#0573b0";
 const AMBER = "#b45309";
 
-const moneyFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 1 });
 
 export type ProjectSlot = { id: string; label: string };
@@ -80,10 +77,6 @@ function markFill(mark: Mark): string {
   if (mark.tone === "amber") return AMBER;
   if (mark.tone === "blue") return BLUE;
   return projectFill(mark.label) ?? NAVY;
-}
-
-function money(value: number): string {
-  return moneyFormat.format(value);
 }
 
 function count(value: number): string {
@@ -153,12 +146,6 @@ function columnStep(scale: number): number {
   }
   ranked.sort((a, b) => Math.abs(a.intervals - 4) - Math.abs(b.intervals - 4));
   return ranked[0].step;
-}
-
-function emptyNote(_notice: string | null | undefined): ReactNode {
-  void _notice;
-  // return <p className="op-note">{_notice ?? "Nada que graficar en este periodo."}</p>;
-  return null;
 }
 
 function press(event: KeyboardEvent<HTMLDivElement>, action: () => void) {
@@ -887,69 +874,6 @@ export function ModeloBand({
       <h2 id="vt-modelo-title" className={styles.title}>Split de ventas por modelo y por torre</h2>
       {!vista ? pending : <ModeloSplit vista={vista} />}
     </section>
-  );
-}
-
-function amountRows(rows: readonly NamedBar[], tone: Tone): { marks: Mark[]; moneyMode: boolean } {
-  const moneyMode = rows.some((row) => row.gtq != null);
-  return {
-    moneyMode,
-    marks: rows.map((row) => ({
-      id: row.id,
-      label: row.label,
-      value: moneyMode ? row.gtq ?? 0 : row.units,
-      tone,
-    })),
-  };
-}
-
-function AmountCard({
-  title,
-  id,
-  pending,
-  notice,
-  rows,
-  tone,
-}: {
-  title: string;
-  id: string;
-  pending: ReactNode | null;
-  notice: string | null;
-  rows: readonly NamedBar[] | null;
-  tone: Tone;
-}) {
-  const built = rows ? amountRows(rows, tone) : null;
-  const format = built?.moneyMode ? money : count;
-  void notice;
-  return (
-    <section className={styles.band} aria-labelledby={id}>
-      <h2 id={id} className={styles.title}>{title}</h2>
-      {pending}
-      {/* {notice ? <p className="op-note">{notice}</p> : null} */}
-      {built && built.marks.length === 0 ? emptyNote(null) : null}
-      {built && built.marks.length > 0 ? (
-        <MarkColumns rows={built.marks} format={format} axis={built.moneyMode ? "money" : "count"} />
-      ) : null}
-    </section>
-  );
-}
-
-export function PromocionesBand({
-  vista,
-  pending,
-}: {
-  vista: PromoVista | null;
-  pending: ReactNode;
-}) {
-  return (
-    <AmountCard
-      title="Promociones"
-      id="vt-promos-title"
-      pending={vista ? null : pending}
-      notice={vista?.notice ?? null}
-      rows={vista ? vista.tipos : null}
-      tone="navy"
-    />
   );
 }
 
