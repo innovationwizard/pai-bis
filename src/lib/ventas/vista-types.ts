@@ -1,3 +1,5 @@
+import type { EmbudoFunnel } from "./embudo";
+
 export const VISTA_SECTIONS = [
   "ventas-totales",
   "objetivos-de-ventas",
@@ -472,19 +474,7 @@ export type ValorVista = VistaBase & {
   board: ValorBoard;
 };
 
-export type EmbudoBar = {
-  label: string;
-  count: number;
-  hasNext: boolean;
-  nextRate: number | null;
-};
-
-export type EmbudoFunnel = {
-  slug: string;
-  label: string;
-  winRate: number | null;
-  bars: EmbudoBar[];
-};
+export type { EmbudoBar, EmbudoDeal, EmbudoFunnel } from "./embudo";
 
 export type ConversionVista = VistaBase & {
   section: "tasa-de-conversion";

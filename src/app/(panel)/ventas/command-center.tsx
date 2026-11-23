@@ -27,7 +27,8 @@ import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/
 import { InventarioGeneral } from "./inventario-general";
 import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
 import { StatusLifetime } from "./status-bands";
-import { ModeloBand, ReferidosBand, TasaBand } from "./lower-bands";
+import { ModeloBand, ReferidosBand } from "./lower-bands";
+import { TasaBand } from "./tasa";
 import { ControlCasos } from "./casos";
 import { ControlPromociones } from "./promociones";
 import { ControlDescuentos } from "./descuentos";

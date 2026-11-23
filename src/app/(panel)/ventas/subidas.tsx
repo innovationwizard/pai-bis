@@ -167,7 +167,6 @@ export function ControlSubidas({
   return (
     <section id="subidas-de-precios" className={band.block} aria-labelledby="vt-subidas-title">
       <h2 id="vt-subidas-title" className={local.title}>Control de subidas de precios</h2>
-      {vista?.notice ? <p className={local.notice}>{vista.notice}</p> : null}
       {!board ? pending : (
         <>
           <div className={local.toggleRow}>

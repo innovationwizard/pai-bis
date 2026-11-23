@@ -17,9 +17,18 @@ export const EMBUDO_PIPELINES = [
 ] as const;
 
 export type EmbudoInput = {
-  pipeline: string;
-  status: string;
+  id: string;
+  project: string;
+  addOn: string;
   stageOrder: number;
+};
+
+export type EmbudoDeal = {
+  id: string;
+  project: string;
+  addOn: string;
+  stageOrder: number;
+  stage: string;
 };
 
 export type EmbudoBar = {
@@ -32,46 +41,53 @@ export type EmbudoBar = {
 export type EmbudoFunnel = {
   slug: string;
   label: string;
-  winRate: number | null;
   bars: EmbudoBar[];
+  deals: EmbudoDeal[];
 };
 
-/**
- * Creation cohort. Current position and every earlier position.
- * A won deal counts in every position. The rate beside a bar is the next count
- * divided by this count. Win rate is won deals divided by deals that reached Ingreso.
- */
-export function embudoFunnel(slug: string, label: string, deals: readonly EmbudoInput[]): EmbudoFunnel {
+function stageName(order: number): string {
+  return EMBUDO_STAGES[order - 1] ?? "";
+}
+
+function countsIn(deals: readonly EmbudoInput[]): number[] {
   const counts = EMBUDO_STAGES.map(() => 0);
-  let won = 0;
   for (const deal of deals) {
-    if (deal.status === "won") {
-      won += 1;
-      for (let index = 0; index < counts.length; index += 1) counts[index] += 1;
-      continue;
-    }
-    if (deal.status !== "open" && deal.status !== "lost") continue;
-    const order = deal.stageOrder;
-    if (!Number.isInteger(order) || order < 1) continue;
-    const reach = Math.min(counts.length, order);
+    const reach = Math.min(EMBUDO_STAGES.length, deal.stageOrder);
     for (let index = 0; index < reach; index += 1) counts[index] += 1;
   }
-  const ingreso = counts[0] ?? 0;
+  return counts;
+}
+
+/**
+ * Current position and every earlier position. Position 8 is Reserva.
+ * status is not an input. A stored won value does not fill the funnel.
+ * The rate between two stages is the next count divided by this count.
+ * A stage with a count of 0 has a rate of 0. Reserva has no rate after it.
+ */
+export function embudoFunnel(slug: string, label: string, deals: readonly EmbudoInput[]): EmbudoFunnel {
+  const counted = deals.filter((deal) => Number.isInteger(deal.stageOrder) && deal.stageOrder >= 1 && deal.stageOrder <= EMBUDO_STAGES.length);
+  const counts = countsIn(counted);
   const bars = EMBUDO_STAGES.map((stage, index) => {
     const count = counts[index] ?? 0;
-    const hasNext = index + 1 < counts.length;
+    const hasNext = index + 1 < EMBUDO_STAGES.length;
     const next = hasNext ? counts[index + 1] ?? 0 : 0;
     return {
       label: stage,
       count,
       hasNext,
-      nextRate: hasNext && count > 0 ? next / count : null,
+      nextRate: hasNext ? (count > 0 ? next / count : 0) : null,
     };
   });
   return {
     slug,
     label,
-    winRate: ingreso === 0 ? null : won / ingreso,
     bars,
+    deals: counted.map((deal) => ({
+      id: deal.id,
+      project: deal.project,
+      addOn: deal.addOn,
+      stageOrder: deal.stageOrder,
+      stage: stageName(deal.stageOrder),
+    })),
   };
 }

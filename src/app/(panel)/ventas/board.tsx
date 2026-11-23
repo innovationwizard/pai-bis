@@ -59,10 +59,10 @@ const SPECIFIC: Record<string, (keyof BarState)[]> = {
   "ventas-por-canales": ["fuente"],
   "analisis-de-inventario": ["torre", "modelo", "habitaciones", "estadoUnidad"],
   "inventario-general": ["torre", "estadoUnidad", "buscar"],
-  "tasa-de-conversion": ["fuente"],
+  "tasa-de-conversion": ["asesor"],
   desistimientos: ["motivo", "asesor"],
   descuentos: ["descuento"],
-  "subidas-de-precios": ["torre"],
+  "subidas-de-precios": [],
   "ff-y-casos-especiales": ["caso"],
   promociones: ["promocion"],
 };

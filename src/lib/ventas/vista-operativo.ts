@@ -1433,13 +1433,14 @@ async function loadEmbudoRows(
   range: DateWindow,
   slugs: readonly string[],
   asesorId: string | null,
-): Promise<{ pipeline: string; status: string; stageOrder: number; asesorId: string }[]> {
+): Promise<{ id: string; pipeline: string; project: string; addOn: string; stageOrder: number; asesorId: string }[]> {
   if (slugs.length === 0) return [];
-  const rows: { pipeline: string; status: string; stageOrder: number; asesorId: string }[] = [];
+  const projectOf = new Map<string, string>(EMBUDO_PIPELINES.map((pipeline) => [pipeline.slug, pipeline.label]));
+  const rows: { id: string; pipeline: string; project: string; addOn: string; stageOrder: number; asesorId: string }[] = [];
   for (let offset = 0; offset < EMBUDO_CAP; offset += EMBUDO_PAGE) {
     let query = client
       .from("embudo_deal")
-      .select("pipeline_slug,status,stage_order,asesor_id")
+      .select("pipedrive_deal_id,pipeline_slug,stage_order,add_on,asesor_id")
       .gte("add_on", range.from)
       .lte("add_on", range.to)
       .in("pipeline_slug", [...slugs])
@@ -1447,11 +1448,20 @@ async function loadEmbudoRows(
     if (asesorId) query = query.eq("asesor_id", asesorId);
     const { data, error } = await query.range(offset, offset + EMBUDO_PAGE - 1);
     if (error) throw new Error("No se pudo leer la tasa de conversión.");
-    const batch = (data ?? []) as { pipeline_slug: unknown; status: unknown; stage_order: unknown; asesor_id: unknown }[];
+    const batch = (data ?? []) as {
+      pipedrive_deal_id: unknown;
+      pipeline_slug: unknown;
+      stage_order: unknown;
+      add_on: unknown;
+      asesor_id: unknown;
+    }[];
     for (const row of batch) {
+      const pipeline = String(row.pipeline_slug);
       rows.push({
-        pipeline: String(row.pipeline_slug),
-        status: String(row.status),
+        id: String(row.pipedrive_deal_id ?? ""),
+        pipeline,
+        project: projectOf.get(pipeline) ?? "",
+        addOn: typeof row.add_on === "string" ? row.add_on.slice(0, 10) : "",
         stageOrder: asOrder(row.stage_order),
         asesorId: String(row.asesor_id ?? ""),
       });
@@ -1466,8 +1476,9 @@ async function buildConversion(client: Db, filters: VistaFilters, range: DateWin
   const slugs = pipelineSlugs(filters.projectIds, dims);
   const loaded = await loadEmbudoRows(client, range, slugs, filters.asesorId);
   const deals: EmbudoInput[] = loaded.map((row) => ({
-    pipeline: row.pipeline,
-    status: row.status,
+    id: row.id,
+    project: row.project,
+    addOn: row.addOn,
     stageOrder: row.stageOrder,
   }));
   const choices = emptyChoices();
@@ -1483,13 +1494,13 @@ async function buildConversion(client: Db, filters: VistaFilters, range: DateWin
   return {
     ...base("Tasa de conversión", range, "", null, dims, choices),
     section: "tasa-de-conversion",
-    all: embudoFunnel("todos", "de todos los proyectos", deals),
+    all: embudoFunnel("todos", "Todos los Proyectos", deals),
     funnels: EMBUDO_PIPELINES
       .filter((pipeline) => slugSet.has(pipeline.slug))
       .map((pipeline) => embudoFunnel(
         pipeline.slug,
         pipeline.label,
-        deals.filter((deal) => deal.pipeline === pipeline.slug),
+        loaded.filter((deal) => deal.pipeline === pipeline.slug),
       )),
   };
 }
@@ -1991,9 +2002,8 @@ async function buildPrecios(client: Db, filters: VistaFilters, range: DateWindow
   const units = boardProjects.reduce((sum, project) => sum + project.units, 0);
   const gtq = boardProjects.reduce((sum, project) => sum + project.gtq, 0);
   const usd = projects.reduce((sum, project) => sum + project.usd, 0);
-  const notice = rises.capped ? "La consulta del periodo llegó a 5.000 filas. Afina proyecto o periodo." : null;
   return {
-    ...base("Control de subidas de precios", range, "", notice, dims, choices),
+    ...base("Control de subidas de precios", range, "", null, dims, choices),
     section: "subidas-de-precios",
     units,
     gtq,

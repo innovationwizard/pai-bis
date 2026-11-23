@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import type { AnalisisVista, ConversionVista, InventarioVista, ValorVista, VentasVista } from "@/lib/ventas/vista-types";
 import { isDisplayProject } from "@/lib/projects";
-import { TasaBand } from "./lower-bands";
+import { TasaBand } from "./tasa";
 import { ValorProyecto } from "./valor-proyecto";
 
 type StockBar = {

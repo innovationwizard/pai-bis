@@ -5,7 +5,6 @@ import { isDisplayProject, projectKey } from "@/lib/projects";
 import { UNIT_STATUS_COLORS } from "@/lib/reservas/constants";
 import type {
   AnalisisVista,
-  ConversionVista,
   InventarioVista,
   ReferidosVista,
 } from "@/lib/ventas/vista-types";
@@ -66,10 +65,6 @@ function projectFill(label: string): string | null {
   if (key === projectKey("BOSQUE LAS TAPIAS")) return PROJECT_BLUE["bosque-las-tapias"];
   if (key === projectKey("SANTA ELENA")) return PROJECT_BLUE["santa-elena"];
   return null;
-}
-
-function projectBarColor(slug: string): string {
-  return PROJECT_BLUE[slug] ?? NAVY;
 }
 
 function markFill(mark: Mark): string {
@@ -582,142 +577,6 @@ function MarkColumns({
         </div>
       </div>
     </div>
-  );
-}
-
-function funnelPct(value: number | null): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  if (value === 0) return "0%";
-  const rounded = Math.round(value * 1000) / 10;
-  const digits = Number.isInteger(rounded) ? 0 : 1;
-  return `${new Intl.NumberFormat("es-GT", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(rounded)}%`;
-}
-
-const FUNNEL_PROJECT_PLOT = 220;
-
-function stageLines(label: string): readonly [string, string] {
-  const split = label.lastIndexOf(" ");
-  if (split <= 0) return [label, "\u00a0"];
-  return [label.slice(0, split), label.slice(split + 1)];
-}
-
-function FunnelColumn({
-  bar,
-  scale,
-  plot,
-  ink,
-}: {
-  bar: ConversionVista["all"]["bars"][number];
-  scale: number;
-  plot: number;
-  ink: string;
-}) {
-  const shown = count(bar.count);
-  const raw = bar.count > 0 && scale > 0 ? (bar.count / scale) * plot : 0;
-  const height = raw <= 0 ? 0 : Math.min(plot, Math.max(raw, 2));
-  const inside = height >= 20 && shown.length <= 6;
-  const rate = bar.hasNext ? funnelPct(bar.nextRate) : null;
-  const [first, second] = stageLines(bar.label);
-  const spoken = rate ? `${bar.label}: ${shown}, ${rate}` : `${bar.label}: ${shown}`;
-  return (
-    <div className={styles.col} role="group" aria-label={spoken}>
-      <div className={`${styles.colField} ${styles.funnelField}`} style={{ height: plot }}>
-        {bar.count <= 0 ? (
-          <span className={styles.colZero} style={{ color: ink }}>
-            {shown}
-            <span className={styles.colZeroTick} style={{ background: ink }} aria-hidden="true" />
-          </span>
-        ) : (
-          <div className={`${styles.colStack} ${styles.funnelBar}`} style={{ height, background: ink }}>
-            {inside ? <span>{shown}</span> : null}
-          </div>
-        )}
-        {bar.count > 0 && !inside ? (
-          <span className={styles.funnelAbove} style={{ bottom: height + 4, color: ink }}>
-            {shown}
-          </span>
-        ) : null}
-      </div>
-      <span className={styles.funnelStage}>
-        <span>{first}</span>
-        <span>{second}</span>
-      </span>
-      <span className={styles.funnelRate}>{rate ?? "\u00a0"}</span>
-    </div>
-  );
-}
-
-function EmbudoChart({
-  bars,
-  winRate,
-  weight,
-  hue,
-}: {
-  bars: ConversionVista["all"]["bars"];
-  winRate: number | null;
-  weight: Weight;
-  hue?: string;
-}) {
-  const peak = bars.reduce((max, bar) => Math.max(max, bar.count), 0);
-  const { scale, marks } = columnScale(peak);
-  const plot = weight === "project" ? PROJECT_PLOT : FUNNEL_PROJECT_PLOT;
-  const ink = hue ? projectBarColor(hue) : NAVY;
-  return (
-    <div>
-      <p className={styles.win}>Tasa de ganados {funnelPct(winRate)}</p>
-      <div className={`${styles.colChart} ${styles.funnelChart}`} data-weight={weight}>
-        <div className={styles.yAxis} style={{ height: plot }} aria-hidden="true">
-          {marks.map((mark) => (
-            <span key={mark} className={styles.yTick} style={{ bottom: tickBottom(mark, scale) }}>
-              {count(mark)}
-            </span>
-          ))}
-        </div>
-        <div className={styles.colClip}>
-          <div className={styles.colBody}>
-            <div className={styles.colGrid} style={{ height: plot }} aria-hidden="true">
-              {marks.map((mark) => mark <= 0 ? null : (
-                <span key={mark} className={styles.colGridLine} style={{ bottom: `${(mark / scale) * 100}%` }} />
-              ))}
-            </div>
-            <div className={styles.colRow} style={{ gap: 8 }}>
-              {bars.map((bar) => (
-                <FunnelColumn key={bar.label} bar={bar} scale={scale} plot={plot} ink={ink} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function TasaBand({
-  vista,
-  pending,
-}: {
-  vista: ConversionVista | null;
-  pending: ReactNode;
-}) {
-  return (
-    <section className={styles.bandPlain} aria-labelledby="vt-tasa-title">
-      <h2 id="vt-tasa-title" className={styles.title}>Tasa de conversión</h2>
-      {vista == null ? pending : (
-        <>
-          <h3 className={styles.subTitle}>de todos los proyectos</h3>
-          <EmbudoChart bars={vista.all.bars} winRate={vista.all.winRate} weight="project" />
-          <h3 className={styles.subTitle}>por proyecto</h3>
-          <div className={styles.projectFunnels}>
-            {vista.funnels.map((funnel) => (
-              <article key={funnel.slug} className={styles.projectFunnel} aria-label={funnel.label}>
-                <h4 className={styles.projectName}>{funnel.label}</h4>
-                <EmbudoChart bars={funnel.bars} winRate={funnel.winRate} weight="row" hue={funnel.slug} />
-              </article>
-            ))}
-          </div>
-        </>
-      )}
-    </section>
   );
 }
 

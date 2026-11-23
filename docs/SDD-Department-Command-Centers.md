@@ -6,7 +6,7 @@
 **Goal:** Each department is a single, vertically scrollable command center of high-density Recharts and D3 visualizations that cover every required Operativo checklist item with 0 clicks.  
 **Date:** 10 November 2026  
 **Ventas scroll order locked:** 21 November 2026. Operativo items 1 through 14, top to bottom. See §4.1.  
-**23 November 2026:** Item 3 stays per torre. Item 7 follows §4.1.4. Item 8 follows §4.1.5. Item 10 follows §4.1.6. Item 11 follows §4.1.7. Item 12 follows §4.1.8. Item 14 follows §4.1.9. The Ventas project pills include NINGUNO.
+**23 November 2026:** Item 3 stays per torre. Item 7 follows §4.1.4. Item 8 follows §4.1.5. Item 9 follows §4.1.10. Item 10 follows §4.1.6. Item 11 follows §4.1.7. Item 12 follows §4.1.8. Item 14 follows §4.1.9. The Ventas project pills include NINGUNO.
 
 ---
 
@@ -121,7 +121,7 @@ Every checklist item answers three successive questions with graphics, on a sing
 - The legacy “Total › Proyecto › Asesor” breadcrumb/label is dead weight and must be removed.
 - Project filter pills sit above the content: TODOS + the four projects in canonical order + a NINGUNO pill on the right. Selecting NINGUNO deselects all projects. NINGUNO is pressed whenever the selection is empty, including after the last project pill is turned off. A project with a zero metric stays on screen only while that project is selected. With NINGUNO, project cards are not drawn, and any hero that remains shows zero. The page must remain stable and not crash or go blank. Default state is TODOS (full three-level view, 0-click). TODOS is the only all-projects state. This row is live on the Ventas command center as of 23 November 2026. Another department page that uses the same pills gets NINGUNO when that page is the work in front of us.
 
-This pattern is the canon for an item once its precise spec says so. Items 1, 2, 5, 6, 7, 8, 10, 11, 12, and 14 are specified on it. Item 7 adds the trajectory drawer in §4.1.4. Item 8 adds the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 adds that same toggle and a case-list drawer in §4.1.6. Item 11 adds that same toggle in §4.1.7, with no drawer. Item 12 adds a case-list drawer in §4.1.8, with no toggle. Item 14 adds that same toggle and an application-list drawer in §4.1.9. Item 3 is the locked exception in §4.1.2. Items 4, 9, and 13 keep the shapes named in the §4.1 table. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
+This pattern is the canon for an item once its precise spec says so. Items 1, 2, 5, 6, 7, 8, 10, 11, 12, and 14 are specified on it. Item 7 adds the trajectory drawer in §4.1.4. Item 8 adds the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 adds that same toggle and a case-list drawer in §4.1.6. Item 11 adds that same toggle in §4.1.7, with no drawer. Item 12 adds a case-list drawer in §4.1.8, with no toggle. Item 14 adds that same toggle and an application-list drawer in §4.1.9. Item 3 is the locked exception in §4.1.2. Item 9 is the horizontal funnel in §4.1.10. Items 4 and 13 keep the shapes named in the §4.1 table. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
 
 ---
 
@@ -163,7 +163,7 @@ The left rail scrolls to these same items in this same order.
 | 6 | Inventario general: Vendido, congelado, disponible | Canonical three-level pattern. See precise spec below (§4.1.3). Status rows on the left. Expanded Hero: one vertical status stack per torre, scaled inside each project. Project Detail Card: one status-row block per torre, all of those bars on one shared scale. |
 | 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Canonical three-level pattern. See precise spec below (§4.1.4). Snapshot of current list value and discount. A click on an Expanded Hero project column opens that project’s price trajectory in a drawer. |
 | 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Canonical three-level pattern. See precise spec below (§4.1.5). One series at a time, U or Q, by project and by torre. |
-| 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
+| 9 | Tasa de conversión | Horizontal bar funnel. See precise spec below (§4.1.10). One funnel for the current scope, then one funnel per project. Asesor changes both. The last stage is Reserva. |
 | 10 | Control de descuentos | Canonical three-level pattern. See precise spec below (§4.1.6). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s discounted sales in a drawer. |
 | 11 | Control de subidas de precios | Canonical three-level pattern. See precise spec below (§4.1.7). One series at a time, U or Q, by project and by torre. |
 | 12 | F&F y casos especiales | Canonical three-level pattern. See precise spec below (§4.1.8). Count of marked sales by project and by torre. A click on an Expanded Hero project column opens that project’s cases in a drawer. |
@@ -172,7 +172,7 @@ The left rail scrolls to these same items in this same order.
 
 **Item 14 (decision 23 November 2026).** Control de promociones is specified in §4.1.9 and the page follows that spec. Items 7, 8, 10, 11, and 12 are specified and the page follows those specs.
 
-The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.1.7, §4.1.8, §4.1.9, §4.2.1). Those numbers are not a second order.
+The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.1.7, §4.1.8, §4.1.9, §4.1.10, §4.2.1). Those numbers are not a second order.
 
 #### 4.1.1 Precise visual spec — Item 2: Objetivos de ventas
 
@@ -648,6 +648,53 @@ This section wins for Item 14. The U | Q toggle is the same kind of control Item
 - No percentage is a primary label.  
 - Headings are the Item Title, “Todos los Proyectos”, the project names, the torre labels, the toggle labels U and Q, and, inside the drawer, the project name and “Cerrar”.  
 - The default view is the hierarchical snapshot on U.
+
+#### 4.1.10 Precise visual spec — Item 9: Tasa de conversión
+
+**Item Title**  
+Tasa de conversión
+
+**Decision**  
+23 November 2026. The locked shape is a horizontal bar funnel. The CEO, the Sales Manager, and the Sales Supervisor follow this band per asesor, every day, often more than once. The asesor filter changes the funnels. The page implements this spec.
+
+**Hard rule**  
+These are real images from the current SSOT report (Pipedrive live). Do not read or use “Won” from Pipedrive. Read and use “Reserva”. “Won” is incorrectly configured in Pipedrive, has always been incorrectly configured, and has never been used. The screen never shows “Won”, “Ganado”, or “Tasa de ganados”. `status` is not an input. A stored value of `won` does not add the deal to every stage and does not produce a rate.
+
+**Stages**  
+In this order, the labels the users already recognize:
+
+Ingreso → Contactado → En Perfilamiento → Calificados → Cita Programada → Visita Efectiva → En Decisión → Reserva
+
+A project prefix on the SSOT report (“[BN]”, “[BLT]”, “[BLV5]”) is not part of the label. “Visita Efectiva” is that label on every project.
+
+**A deal**  
+One row of `ventas.embudo_deal` whose `add_on` falls inside the Periodo. `add_on` is the Guatemala day the deal was created. Stage history is not stored. No static files.
+
+**Reached**  
+`stage_order` is the deal’s current position, 1 through 8. The deal counts in that position and in every earlier position. It does not count in a later position. Position 1 is Ingreso. Position 8 is Reserva. The eight labels above are those eight positions.
+
+**The percent**  
+Between a stage and the next stage: the next count divided by this count, rounded to the nearest whole percent. When this count is 0, the percent is 0%. Reserva has no percent after it.
+
+**Filters**  
+Project pills apply. Periodo applies. Asesor applies. A selected asesor limits every funnel on this band to that asesor’s deals: the overall funnel and each project funnel. Modelo does not change this item. NINGUNO leaves the overall funnel at eight zeros and draws no project funnel. The page stays up.
+
+**Structure**  
+One funnel for the current project-pill and asesor scope. Its heading is “Todos los Proyectos”.  
+Below it, one funnel per project in scope, canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena). The heading of each is the project name. With an asesor selected, those funnels count only that asesor’s deals.  
+Each funnel is horizontal. The stages run top to bottom in the order above. Each stage is one bar whose length is its count. The count is on the bar. A count of 0 keeps the stage, draws a bar of length zero, and prints 0. The percent sits between that bar and the next. Each funnel scales to its own largest count.  
+One series. No legend.
+
+**Provenance**  
+A click on a count opens the deals in that count and nothing else. A click on a percent opens the deals in the next stage and nothing else. Each row shows the project, the stage, `add_on`, and the Pipedrive deal id. Hover does not open it. The close control reads “Cerrar”. There is no drawer.
+
+**Explicit rules**  
+- Counts and percents are always visible.  
+- Zeros stay visible.  
+- Headings are the Item Title, “Todos los Proyectos”, the project names, and the stage labels.  
+- No percentage is a stage name. The percent is the mark between two stages.  
+- The final stage is Reserva.  
+- The asesor filter changes the funnels.
 
 #### 4.2.1 Precise visual spec — Item 5: Análisis de inventario: Split de ventas por modelo
 
