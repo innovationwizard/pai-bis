@@ -170,7 +170,7 @@ The left rail scrolls to these same items in this same order.
 | 13 | Control Referidos | Dedicated visual for the referral trail (Referido / Tipo de Referido / Nombre de Referidor): counts broken by proyecto or tipo, plus a short visible list of referidores. Not a filter on the canales chart |
 | 14 | Control de promociones | Canonical three-level pattern. See precise spec below (§4.1.9). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s promotions in a drawer. |
 
-**Item 14 (decision 23 November 2026).** Control de promociones is specified in §4.1.9 and the page follows that spec. Items 7, 8, 10, 11, and 12 are specified and the page follows those specs.
+**Item 14 (decision 23 November 2026).** Control de promociones is specified in §4.1.9 and the page follows that spec. Items 7, 8, 10, 11, and 12 are specified and the page follows those specs. Item 9 is specified in §4.1.10 and the page follows that spec.
 
 The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.1.7, §4.1.8, §4.1.9, §4.1.10, §4.2.1). Those numbers are not a second order.
 
