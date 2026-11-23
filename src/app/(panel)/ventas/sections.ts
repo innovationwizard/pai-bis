@@ -31,7 +31,7 @@ export const VENTAS_SECTIONS: readonly VentasSection[] = [
   { slug: "valor-del-proyecto", title: "Valor de proyecto", icon: Building2 },
   { slug: "desistimientos", title: "Desistimientos", icon: Ban },
   { slug: "tasa-de-conversion", title: "Tasa de conversión", icon: Percent },
-  { slug: "descuentos", title: "Descuentos", icon: Tags },
+  { slug: "descuentos", title: "Control de descuentos", icon: Tags },
   { slug: "subidas-de-precios", title: "Subidas de precios", icon: TrendingUp },
   { slug: "ff-y-casos-especiales", title: "F&F y Casos especiales", icon: Users },
   { slug: "promociones", title: "Promociones", icon: Megaphone },

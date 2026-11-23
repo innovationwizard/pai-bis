@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import type { CasoVista, DescuentoVista, DesistenciaVista, PrecioVista, PromoVista, VentasVista } from "@/lib/ventas/vista-types";
 import { isDisplayProject } from "@/lib/projects";
+import { ControlDescuentos } from "./descuentos";
 import { Desistimientos } from "./desistimientos";
 
 const moneyGtq = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
@@ -70,29 +71,7 @@ function Desistencias({ vista }: { vista: DesistenciaVista }) {
 }
 
 function Descuentos({ vista }: { vista: DescuentoVista }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <div className="op-kpis op-kpis-3">
-        <Kpi label="Descuento" value={vista.gtq == null && vista.units === 0 ? "Sin dato" : money(vista.gtq)} detail={vista.units ? `${count(vista.units)} líneas` : "sin líneas"} />
-        <Kpi label="Participación" value={pct(vista.share)} detail={vista.saleGtq == null ? "Sin ventas con descuento" : `sobre ${money(vista.saleGtq)}`} />
-        <Kpi label="Con descuento" value={vista.share == null && vista.units === 0 ? "Sin dato" : count(vista.units)} detail="líneas del periodo" />
-      </div>
-      <section className="op-hero op-hero-budget" aria-label="Descuento por tipo">
-        <header className="op-head"><div><h2>Por tipo</h2><p className="op-note">{vista.caption}</p></div><button type="button" className="op-text" onClick={() => setOpen(true)}>Ver líneas</button></header>
-        <Bars rows={vista.tipos} valueKey="gtq" format={money} />
-      </section>
-      <section className="op-hero" aria-label="Descuento por asesor" style={{ flex: 1 }}>
-        <header className="op-head"><div><h2>Por asesor</h2></div></header>
-        <Bars rows={vista.byAsesor} valueKey="gtq" format={money} />
-      </section>
-      {open ? (
-        <Overlay title="Líneas de descuento" onClose={() => setOpen(false)}>
-          <TraceTable rows={vista.traces} columns={["Asesor", "Tipo", "Quetzales", "Tasa"]} cells={(row) => [row.asesor, row.tipo, money(row.gtq), pct(row.rate)]} />
-        </Overlay>
-      ) : null}
-    </>
-  );
+  return <ControlDescuentos vista={vista} pending={null} />;
 }
 
 function Precios({ vista }: { vista: PrecioVista }) {

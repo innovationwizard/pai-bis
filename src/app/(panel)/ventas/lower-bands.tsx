@@ -7,7 +7,6 @@ import type {
   AnalisisVista,
   CasoVista,
   ConversionVista,
-  DescuentoVista,
   InventarioVista,
   NamedBar,
   PrecioVista,
@@ -980,16 +979,12 @@ export function PromocionesBand({
 }
 
 export function ControlesGrid({
-  descuentos,
-  descuentosPending,
   precios,
   preciosPending,
   casos,
   casosPending,
   roster,
 }: {
-  descuentos: DescuentoVista | null;
-  descuentosPending: ReactNode;
   precios: PrecioVista | null;
   preciosPending: ReactNode;
   casos: CasoVista | null;
@@ -1005,14 +1000,6 @@ export function ControlesGrid({
   const casoChart = casos ? casoMarks(casos) : null;
   return (
     <section className="vc-grid-2" aria-label="Controles">
-      <AmountCard
-        title="Descuentos"
-        id="vt-descuentos-title"
-        pending={descuentos ? null : descuentosPending}
-        notice={descuentos?.notice ?? null}
-        rows={descuentos ? descuentos.tipos : null}
-        tone="amber"
-      />
       <section className={styles.band} aria-labelledby="vt-subidas-title">
         <h2 id="vt-subidas-title" className={styles.title}>Subidas de precios</h2>
         {!precios ? preciosPending : (

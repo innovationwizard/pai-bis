@@ -28,6 +28,7 @@ import { InventarioGeneral } from "./inventario-general";
 import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
 import { StatusLifetime } from "./status-bands";
 import { ControlesGrid, ModeloBand, PromocionesBand, ReferidosBand, TasaBand } from "./lower-bands";
+import { ControlDescuentos } from "./descuentos";
 import { Desistimientos } from "./desistimientos";
 import { ValorProyecto } from "./valor-proyecto";
 
@@ -546,9 +547,12 @@ export default function CommandCenter() {
         pending={<StatusLine section="tasa-de-conversion" errors={errors} busy={busy} />}
       />
       <hr className="op-filter-rule vc-band-rule" />
+      <ControlDescuentos
+        vista={vistaOf(vistas, "descuentos")}
+        pending={<StatusLine section="descuentos" errors={errors} busy={busy} />}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
       <ControlesGrid
-        descuentos={vistaOf(vistas, "descuentos")}
-        descuentosPending={<StatusLine section="descuentos" errors={errors} busy={busy} />}
         precios={vistaOf(vistas, "subidas-de-precios")}
         preciosPending={<StatusLine section="subidas-de-precios" errors={errors} busy={busy} />}
         casos={vistaOf(vistas, "ff-y-casos-especiales")}

@@ -536,6 +536,49 @@ export type DesistenciaVista = VistaBase & {
   board: DesistenciaBoard;
 };
 
+export type DescuentoLine = {
+  project: string;
+  torre: string;
+  unit: string;
+  saleOn: string;
+  amountGtq: number | null;
+};
+
+export type DescuentoSale = {
+  dealId: string;
+  project: string;
+  torre: string;
+  unit: string;
+  saleOn: string;
+  gtq: number;
+  lines: DescuentoLine[];
+};
+
+export type DescuentoTower = {
+  label: string;
+  units: number;
+  gtq: number;
+  sales: DescuentoSale[];
+  lines: DescuentoLine[];
+};
+
+export type DescuentoProject = {
+  id: string;
+  slug: string;
+  label: string;
+  units: number;
+  gtq: number;
+  towers: DescuentoTower[];
+  sales: DescuentoSale[];
+  lines: DescuentoLine[];
+};
+
+export type DescuentoBoard = {
+  units: number;
+  gtq: number;
+  projects: DescuentoProject[];
+};
+
 export type DescuentoVista = VistaBase & {
   section: "descuentos";
   units: number;
@@ -545,6 +588,7 @@ export type DescuentoVista = VistaBase & {
   tipos: NamedBar[];
   byAsesor: NamedBar[];
   traces: { asesor: string; tipo: string; gtq: number; rate: number | null }[];
+  board: DescuentoBoard;
 };
 
 export type PrecioVista = VistaBase & {

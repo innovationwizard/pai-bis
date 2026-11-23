@@ -424,7 +424,7 @@ export default function GlanceView({ section }: { section: VistaSection }) {
       <hr className="op-filter-rule" />
       {show?.section === "ventas-totales" && show.freshness.note ? <p className="op-note">{show.freshness.note}</p> : null}
 
-      {show && section !== "ventas-totales" && section !== "valor-del-proyecto" && section !== "desistimientos" ? <p className="op-question">{show.question}</p> : null}
+      {show && section !== "ventas-totales" && section !== "valor-del-proyecto" && section !== "desistimientos" && section !== "descuentos" ? <p className="op-question">{show.question}</p> : null}
       {error ? <p className="op-note op-warn">{error}</p> : null}
       {show?.notice && section !== "ventas-totales" ? <p className="op-note">{show.notice}</p> : null}
       {show?.section === "ventas-totales" ? <TotalesScreen vista={show} onProject={(id, label) => setDrill({ kind: "project", id, label })} /> : null}

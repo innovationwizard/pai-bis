@@ -1742,57 +1742,147 @@ async function periodSales(client: Db, filters: VistaFilters, range: DateWindow,
 }
 
 async function buildDescuentos(client: Db, filters: VistaFilters, range: DateWindow, dims: Dims): Promise<DescuentoVista> {
-  const loaded = await tableCount(client, "fact_discount");
+  const selected = splitProjects(filters, dims);
   const choices = emptyChoices();
+  const emptyBoard = { units: 0, gtq: 0, projects: [] as DescuentoVista["board"]["projects"] };
+  const blank = {
+    ...base("Control de descuentos", range, "", null, dims, choices),
+    section: "descuentos" as const,
+    units: 0,
+    gtq: 0,
+    share: null,
+    saleGtq: null,
+    tipos: [] as DescuentoVista["tipos"],
+    byAsesor: [] as DescuentoVista["byAsesor"],
+    traces: [] as DescuentoVista["traces"],
+    board: emptyBoard,
+  };
+  if (selected.length === 0) return blank;
+
+  const roster = await loadTowerRoster();
+  const projects = selected.map((project) => {
+    const towers = new Map<string, DescuentoVista["board"]["projects"][number]["towers"][number]>();
+    for (const tower of roster.get(project.slug) ?? []) {
+      towers.set(tower.key, { label: tower.label, units: 0, gtq: 0, sales: [], lines: [] });
+    }
+    return {
+      id: ventasProjectId(dims, project.slug),
+      slug: project.slug,
+      label: project.label,
+      units: 0,
+      gtq: 0,
+      towers,
+      sales: [] as DescuentoVista["board"]["projects"][number]["sales"],
+      lines: [] as DescuentoVista["board"]["projects"][number]["lines"],
+    };
+  });
+  const loaded = await tableCount(client, "fact_discount");
   if (loaded === 0) {
     return {
-      ...base("¿Cuánto descuento se está otorgando, y quién lo concentra?", range, "El descuento entra con Odoo. Hasta entonces no hay cifra.", NO_PIPEDRIVE, dims, choices),
-      section: "descuentos",
-      units: 0,
-      gtq: null,
-      share: null,
-      saleGtq: null,
-      tipos: [],
-      byAsesor: [],
-      traces: [],
+      ...blank,
+      board: {
+        units: 0,
+        gtq: 0,
+        projects: projects.map((project) => ({
+          id: project.id,
+          slug: project.slug,
+          label: project.label,
+          units: 0,
+          gtq: 0,
+          towers: [...project.towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es")),
+          sales: [],
+          lines: [],
+        })),
+      },
     };
   }
-  const sales = await periodSales(client, filters, range, "deal_id,project_id,asesor_id,value_gtq,sale_on");
-  const dealIds = sales.rows.map((row) => String(row.deal_id));
-  const discounts = await rowsIn(client, "fact_discount", "deal_id,discount_type_id,amount_gtq,rate", "deal_id", dealIds);
-  const filtered = filters.descuentoId ? discounts.filter((row) => String(row.discount_type_id) === filters.descuentoId) : discounts;
+
+  const sales = await fetchDated(
+    client,
+    "v_sale",
+    "sale_on",
+    "deal_id,unit_id,project_id,tower_id,sale_on",
+    range.from,
+    range.to,
+    (query) => scopeProject(query, filters),
+  );
+  const dealIds = [...new Set(sales.rows.map((row) => String(row.deal_id ?? "")).filter((id) => id))];
+  const discounts = dealIds.length === 0
+    ? []
+    : await rowsIn(client, "fact_discount", "deal_id,discount_type_id,amount_gtq", "deal_id", dealIds);
   const saleByDeal = new Map(sales.rows.map((row) => [String(row.deal_id), row]));
-  const withSale: Record<string, unknown>[] = filtered.map((row) => ({
-    ...row,
-    asesor_id: saleByDeal.get(String(row.deal_id))?.asesor_id,
-    value_gtq: row.amount_gtq,
+  const names = await unitNames(client, sales.rows.map((row) => String(row.unit_id ?? "")).filter((id) => id));
+  const allowed = new Set(selected.map((project) => project.slug));
+  const bySlug = new Map(projects.map((project) => [project.slug, project]));
+  const byDeal = new Map<string, Record<string, unknown>[]>();
+  for (const row of discounts) {
+    const dealId = String(row.deal_id ?? "");
+    if (!saleByDeal.has(dealId)) continue;
+    const list = byDeal.get(dealId) ?? [];
+    list.push(row);
+    byDeal.set(dealId, list);
+  }
+  for (const [dealId, lines] of byDeal) {
+    const sale = saleByDeal.get(dealId);
+    if (!sale) continue;
+    const projectName = dims.projects.find((project) => project.id === String(sale.project_id ?? ""))?.name ?? "";
+    const slug = slugForName(projectName);
+    if (!slug || !allowed.has(slug)) continue;
+    const project = bySlug.get(slug);
+    if (!project) continue;
+    const towerName = dims.torres.get(String(sale.tower_id ?? "")) ?? "";
+    const named = !missingName(towerName);
+    const torre = named ? inventoryTowerLabel(towerName) : "";
+    const torreLabel = torre && torre !== "—" ? torre : "sin torre";
+    const unitId = String(sale.unit_id ?? "");
+    const unit = names.get(unitId) || "sin unidad";
+    const saleOn = typeof sale.sale_on === "string" ? sale.sale_on.slice(0, 10) : "";
+    const detail: DescuentoVista["board"]["projects"][number]["lines"] = lines.map((row) => ({
+      project: project.label,
+      torre: torreLabel,
+      unit,
+      saleOn,
+      amountGtq: num(row.amount_gtq),
+    }));
+    const gtq = detail.reduce((sum, line) => sum + (line.amountGtq ?? 0), 0);
+    const entry = { dealId, project: project.label, torre: torreLabel, unit, saleOn, gtq, lines: detail };
+    project.units += 1;
+    project.gtq += gtq;
+    project.sales.push(entry);
+    project.lines.push(...detail);
+    if (!named || !torre || torre === "—") continue;
+    const key = inventoryTowerKey(towerName);
+    const tower = project.towers.get(key) ?? { label: torre, units: 0, gtq: 0, sales: [], lines: [] };
+    tower.units += 1;
+    tower.gtq += gtq;
+    tower.sales.push(entry);
+    tower.lines.push(...detail);
+    project.towers.set(key, tower);
+  }
+  const boardProjects = projects.map((project) => ({
+    id: project.id,
+    slug: project.slug,
+    label: project.label,
+    units: project.units,
+    gtq: project.gtq,
+    towers: [...project.towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es")),
+    sales: project.sales,
+    lines: project.lines,
   }));
-  const saleGtq = sumGtq(sales.rows.filter((row) => filtered.some((item) => String(item.deal_id) === String(row.deal_id))));
-  const discountGtq = sumGtq(withSale);
-  choices.descuento = countChoices(filtered.map((row) => String(row.discount_type_id)), new Map([...dims.discounts].map(([id, row]) => [id, row.name])));
-  choices.asesor = countChoices(withSale.map((row) => String(row.asesor_id ?? "")), new Map([...dims.asesores].map(([id, row]) => [id, row.name])));
+  const units = boardProjects.reduce((sum, project) => sum + project.units, 0);
+  const gtq = boardProjects.reduce((sum, project) => sum + project.gtq, 0);
+  const notice = sales.capped ? "La consulta del periodo llegó a 5.000 filas. Afina proyecto o periodo." : null;
   return {
-    ...base(
-      "¿Cuánto descuento se está otorgando, y quién lo concentra?",
-      range,
-      "La participación es el descuento sobre el valor de las ventas que lo traen.",
-      filtered.length === 0 ? "No hay descuentos en este periodo." : null,
-      dims,
-      choices,
-    ),
+    ...base("Control de descuentos", range, "", notice, dims, choices),
     section: "descuentos",
-    units: filtered.length,
-    gtq: discountGtq ?? 0,
-    share: saleGtq ? (discountGtq ?? 0) / saleGtq : null,
-    saleGtq,
-    tipos: barsFrom(withSale, "discount_type_id", (id) => dims.discounts.get(id)?.name ?? "Sin dato"),
-    byAsesor: barsFrom(withSale, "asesor_id", (id) => dims.asesores.get(id)?.name ?? "Sin dato"),
-    traces: withSale.slice(0, 80).map((row) => ({
-      asesor: dims.asesores.get(String(row.asesor_id ?? ""))?.name ?? "Sin dato",
-      tipo: dims.discounts.get(String(row.discount_type_id))?.name ?? "Sin dato",
-      gtq: num(row.amount_gtq) ?? 0,
-      rate: num(row.rate),
-    })),
+    units,
+    gtq,
+    share: null,
+    saleGtq: null,
+    tipos: [],
+    byAsesor: [],
+    traces: [],
+    board: { units, gtq, projects: boardProjects },
   };
 }
 
