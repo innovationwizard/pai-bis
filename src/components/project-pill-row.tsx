@@ -3,12 +3,15 @@ export function ProjectPillRow({
   selectedIds,
   onToggle,
   onSelectAll,
+  onSelectNone,
 }: {
   options: readonly { id: string; label: string }[];
   selectedIds: readonly string[] | null;
   onToggle: (id: string) => void;
   onSelectAll: () => void;
+  onSelectNone?: () => void;
 }) {
+  const none = selectedIds !== null && selectedIds.length === 0;
   return (
     <div className="op-project-pills" role="group" aria-label="Proyecto">
       <button type="button" aria-pressed={selectedIds === null} onClick={onSelectAll}>
@@ -31,6 +34,11 @@ export function ProjectPillRow({
           </button>
         );
       })}
+      {onSelectNone ? (
+        <button type="button" className="op-project-none" aria-pressed={none} onClick={onSelectNone}>
+          NINGUNO
+        </button>
+      ) : null}
     </div>
   );
 }

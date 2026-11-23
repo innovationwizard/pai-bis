@@ -998,6 +998,10 @@ main:has(.section-page) > .section-page > .section-sidebar {
   cursor: default;
 }
 
+.op-project-pills button.op-project-none {
+  margin-left: auto;
+}
+
 .op-subnav { align-items: center; }
 .op-subnav a { display: inline-flex; align-items: center; text-decoration: none; }
 .op-subnav a[aria-current="page"] { background: #0d2041; color: #fff; border-color: #0d2041; }

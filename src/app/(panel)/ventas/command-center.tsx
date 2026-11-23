@@ -330,6 +330,11 @@ export default function CommandCenter() {
     setBar((current) => ({ ...current, proyectos: null }));
   }
 
+  function selectNoProjects() {
+    setFocus(null);
+    setBar((current) => ({ ...current, proyectos: [] }));
+  }
+
   function toggleProject(id: string) {
     if (!id) return;
     setFocus(null);
@@ -396,6 +401,7 @@ export default function CommandCenter() {
           options={projectOptions}
           selectedIds={bar.proyectos}
           onSelectAll={selectAllProjects}
+          onSelectNone={selectNoProjects}
           onToggle={toggleProject}
         />
         <div className="op-toolbar">

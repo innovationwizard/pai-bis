@@ -5,7 +5,8 @@
 **Validation audience:** CEO and Managers  
 **Goal:** Each department is a single, vertically scrollable command center of high-density Recharts and D3 visualizations that cover every required Operativo checklist item with 0 clicks.  
 **Date:** 10 November 2026  
-**Ventas scroll order locked:** 21 November 2026. Operativo items 1 through 14, top to bottom. See §4.1.
+**Ventas scroll order locked:** 21 November 2026. Operativo items 1 through 14, top to bottom. See §4.1.  
+**23 November 2026:** Item 3 stays per torre. Items 7, 8, 10, 11, 12, and 14 are committed to the three-level pattern and wait for a precise spec before the page changes. The Ventas project pills include NINGUNO.
 
 ---
 
@@ -115,12 +116,12 @@ Every checklist item answers three successive questions with graphics, on a sing
 - **Default ordering rule (when a specific order has not been locked for an item):** Respect canonical order for projects. Then order towers alphabetically. Then order modelos alphabetically. This applies wherever a specific order for a specific item has not been ruled.
 - Member Columns of asesores are always sorted descending by the metric value so the eye lands on the largest contributors first. Modelos are always alphabetical. Other member types follow the item’s locked rule.
 - The Project Detail Card that holds the Member Columns (asesor bars, etc.) has a fixed size. Columns are squeezed as necessary so that every member fits in a single row with no wrap, no overflow, and no internal scroll.
-- Zero projects (or zero members) remain visible. Do not hide empty rows or zero values. Hiding zeros creates stark visual inconsistencies between periods and damages transparency (a core value of the project). Managers need to see the absence.
+- A selected project, torre, modelo, or asesor with a zero metric stays visible. Do not hide empty rows or zero values inside the current selection. Hiding zeros creates stark visual inconsistencies between periods and damages transparency (a core value of the project). Managers need to see the absence.
 - Visual separation is provided by the existing card structure. No extra headings or explanatory text. If the page grows long, a very light background or slightly tighter grouping under the total block is sufficient.
 - The legacy “Total › Proyecto › Asesor” breadcrumb/label is dead weight and must be removed.
-- Project filter pills sit above the content: TODOS + the four projects in canonical order + a NINGUNO pill on the right. Selecting NINGUNO deselects all projects. The page must remain stable and not crash or go blank when zero projects are selected. Default state is TODOS (full three-level view, 0-click).
+- Project filter pills sit above the content: TODOS + the four projects in canonical order + a NINGUNO pill on the right. Selecting NINGUNO deselects all projects. NINGUNO is pressed whenever the selection is empty, including after the last project pill is turned off. A project with a zero metric stays on screen only while that project is selected. With NINGUNO, project cards are not drawn, and any hero that remains shows zero. The page must remain stable and not crash or go blank. Default state is TODOS (full three-level view, 0-click). TODOS is the only all-projects state. This row is live on the Ventas command center as of 23 November 2026. Another department page that uses the same pills gets NINGUNO when that page is the work in front of us.
 
-This pattern is the canon. All 14 Ventas Operativo items follow it. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
+This pattern is the canon for an item once its precise spec says so. Items 1, 2, 5, and 6 are specified on it. Item 3 is the locked exception in §4.1.2. Items 4, 9, and 13 keep the shapes named in the §4.1 table. On 23 November 2026, items 7, 8, 10, 11, 12, and 14 were committed to this pattern. Each waits for a precise spec in §4.1 before its band on the page changes. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
 
 ---
 
@@ -160,14 +161,16 @@ The left rail scrolls to these same items in this same order.
 | 4 | Ventas por canales | Ranked horizontal bars or small multiples by Fuente |
 | 5 | Split de ventas por modelo y por torre | See precise spec below (§4.2.1). Compact Hero + Expanded Hero (one column per torre; Santa Elena one column per modelo) + Project Bands. Single series at a time via the Reserva/PCV toggle. |
 | 6 | Inventario general: Vendido, congelado, disponible | Canonical three-level pattern. See precise spec below (§4.1.3). Status rows on the left. Expanded Hero: one vertical status stack per torre, scaled inside each project. Project Detail Card: one status-row block per torre, all of those bars on one shared scale. |
-| 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Composed chart or small multiples showing price trajectory and discount impact |
-| 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Bars or small multiples for financial impact (reembolso / retención) |
+| 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Canonical three-level pattern. Precise spec not yet written. |
+| 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Canonical three-level pattern. Precise spec not yet written. |
 | 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
-| 10 | Control de descuentos | Compact visual summary (indicators or bars) with amounts shown |
-| 11 | Control de subidas de precios | Compact visual summary (indicators or bars) with amounts shown |
-| 12 | F&F y casos especiales | Compact visual summary (indicators or bars) with amounts shown |
+| 10 | Control de descuentos | Canonical three-level pattern. Precise spec not yet written. |
+| 11 | Control de subidas de precios | Canonical three-level pattern. Precise spec not yet written. |
+| 12 | F&F y casos especiales | Canonical three-level pattern. Precise spec not yet written. |
 | 13 | Control Referidos | Dedicated visual for the referral trail (Referido / Tipo de Referido / Nombre de Referidor): counts broken by proyecto or tipo, plus a short visible list of referidores. Not a filter on the canales chart |
-| 14 | Control de promociones | Compact visual summary (indicators or bars) with amounts shown |
+| 14 | Control de promociones | Canonical three-level pattern. Precise spec not yet written. |
+
+**Items 7, 8, 10, 11, 12, and 14 (decision 23 November 2026).** These six follow the canonical three-level pattern. Each one gets a precise spec in this section before its band on the page changes. Until that spec is written, the live page keeps the compact summary it already shows. The earlier one-line targets (a composed price chart, bars for reembolso and retención, a compact amount) describe that live page only.
 
 The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.2.1). Those numbers are not a second order.
 
@@ -201,6 +204,8 @@ This replaces the previous two stacked flat charts with the single hierarchical 
 #### 4.1.2 Precise visual spec — Item 3: Status de ventas (lifetime vs fecha de cierre)
 
 **Critical correction:** The concept is the life of the project, not a monthly or period view. There is no all-projects band and no per-asesor band. The secondary level is per torre.
+
+**Reconfirmed 23 November 2026.** The secondary level stays per torre. The Operativo checklist row still says “por asesor”. That wording stays as written. The page follows this spec.
 
 **Start date**  
 First month that appears in each project’s Ritmo de Ventas CSV.
