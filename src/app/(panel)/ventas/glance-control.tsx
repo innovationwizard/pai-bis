@@ -18,6 +18,7 @@ import {
 import type { CasoVista, DescuentoVista, DesistenciaVista, PrecioVista, PromoVista, VentasVista } from "@/lib/ventas/vista-types";
 import { isDisplayProject } from "@/lib/projects";
 import { ControlDescuentos } from "./descuentos";
+import { ControlSubidas } from "./subidas";
 import { Desistimientos } from "./desistimientos";
 
 const moneyGtq = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
@@ -75,58 +76,7 @@ function Descuentos({ vista }: { vista: DescuentoVista }) {
 }
 
 function Precios({ vista }: { vista: PrecioVista }) {
-  const byProject = vista.byProject.filter((row) => isDisplayProject(row.label));
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <div className="op-kpis op-kpis-3">
-        <Kpi label="Unidades" value={vista.gtq == null && vista.usd == null && vista.units === 0 ? "Sin dato" : count(vista.units)} detail="con subida en el periodo" />
-        <Kpi label="Quetzales" value={vista.gtq == null && vista.units === 0 ? "Sin dato" : money(vista.gtq)} detail="diferencia de lista" />
-        <Kpi label="Dólares" value={vista.usd == null && vista.units === 0 ? "Sin dato" : dollars(vista.usd)} detail="no se suman con quetzales" />
-      </div>
-      <section className="op-hero op-hero-budget" aria-label="Subida por mes">
-        <header className="op-head"><div><h2>Doce meses</h2><p className="op-note">{vista.caption}</p></div></header>
-        <div className="op-chart">
-          {vista.months.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={vista.months} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                <CartesianGrid stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#64748b" }} width={48} axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="gtq" name="Quetzales" stroke="#0d2041" strokeWidth={2} dot={false} isAnimationActive={false} />
-                <Line type="monotone" dataKey="usd" name="Dólares" stroke="#0573b0" strokeWidth={2} dot={false} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </section>
-      <section className="op-hero" aria-label="Subida por proyecto" style={{ flex: 1 }}>
-        <header className="op-head"><div><h2>Por proyecto</h2><button type="button" className="op-text" onClick={() => setOpen(true)}>Ver unidades</button></div></header>
-        <div className="op-chart">
-          {byProject.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byProject} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                <CartesianGrid stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} interval={0} />
-                <YAxis tick={{ fontSize: 11, fill: "#64748b" }} width={48} axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="gtq" name="Quetzales" fill="#0d2041" isAnimationActive={false} />
-                <Bar dataKey="usd" name="Dólares" fill="#0573b0" isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </section>
-      {open ? (
-        <Overlay title="Unidades" onClose={() => setOpen(false)}>
-          <TraceTable rows={vista.traces} columns={["Unidad", "Torre", "Antes", "Ahora", "Diferencia", "Moneda"]} cells={(row) => [row.unit, row.tower, count(row.previous), count(row.next), count(row.difference), row.currency]} />
-        </Overlay>
-      ) : null}
-    </>
-  );
+  return <ControlSubidas vista={vista} pending={null} />;
 }
 
 function Casos({ vista }: { vista: CasoVista }) {

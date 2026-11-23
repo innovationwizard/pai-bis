@@ -29,6 +29,7 @@ import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-bloc
 import { StatusLifetime } from "./status-bands";
 import { ControlesGrid, ModeloBand, PromocionesBand, ReferidosBand, TasaBand } from "./lower-bands";
 import { ControlDescuentos } from "./descuentos";
+import { ControlSubidas } from "./subidas";
 import { Desistimientos } from "./desistimientos";
 import { ValorProyecto } from "./valor-proyecto";
 
@@ -389,14 +390,6 @@ export default function CommandCenter() {
     for (const project of projects) map.set(project.id, project.label);
     return map;
   }, [projects]);
-  const roster = useMemo(() => {
-    const selected = bar.proyectos;
-    const source = selected === null
-      ? projectOptions
-      : projectOptions.filter((option) => option.id !== "" && selected.includes(option.id));
-    return source.map((option) => ({ id: option.id, label: option.label }));
-  }, [bar.proyectos, projectOptions]);
-
   return (
     <div className="vc-command">
       <header className="vc-head cc-filter-battery">
@@ -552,12 +545,14 @@ export default function CommandCenter() {
         pending={<StatusLine section="descuentos" errors={errors} busy={busy} />}
       />
       <hr className="op-filter-rule vc-band-rule" />
+      <ControlSubidas
+        vista={vistaOf(vistas, "subidas-de-precios")}
+        pending={<StatusLine section="subidas-de-precios" errors={errors} busy={busy} />}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
       <ControlesGrid
-        precios={vistaOf(vistas, "subidas-de-precios")}
-        preciosPending={<StatusLine section="subidas-de-precios" errors={errors} busy={busy} />}
         casos={vistaOf(vistas, "ff-y-casos-especiales")}
         casosPending={<StatusLine section="ff-y-casos-especiales" errors={errors} busy={busy} />}
-        roster={roster}
       />
       <hr className="op-filter-rule vc-band-rule" />
       <ReferidosBand

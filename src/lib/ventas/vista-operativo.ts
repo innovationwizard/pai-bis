@@ -1899,85 +1899,139 @@ async function rowsIn(client: Db, table: string, select: string, column: string,
 }
 
 async function buildPrecios(client: Db, filters: VistaFilters, range: DateWindow, dims: Dims): Promise<PrecioVista> {
-  const loaded = await tableCount(client, "fact_price_rise");
+  const selected = splitProjects(filters, dims);
   const choices = emptyChoices();
-  choices.torre = [...dims.torres.entries()].map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label, "es"));
+  const blank = {
+    ...base("Control de subidas de precios", range, "", null, dims, choices),
+    section: "subidas-de-precios" as const,
+    units: 0,
+    gtq: 0,
+    usd: 0,
+    byProject: [] as PrecioVista["byProject"],
+    months: [] as PrecioVista["months"],
+    traces: [] as PrecioVista["traces"],
+    board: { units: 0, gtq: 0, projects: [] as PrecioVista["board"]["projects"] },
+  };
+  if (selected.length === 0) return blank;
+
+  const roster = await loadTowerRoster();
+  const projects = selected.map((project) => {
+    const towers = new Map<string, PrecioVista["board"]["projects"][number]["towers"][number]>();
+    for (const tower of roster.get(project.slug) ?? []) {
+      towers.set(tower.key, { label: tower.label, units: 0, gtq: 0, events: [] });
+    }
+    return {
+      id: ventasProjectId(dims, project.slug),
+      slug: project.slug,
+      label: project.label,
+      units: 0,
+      gtq: 0,
+      usd: 0,
+      towers,
+      events: [] as PrecioVista["board"]["projects"][number]["events"],
+    };
+  });
+  const loaded = await tableCount(client, "fact_price_rise");
   if (loaded === 0) {
     return {
-      ...base("¿Cuánto subió el precio de lista, y en qué proyectos?", range, "La subida entra con Odoo. Quetzales y dólares no se suman.", NO_PIPEDRIVE, dims, choices),
-      section: "subidas-de-precios",
-      units: 0,
-      gtq: null,
-      usd: null,
-      byProject: [],
-      months: [],
-      traces: [],
+      ...blank,
+      board: {
+        units: 0,
+        gtq: 0,
+        projects: projects.map((project) => ({
+          id: project.id,
+          slug: project.slug,
+          label: project.label,
+          units: 0,
+          gtq: 0,
+          towers: [...project.towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es")),
+          events: [],
+        })),
+      },
     };
   }
-  const from = monthsBack(range.to, 12);
+
   const rises = await fetchDated(
     client,
     "fact_price_rise",
     "effective_on",
-    "unit_id,tower_id,effective_on,previous_amount,new_amount,difference_amount,currency",
-    from,
+    "unit_id,tower_id,effective_on,difference_amount,currency",
+    range.from,
     range.to,
-    (query) => (filters.torreId ? query.eq("tower_id", filters.torreId) : query),
   );
-  const scoped = rises.rows.filter((row) => {
-    const towerId = String(row.tower_id);
-    const projectId = projectOfTower(dims, towerId);
-    return projectOk(projectId, filters);
-  });
-  const period = scoped.filter((row) => {
-    const day = String(row.effective_on).slice(0, 10);
-    return day >= range.from && day <= range.to;
-  });
-  const gtqRows = period.filter((row) => row.currency === "GTQ");
-  const usdRows = period.filter((row) => row.currency === "USD");
-  const months = monthsTouched(from, range.to).map((month) => {
-    const end = monthEnd(month);
-    const slice = scoped.filter((row) => inMonth(row.effective_on, month, end));
-    return {
-      label: shortMonth(month),
-      gtq: sumAmount(slice.filter((row) => row.currency === "GTQ"), "difference_amount") ?? 0,
-      usd: sumAmount(slice.filter((row) => row.currency === "USD"), "difference_amount") ?? 0,
+  const names = await unitNames(client, rises.rows.map((row) => String(row.unit_id ?? "")).filter((id) => id));
+  const allowed = new Set(selected.map((project) => project.slug));
+  const bySlug = new Map(projects.map((project) => [project.slug, project]));
+  for (const row of rises.rows) {
+    const projectId = projectOfTower(dims, String(row.tower_id ?? ""));
+    const projectName = dims.projects.find((project) => project.id === projectId)?.name ?? "";
+    const slug = slugForName(projectName);
+    if (!slug || !allowed.has(slug)) continue;
+    const project = bySlug.get(slug);
+    if (!project) continue;
+    const currency = String(row.currency ?? "").toUpperCase();
+    const difference = num(row.difference_amount);
+    const towerName = dims.torres.get(String(row.tower_id ?? "")) ?? "";
+    const named = !missingName(towerName);
+    const torre = named ? inventoryTowerLabel(towerName) : "";
+    const torreLabel = torre && torre !== "—" ? torre : "sin torre";
+    const unitId = String(row.unit_id ?? "");
+    const event = {
+      project: project.label,
+      torre: torreLabel,
+      unit: names.get(unitId) || "sin unidad",
+      effectiveOn: typeof row.effective_on === "string" ? row.effective_on.slice(0, 10) : "",
+      difference,
+      currency,
     };
-  });
-  const projectIds = new Set(period.map((row) => projectOfTower(dims, String(row.tower_id))));
-  const names = await unitNames(client, period.map((row) => String(row.unit_id)).slice(0, 80));
+    project.units += 1;
+    if (currency === "GTQ" && difference != null) project.gtq += difference;
+    if (currency === "USD" && difference != null) project.usd += difference;
+    project.events.push(event);
+    if (!named || !torre || torre === "—") continue;
+    const key = inventoryTowerKey(towerName);
+    const tower = project.towers.get(key) ?? { label: torre, units: 0, gtq: 0, events: [] };
+    tower.units += 1;
+    if (currency === "GTQ" && difference != null) tower.gtq += difference;
+    tower.events.push(event);
+    project.towers.set(key, tower);
+  }
+  const boardProjects = projects.map((project) => ({
+    id: project.id,
+    slug: project.slug,
+    label: project.label,
+    units: project.units,
+    gtq: project.gtq,
+    towers: [...project.towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es")),
+    events: project.events,
+  }));
+  const units = boardProjects.reduce((sum, project) => sum + project.units, 0);
+  const gtq = boardProjects.reduce((sum, project) => sum + project.gtq, 0);
+  const usd = projects.reduce((sum, project) => sum + project.usd, 0);
+  const notice = rises.capped ? "La consulta del periodo llegó a 5.000 filas. Afina proyecto o periodo." : null;
   return {
-    ...base(
-      "¿Cuánto subió el precio de lista, y en qué proyectos?",
-      range,
-      "La línea cubre doce meses. El recuadro es el periodo. Dólares y quetzales van aparte.",
-      rises.capped ? "La consulta llegó a 5.000 filas." : period.length === 0 ? "No hay subidas en este periodo." : null,
-      dims,
-      choices,
-    ),
+    ...base("Control de subidas de precios", range, "", notice, dims, choices),
     section: "subidas-de-precios",
-    units: period.length,
-    gtq: sumAmount(gtqRows, "difference_amount") ?? 0,
-    usd: sumAmount(usdRows, "difference_amount") ?? 0,
-    byProject: [...projectIds].map((id) => {
-      const mine = period.filter((row) => projectOfTower(dims, String(row.tower_id)) === id);
-      return {
-        id,
-        label: dims.projects.find((project) => project.id === id)?.name ?? "Sin dato",
-        units: mine.length,
-        gtq: sumAmount(mine.filter((row) => row.currency === "GTQ"), "difference_amount"),
-        usd: sumAmount(mine.filter((row) => row.currency === "USD"), "difference_amount"),
-      };
-    }).sort((a, b) => (b.gtq ?? 0) - (a.gtq ?? 0) || a.label.localeCompare(b.label, "es")),
-    months,
-    traces: period.slice(0, 80).map((row) => ({
-      unit: names.get(String(row.unit_id)) ?? String(row.unit_id),
-      tower: dims.torres.get(String(row.tower_id)) ?? "Sin dato",
-      previous: num(row.previous_amount) ?? 0,
-      next: num(row.new_amount) ?? 0,
-      difference: num(row.difference_amount) ?? 0,
-      currency: String(row.currency),
+    units,
+    gtq,
+    usd,
+    byProject: boardProjects.map((project) => ({
+      id: project.id,
+      label: project.label,
+      units: project.units,
+      gtq: project.gtq,
+      usd: projects.find((item) => item.slug === project.slug)?.usd ?? 0,
     })),
+    months: [],
+    traces: rises.rows.slice(0, 80).map((row) => ({
+      unit: names.get(String(row.unit_id ?? "")) ?? String(row.unit_id ?? ""),
+      tower: dims.torres.get(String(row.tower_id ?? "")) ?? "Sin dato",
+      previous: 0,
+      next: 0,
+      difference: num(row.difference_amount) ?? 0,
+      currency: String(row.currency ?? ""),
+    })),
+    board: { units, gtq, projects: boardProjects },
   };
 }
 

@@ -9,7 +9,6 @@ import type {
   ConversionVista,
   InventarioVista,
   NamedBar,
-  PrecioVista,
   PromoVista,
   ReferidosVista,
 } from "@/lib/ventas/vista-types";
@@ -21,7 +20,6 @@ const BLUE = "#0573b0";
 const AMBER = "#b45309";
 
 const moneyFormat = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
-const dollarFormat = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 1 });
 
 export type ProjectSlot = { id: string; label: string };
@@ -87,10 +85,6 @@ function markFill(mark: Mark): string {
 
 function money(value: number): string {
   return moneyFormat.format(value);
-}
-
-function dollars(value: number): string {
-  return dollarFormat.format(value);
 }
 
 function count(value: number): string {
@@ -979,67 +973,15 @@ export function PromocionesBand({
 }
 
 export function ControlesGrid({
-  precios,
-  preciosPending,
   casos,
   casosPending,
-  roster,
 }: {
-  precios: PrecioVista | null;
-  preciosPending: ReactNode;
   casos: CasoVista | null;
   casosPending: ReactNode;
-  roster: readonly ProjectSlot[];
 }) {
-  const gtqLive = (precios?.byProject ?? []).some((row) => (row.gtq ?? 0) !== 0);
-  const usdLive = (precios?.byProject ?? []).some((row) => (row.usd ?? 0) !== 0);
-  const pricesUnloaded = precios != null && precios.gtq == null && precios.usd == null && precios.byProject.length === 0;
-  const showGtq = precios != null && !pricesUnloaded && (gtqLive || !usdLive);
-  const showUsd = precios != null && !pricesUnloaded && usdLive;
-  const priceProjects = precios && !pricesUnloaded ? orderedProjects(roster, precios.byProject) : [];
   const casoChart = casos ? casoMarks(casos) : null;
   return (
-    <section className="vc-grid-2" aria-label="Controles">
-      <section className={styles.band} aria-labelledby="vt-subidas-title">
-        <h2 id="vt-subidas-title" className={styles.title}>Subidas de precios</h2>
-        {!precios ? preciosPending : (
-          <>
-            {/* {precios.notice ? <p className="op-note">{precios.notice}</p> : null} */}
-            {priceProjects.length === 0 ? emptyNote(null) : null}
-            {priceProjects.length > 0 && showGtq ? (
-              <>
-                {showUsd ? <h3 className={styles.subTitle}>Quetzales</h3> : null}
-                <MarkColumns
-                  rows={priceProjects.map((item) => ({
-                    id: item.id || item.label,
-                    label: item.label,
-                    value: item.row?.gtq ?? 0,
-                    hue: hueKey(item.label),
-                  }))}
-                  format={money}
-                  axis="money"
-                />
-              </>
-            ) : null}
-            {priceProjects.length > 0 && showUsd ? (
-              <>
-                {showGtq ? <h3 className={styles.subTitle}>Dólares</h3> : null}
-                <MarkColumns
-                  rows={priceProjects.map((item) => ({
-                    id: `${item.id || item.label}:usd`,
-                    label: item.label,
-                    value: item.row?.usd ?? 0,
-                    hue: hueKey(item.label),
-                  }))}
-                  format={dollars}
-                  axis="money"
-                />
-              </>
-            ) : null}
-          </>
-        )}
-      </section>
-      <section className={`${styles.band} vc-grid-span`} aria-labelledby="vt-casos-title">
+    <section className={styles.band} aria-labelledby="vt-casos-title">
         <h2 id="vt-casos-title" className={styles.title}>F&amp;F y casos especiales</h2>
         {!casos ? casosPending : (
           <>
@@ -1050,7 +992,6 @@ export function ControlesGrid({
             ) : null}
           </>
         )}
-      </section>
     </section>
   );
 }

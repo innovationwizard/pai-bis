@@ -591,6 +591,38 @@ export type DescuentoVista = VistaBase & {
   board: DescuentoBoard;
 };
 
+export type SubidaEvent = {
+  project: string;
+  torre: string;
+  unit: string;
+  effectiveOn: string;
+  difference: number | null;
+  currency: string;
+};
+
+export type SubidaTower = {
+  label: string;
+  units: number;
+  gtq: number;
+  events: SubidaEvent[];
+};
+
+export type SubidaProject = {
+  id: string;
+  slug: string;
+  label: string;
+  units: number;
+  gtq: number;
+  towers: SubidaTower[];
+  events: SubidaEvent[];
+};
+
+export type SubidaBoard = {
+  units: number;
+  gtq: number;
+  projects: SubidaProject[];
+};
+
 export type PrecioVista = VistaBase & {
   section: "subidas-de-precios";
   units: number;
@@ -599,6 +631,7 @@ export type PrecioVista = VistaBase & {
   byProject: { id: string; label: string; gtq: number | null; usd: number | null; units: number }[];
   months: { label: string; gtq: number; usd: number }[];
   traces: { unit: string; tower: string; previous: number; next: number; difference: number; currency: string }[];
+  board: SubidaBoard;
 };
 
 export type CasoVista = VistaBase & {

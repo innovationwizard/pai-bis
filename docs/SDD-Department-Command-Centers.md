@@ -6,7 +6,7 @@
 **Goal:** Each department is a single, vertically scrollable command center of high-density Recharts and D3 visualizations that cover every required Operativo checklist item with 0 clicks.  
 **Date:** 10 November 2026  
 **Ventas scroll order locked:** 21 November 2026. Operativo items 1 through 14, top to bottom. See §4.1.  
-**23 November 2026:** Item 3 stays per torre. Item 7 follows §4.1.4. Item 8 follows §4.1.5. Item 10 follows §4.1.6. Items 11, 12, and 14 stay on the three-level commitment and still wait for a precise spec. The Ventas project pills include NINGUNO.
+**23 November 2026:** Item 3 stays per torre. Item 7 follows §4.1.4. Item 8 follows §4.1.5. Item 10 follows §4.1.6. Item 11 follows §4.1.7. Items 12 and 14 stay on the three-level commitment and still wait for a precise spec. The Ventas project pills include NINGUNO.
 
 ---
 
@@ -121,7 +121,7 @@ Every checklist item answers three successive questions with graphics, on a sing
 - The legacy “Total › Proyecto › Asesor” breadcrumb/label is dead weight and must be removed.
 - Project filter pills sit above the content: TODOS + the four projects in canonical order + a NINGUNO pill on the right. Selecting NINGUNO deselects all projects. NINGUNO is pressed whenever the selection is empty, including after the last project pill is turned off. A project with a zero metric stays on screen only while that project is selected. With NINGUNO, project cards are not drawn, and any hero that remains shows zero. The page must remain stable and not crash or go blank. Default state is TODOS (full three-level view, 0-click). TODOS is the only all-projects state. This row is live on the Ventas command center as of 23 November 2026. Another department page that uses the same pills gets NINGUNO when that page is the work in front of us.
 
-This pattern is the canon for an item once its precise spec says so. Items 1, 2, 5, 6, 7, 8, and 10 are specified on it. Item 7 adds the trajectory drawer in §4.1.4. Item 8 adds the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 adds that same toggle and a case-list drawer in §4.1.6. Item 3 is the locked exception in §4.1.2. Items 4, 9, and 13 keep the shapes named in the §4.1 table. Items 11, 12, and 14 were committed to this pattern on 23 November 2026 and still wait for a precise spec before the page changes. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
+This pattern is the canon for an item once its precise spec says so. Items 1, 2, 5, 6, 7, 8, 10, and 11 are specified on it. Item 7 adds the trajectory drawer in §4.1.4. Item 8 adds the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 adds that same toggle and a case-list drawer in §4.1.6. Item 11 adds that same toggle in §4.1.7, with no drawer. Item 3 is the locked exception in §4.1.2. Items 4, 9, and 13 keep the shapes named in the §4.1 table. Items 12 and 14 were committed to this pattern on 23 November 2026 and still wait for a precise spec before the page changes. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
 
 ---
 
@@ -165,14 +165,14 @@ The left rail scrolls to these same items in this same order.
 | 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Canonical three-level pattern. See precise spec below (§4.1.5). One series at a time, U or Q, by project and by torre. |
 | 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
 | 10 | Control de descuentos | Canonical three-level pattern. See precise spec below (§4.1.6). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s discounted sales in a drawer. |
-| 11 | Control de subidas de precios | Canonical three-level pattern. Precise spec not yet written. |
+| 11 | Control de subidas de precios | Canonical three-level pattern. See precise spec below (§4.1.7). One series at a time, U or Q, by project and by torre. |
 | 12 | F&F y casos especiales | Canonical three-level pattern. Precise spec not yet written. |
 | 13 | Control Referidos | Dedicated visual for the referral trail (Referido / Tipo de Referido / Nombre de Referidor): counts broken by proyecto or tipo, plus a short visible list of referidores. Not a filter on the canales chart |
 | 14 | Control de promociones | Canonical three-level pattern. Precise spec not yet written. |
 
-**Items 11, 12, and 14 (decision 23 November 2026).** These three follow the canonical three-level pattern. Each one gets a precise spec in this section before its band on the page changes. Until that spec is written, the live page keeps the compact summary it already shows. Item 7 is specified in §4.1.4 and the page follows that spec. Item 8 is specified in §4.1.5 and the page follows that spec. Item 10 is specified in §4.1.6 and the page follows that spec.
+**Items 12 and 14 (decision 23 November 2026).** These two follow the canonical three-level pattern. Each one gets a precise spec in this section before its band on the page changes. Until that spec is written, the live page keeps the compact summary it already shows. Items 7, 8, and 10 are specified and the page follows those specs. Item 11 is specified in §4.1.7 and the page follows that spec.
 
-The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.2.1). Those numbers are not a second order.
+The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.1.7, §4.2.1). Those numbers are not a second order.
 
 #### 4.1.1 Precise visual spec — Item 2: Objetivos de ventas
 
@@ -479,6 +479,61 @@ This section wins for Item 10. The U | Q toggle is the same kind of control Item
 - Zeros stay visible.  
 - No percentage is a primary label.  
 - Headings are the Item Title, “Todos los Proyectos”, the project names, the torre labels, the toggle labels U and Q, and, inside the drawer, the project name and “Cerrar”.  
+- The default view is the hierarchical snapshot on U.
+
+#### 4.1.7 Precise visual spec — Item 11: Control de subidas de precios
+
+**Item Title**  
+Control de subidas de precios
+
+**Decision**  
+23 November 2026. This item follows the canonical three-level pattern. The page implements this spec.
+
+**The series**  
+One series is visible at a time.  
+- U is the count of price-rise events.  
+- Q is the sum of `difference_amount` on the events whose `currency` is GTQ. A null amount adds nothing. When the scope has no quetzal increase, Q is 0.  
+A dollar increase is not converted and is not added to Q. The event still counts in U.  
+
+**An event**  
+One row of `ventas.fact_price_rise`. The grain is one unit on one `effective_on`, so a unit that rose twice in the Periodo counts twice. The event is in the snapshot when `effective_on` falls inside the Periodo. No static files.
+
+**Filters**  
+Project pills apply, through the torre’s project. Periodo applies. Asesor and modelo do not change this item. NINGUNO leaves the Compact Hero at zero and draws no project cards. The page stays up.
+
+**Toggle**  
+The only control on this item besides the project pills. It sits on its own row above the Compact Hero, the same placement as Items 5, 8, and 10. The options read U | Q. The default is U.  
+U draws solid columns. Q draws dashed-outline columns. Only the selected series is visible.
+
+**Structure**  
+Full canonical three-level pattern. The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. The gap between the Hero Band and the Project Bands is 12px. Each Project Band is 156px. The gap between Project Bands is 8px. The sum stays inside the scroll of Items 1 and 2.
+
+**Compact Hero**  
+Title: always “Todos los Proyectos”.  
+One large number: the selected series for the current project-pill scope. U is an integer. Q is quetzales.  
+No second title. No percentage as the primary label. The number is visible.
+
+**Expanded Hero**  
+Project Summary Columns in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
+Each column is that project’s total for the selected series. The number is always visible on or directly above the column.  
+One shared y-scale for the four columns. A project with a zero total stays visible.
+
+**Project Bands**  
+One band per project in scope, canonical order.  
+- Project KPI Card (left): project name and that project’s total for the selected series.  
+- Project Detail Card (right): fixed-size card of Member Columns by torre. Torres are alphabetical by the Odoo short label (“TA”, “Principal”, and the same labels Item 6 uses). Each column is that torre’s value for the selected series, number on or above the column. One shared y-scale across every Project Detail Card. A torre with a zero value stays visible. Columns are squeezed to fit: no wrap, no overflow, no internal scroll.  
+An event whose torre name is missing stays in the project total and in the hero. It does not open a torre column.
+
+**Where this item differs from §3**  
+This section wins for Item 11. The U | Q toggle is the same kind of control Item 8 uses. There is no drawer and no trajectory. Every other rule in §3 stands.
+
+**Explicit rules**  
+- Numbers are always visible on or above every column.  
+- A click on a number opens provenance and nothing else: the events in that figure, each with project, torre, unit, `effective_on`, `difference_amount`, and `currency`. Hover does not open it.  
+- Projects stay in canonical order. Torres stay alphabetical by short label.  
+- Zeros stay visible.  
+- No percentage is a primary label.  
+- Headings are the Item Title, “Todos los Proyectos”, the project names, the torre labels, and the toggle labels U and Q.  
 - The default view is the hierarchical snapshot on U.
 
 #### 4.2.1 Precise visual spec — Item 5: Análisis de inventario: Split de ventas por modelo
