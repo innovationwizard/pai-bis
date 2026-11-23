@@ -155,7 +155,7 @@ The left rail scrolls to these same items in this same order.
 
 | # | Checklist item | Visualization |
 |---|----------------|---------------|
-| 1 | Ventas totales | Canonical three-level pattern: Compact Hero + Expanded Hero (Project Summary Columns) + Project Bands (Project KPI Cards + Project Detail Cards with Member Columns). No horizontal rule between the Hero Band and the Project Bands. |
+| 1 | Ventas totales | Canonical three-level pattern: Compact Hero + Expanded Hero (Project Summary Columns) + Project Bands (Project KPI Cards + Project Detail Cards with Member Columns). No horizontal rule between the Hero Band and the Project Bands. The gap between the Hero Band and the Project Bands is 12px, the same as Item 2. Each Project Band is 156px, the Item 2 band height. The bands do not stretch to fill the viewport. |
 | 2 | Objetivos de ventas | Canonical three-level pattern (see precise spec below). |
 | 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por torre | Lifetime cumulative pace per project (and per torre). See precise spec below. No all-projects band. No per-asesor band. |
 | 4 | Ventas por canales | Ranked horizontal bars or small multiples by Fuente |
