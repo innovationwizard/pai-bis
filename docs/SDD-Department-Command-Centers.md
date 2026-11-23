@@ -4,7 +4,8 @@
 **Scope:** All five fixed main sections — Mercadeo, Ventas, Cobros, Créditos, Entregas  
 **Validation audience:** CEO and Managers  
 **Goal:** Each department is a single, vertically scrollable command center of high-density Recharts and D3 visualizations that cover every required Operativo checklist item with 0 clicks.  
-**Date:** 10 November 2026
+**Date:** 10 November 2026  
+**Ventas scroll order locked:** 21 November 2026. Operativo items 1 through 14, top to bottom. See §4.1.
 
 ---
 
@@ -32,7 +33,7 @@ Take what the CEO and Managers already have in mind and are already familiar wit
 1. **Graphics and charts first.** Every checklist item is expressed as a high-quality Recharts or D3 visualization. KPI cards are supporting context only when they add density without text.
 2. **0-click rule.** Every item on the Operativo checklist appears on the default view of the department page. No navigation to another URL is required to see any required item.
 3. **Single command center per department.** Each of the five main sections is one vertically scrollable page composed of visual bands. A left-rail secondary menu may remain; it navigates within the page (anchor / scroll-to) rather than to separate URLs. Prefer the icon when a single click reaches a section faster than scrolling.
-4. **Progressive disclosure via visual hierarchy, not text.** Top of page = most important graphics. Middle = explanatory pipelines and comparisons. Lower = supporting detail that is still fully visible without a click. Interactions (click a chart element) may filter a table lower on the same page.
+4. **Progressive disclosure via visual hierarchy, not text.** Top of page = most important graphics. Middle = explanatory pipelines and comparisons. Lower = supporting detail that is still fully visible without a click. Interactions (click a chart element) may filter a table lower on the same page. On the Ventas page this principle does not move an item. Positions are the locked scroll order in §4.1.
 5. **Familiarity.** Use the labels, groupings, and mental models the users already recognize. Do not re-label or re-define.
 6. **Semantic color and density.** Use color for meaning (compliance, deficit, blocked stages). Additionally, use dark, corporate shades of blue to visually identify different projects. Keep the current project colors for now. Future consideration: a configuration to assign or change project colors. Prefer compact, high-information-density charts.
 
@@ -131,6 +132,8 @@ Each department page is a vertical stack of visual bands. Exact content varies b
 - **Band B — Analytical and control graphics (0 clicks):** Remaining checklist items as charts, small multiples, or compact visual summaries. Still fully visible without navigation.
 - **Band C — Operative detail (optional filter target):** Tables or lists that can be filtered by clicking a chart element above. Not required for checklist coverage.
 
+A locked scroll order is the stack. Band A and Band B do not move an item once that order is locked. Ventas is locked to Operativo items 1 through 14, top to bottom (§4.1, 21 November 2026).
+
 Optional lightweight filters (Periodo, Proyecto, Asesor, Torre) sit in a compact header. Default state already shows the useful view (current month / all projects). Freshness stamp is always visible, on the same line as the period description.
 
 After the filter controls and the period + freshness line, mark the transition into page content with a line break and an elegant horizontal separator.
@@ -143,15 +146,30 @@ After the filter controls and the period + freshness line, mark the transition i
 
 All 14 Operativo checklist items are 0-click.
 
-### 4.1 Band A — Primary graphics (0 clicks)
+### 4.1 Scroll order (locked 21 November 2026)
+
+The Ventas page is one vertical stack. Top to bottom, the order is the Operativo checklist. Confirmed 21 November 2026. This list is the page. An item stays in its numbered position.
+
+The left rail scrolls to these same items in this same order.
 
 | # | Checklist item | Visualization |
 |---|----------------|---------------|
 | 1 | Ventas totales | Canonical three-level pattern: Compact Hero + Expanded Hero (Project Summary Columns) + Project Bands (Project KPI Cards + Project Detail Cards with Member Columns). No horizontal rule between the Hero Band and the Project Bands. |
 | 2 | Objetivos de ventas | Canonical three-level pattern (see precise spec below). |
 | 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por torre | Lifetime cumulative pace per project (and per torre). See precise spec below. No all-projects band. No per-asesor band. |
-| 6 | Inventario general: Vendido, congelado, disponible | Canonical three-level pattern. See precise spec below (§4.1.3). |
+| 4 | Ventas por canales | Ranked horizontal bars or small multiples by Fuente |
+| 5 | Split de ventas por modelo y por torre | See precise spec below (§4.2.1). Compact Hero + Expanded Hero (one column per torre; Santa Elena one column per modelo) + Project Bands. Single series at a time via the Reserva/PCV toggle. |
+| 6 | Inventario general: Vendido, congelado, disponible | Canonical three-level pattern. See precise spec below (§4.1.3). Status rows on the left. Expanded Hero: one vertical status stack per torre, scaled inside each project. Project Detail Card: one status-row block per torre, all of those bars on one shared scale. |
+| 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Composed chart or small multiples showing price trajectory and discount impact |
+| 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Bars or small multiples for financial impact (reembolso / retención) |
 | 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
+| 10 | Control de descuentos | Compact visual summary (indicators or bars) with amounts shown |
+| 11 | Control de subidas de precios | Compact visual summary (indicators or bars) with amounts shown |
+| 12 | F&F y casos especiales | Compact visual summary (indicators or bars) with amounts shown |
+| 13 | Control Referidos | Dedicated visual for the referral trail (Referido / Tipo de Referido / Nombre de Referidor): counts broken by proyecto or tipo, plus a short visible list of referidores. Not a filter on the canales chart |
+| 14 | Control de promociones | Compact visual summary (indicators or bars) with amounts shown |
+
+The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.2.1). Those numbers are not a second order.
 
 #### 4.1.1 Precise visual spec — Item 2: Objetivos de ventas
 
@@ -230,56 +248,58 @@ Inventario general
 Current unit status counts from `v_rv_units_full`. Same view and the same status enum the Disponibilidad page uses. No period filter. No sales-event tables. No static files.
 
 **Statuses**  
-Exactly these five, in this order, with the Disponibilidad labels:  
-Disponible (`AVAILABLE`), En revisión (`SOFT_HOLD`), Reservado (`RESERVED`), Congelado (`FROZEN`), Vendido (`SOLD`).  
-Always include the total. Never hide a status that is zero.
+Exactly these five, with the Disponibilidad labels and `UNIT_STATUS_COLORS`:  
+Congelado (`FROZEN`), Disponible (`AVAILABLE`), En revisión (`SOFT_HOLD`), Reservado (`RESERVED`), Vendido (`SOLD`).  
+That is the order on every row list and the order of a stack from bottom to top. A status with a count of zero is still drawn. The total is the sum of the five. It is a sixth figure only on the Compact Hero. It is not a sixth status, and it is not a segment in any stack.
 
 **Color**  
-Taken from `UNIT_STATUS_COLORS`, the same mapping as the Disponibilidad legend and §2:  
+Taken from `UNIT_STATUS_COLORS`, the same mapping as the Disponibilidad legend and §2. This list is the mapping, not the display order:  
 green = Disponible,  
 orange = En revisión,  
 blue = Reservado,  
 purple = Congelado,  
-gray = Vendido.
+gray = Vendido.  
+Total uses navy `#0d2041`.
 
 **Filters**  
 Project pills only. Periodo, asesor, and modelo do not change this item. NINGUNO leaves the Compact Hero at zero and draws no project cards. The page stays up.
 
 **Structure**  
-Full canonical three-level pattern. On the Ventas page the item is `#inventario-general`, after Split de ventas por modelo y por torre and before Valor del proyecto. Projects in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena), limited to the pills that are on. A selected project with no units stays visible.
+Full canonical three-level pattern. On the Ventas page the item is `#inventario-general`. Locked scroll order (§4.1, 21 November 2026): sixth, after Split de ventas por modelo y por torre and before Valor de proyecto. Projects in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena), limited to the pills that are on. A selected project with no units stays visible.
 
-The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. Each Project Band is fixed at 156px, the Item 2 band height. The Compact Hero card uses the Item 1 / Item 2 card chrome: 8px radius, 1px border, padding 12px 14px, title `calc(26px * 0.75)` at weight 700. Project KPI cards use the Item 1 project-row padding, 10px 12px. The sum is shorter than Item 2’s hero plus four bands, so the item does not ask for more page scroll than Items 1 and 2.
+The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. Each Project Band is fixed at 156px, the Item 2 band height. The Compact Hero card uses the Item 1 / Item 2 card chrome: 8px radius, 1px border, padding 12px 14px, title `calc(26px * 0.75)` at weight 700. Project KPI cards use the Item 1 project-row padding, 10px 12px. The sum is shorter than Item 2’s hero plus four bands, so the item does not ask for more page scroll than Items 1 and 2. Scroll inside a Project Detail Card is not page scroll.
+
+**Row language**  
+The Compact Hero, each Project KPI Card, and each torre block in a Project Detail Card use the same row: status name on the left, a horizontal track, a colored bar, and the integer at the right in that status color. The track is the gray ground. The bar never carries a number inside it. A zero count keeps the row, draws a bar of length zero, and prints 0.
+
+On the Compact Hero and on each Project KPI Card the five bars are a waterfall. Each bar’s length is that status count divided by that card’s own total, and each bar starts where the previous status ended. The Compact Hero then adds Total: a navy bar that fills the track when the total is above zero. A Project KPI Card does not add Total.
 
 **Compact Hero**  
 Title: always “Todos los Proyectos”.  
-The five status counts and the total, for the current project-pill scope. Every number is visible. The six figures replace the single hero number of Items 1 and 2; the card box does not.
+The five status counts and the total, for the current project-pill scope. The six figures replace the single hero number of Items 1 and 2; the card box does not.
 
 **Expanded Hero**  
-The right-hand card of the Hero Band. Inside it, one card per project in scope. The card height matches the Compact Hero.
+The right-hand side of the Hero Band. Inside it, one card per project in scope, in canonical project order. The card height matches the Compact Hero. The only heading in the card is the project name.
+
+Each card is one vertical stacked column per torre. The stack runs bottom to top in the status order above. A zero count stays in that stack as a segment of height zero, so the color order does not change. Torre labels use the Odoo short form from §4.2.1 (“TA”, “Principal”) and sit centered under the column. Torres are alphabetical by that label (`es`). Santa Elena uses the same rule: one column per its torre.
+
+Each project card has its own vertical scale. The tallest torre in that card, measured by the sum of the five statuses, fills the plot. The other torres in the same card use that scale. Cards do not share a scale with each other.
+
+A count is drawn inside its segment only when the segment is tall enough and wide enough to hold the digits. A segment that cannot hold them omits that number and keeps the colored segment. There is no number column beside the stacks, no legend, no percentages, and no horizontal bar in this card.
 
 **Project Bands**  
-One band per project in scope.  
-- Project KPI Card: project name, the five status counts, and the total.
+One band per project in scope, in canonical project order. Band height stays 156px.  
+- Project KPI Card: project name and the five status rows, on that project’s own waterfall. No total row.  
+- Project Detail Card: one block per torre, in the same alphabetical short-label order as the Expanded Hero. The block heading is that short label. Under it, the five status rows. These bars are not a waterfall and not a stack. Each bar starts at the left of the track. Its length is that count divided by the largest single status count among all torres in all Project Detail Cards on the page. That longest bar fills the track. A card with more torres than the band can show scrolls inside the card. The band does not grow.
+
+**Where this item differs from §3**  
+This section wins for Item 6. The Expanded Hero does not put a number on or above every segment. Its scale is per project. The Project Detail Card holds torre blocks of status rows, not Member Columns, and it may scroll inside the fixed band.
 
 **Explicit rules**  
-- Numbers are always visible. The tooltip is click-only and only for provenance: `v_rv_units_full` (`status`, `project_slug`, `tower_name`, `unit_number`), the status counted, the active project pills, and the full list of units in that count. Hover does not open it.  
-- No percentages. No extra titles or explanatory text. The Item Title, “Todos los Proyectos”, and the project names are the only headings.  
+- A click opens provenance and nothing else: `v_rv_units_full` (`status`, `project_slug`, `tower_name`, `unit_number`), the status counted, the active project pills, and the units in that count. Hover does not open it.  
+- No percentages. No connectors. No explanatory text. Headings are the Item Title, “Todos los Proyectos”, the project names, and the torre labels.  
 - No period, asesor, or modelo filter on this item.  
-- The total is a sixth figure on the Compact Hero and on each Project KPI Card.
-
-### 4.2 Band B — Analytical and control graphics (0 clicks)
-
-| # | Checklist item | Visualization |
-|---|----------------|---------------|
-| 4 | Ventas por canales | Ranked horizontal bars or small multiples by Fuente |
-| 5 | Split de ventas por modelo y por torre | See precise spec below (4.2.1). Compact Hero + Expanded Hero (one column per torre; Santa Elena one column per modelo) + Project Bands. Single series at a time via the Reserva/PCV toggle. |
-| 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Composed chart or small multiples showing price trajectory and discount impact |
-| 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Bars or small multiples for financial impact (reembolso / retención) |
-| 10 | Control de descuentos | Compact visual summary (indicators or bars) with amounts shown |
-| 11 | Control de subidas de precios | Compact visual summary (indicators or bars) with amounts shown |
-| 12 | F&F y casos especiales | Compact visual summary (indicators or bars) with amounts shown |
-| 13 | Control Referidos | Dedicated visual for the referral trail (Referido / Tipo de Referido / Nombre de Referidor): counts broken by proyecto or tipo, plus a short visible list of referidores. Not a filter on the canales chart |
-| 14 | Control de promociones | Compact visual summary (indicators or bars) with amounts shown |
+- The total is a sixth figure on the Compact Hero only.
 
 #### 4.2.1 Precise visual spec — Item 5: Análisis de inventario: Split de ventas por modelo
 
@@ -463,6 +483,7 @@ Checklist pending. Will follow the same 0-click single-page pattern once receive
 ## 7. Acceptance Criteria (Ventas first)
 
 - [ ] Ventas is a single scrollable page; former sub-page content appears as visual bands, not separate URLs.
+- [ ] Ventas items appear in the locked scroll order in §4.1: Operativo checklist 1 through 14, top to bottom. The left rail follows that order.
 - [ ] All 14 Operativo checklist items are visible as charts or high-density visuals without clicking.
 - [ ] Every graphical element representing an amount displays its corresponding number.
 - [ ] No on-screen definition statements or forced alternative metrics.

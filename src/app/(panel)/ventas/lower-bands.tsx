@@ -1119,6 +1119,25 @@ function AmountCard({
   );
 }
 
+export function PromocionesBand({
+  vista,
+  pending,
+}: {
+  vista: PromoVista | null;
+  pending: ReactNode;
+}) {
+  return (
+    <AmountCard
+      title="Promociones"
+      id="vt-promos-title"
+      pending={vista ? null : pending}
+      notice={vista?.notice ?? null}
+      rows={vista ? vista.tipos : null}
+      tone="navy"
+    />
+  );
+}
+
 export function ControlesGrid({
   descuentos,
   descuentosPending,
@@ -1126,8 +1145,6 @@ export function ControlesGrid({
   preciosPending,
   casos,
   casosPending,
-  promos,
-  promosPending,
   roster,
 }: {
   descuentos: DescuentoVista | null;
@@ -1136,8 +1153,6 @@ export function ControlesGrid({
   preciosPending: ReactNode;
   casos: CasoVista | null;
   casosPending: ReactNode;
-  promos: PromoVista | null;
-  promosPending: ReactNode;
   roster: readonly ProjectSlot[];
 }) {
   const gtqLive = (precios?.byProject ?? []).some((row) => (row.gtq ?? 0) !== 0);
@@ -1196,7 +1211,7 @@ export function ControlesGrid({
           </>
         )}
       </section>
-      <section className={styles.band} aria-labelledby="vt-casos-title">
+      <section className={`${styles.band} vc-grid-span`} aria-labelledby="vt-casos-title">
         <h2 id="vt-casos-title" className={styles.title}>F&amp;F y casos especiales</h2>
         {!casos ? casosPending : (
           <>
@@ -1208,14 +1223,6 @@ export function ControlesGrid({
           </>
         )}
       </section>
-      <AmountCard
-        title="Promociones"
-        id="vt-promos-title"
-        pending={promos ? null : promosPending}
-        notice={promos?.notice ?? null}
-        rows={promos ? promos.tipos : null}
-        tone="navy"
-      />
     </section>
   );
 }

@@ -6,13 +6,13 @@ export const VISTA_SECTIONS = [
   "analisis-de-inventario",
   "inventario-general",
   "valor-del-proyecto",
-  "tasa-de-conversion",
   "desistimientos",
+  "tasa-de-conversion",
   "descuentos",
   "subidas-de-precios",
   "ff-y-casos-especiales",
-  "promociones",
   "control-referidos",
+  "promociones",
 ] as const;
 
 export type VistaSection = (typeof VISTA_SECTIONS)[number];

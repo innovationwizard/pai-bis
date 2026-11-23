@@ -27,7 +27,7 @@ import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/
 import { InventarioGeneral } from "./inventario-general";
 import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
 import { StatusLifetime } from "./status-bands";
-import { ControlesGrid, DesistimientosBands, ModeloBand, ReferidosBand, TasaBand, ValorBand } from "./lower-bands";
+import { ControlesGrid, DesistimientosBands, ModeloBand, PromocionesBand, ReferidosBand, TasaBand, ValorBand } from "./lower-bands";
 
 const NAVY = "#0d2041";
 const BLUE = "#0573b0";
@@ -43,17 +43,17 @@ const SECTIONS: VistaSection[] = [
   "ventas-totales",
   "objetivos-de-ventas",
   "status-de-ventas",
-  "inventario-general",
   "ventas-por-canales",
-  "tasa-de-conversion",
   "analisis-de-inventario",
+  "inventario-general",
   "valor-del-proyecto",
   "desistimientos",
+  "tasa-de-conversion",
   "descuentos",
   "subidas-de-precios",
   "ff-y-casos-especiales",
-  "promociones",
   "control-referidos",
+  "promociones",
 ];
 
 type BarState = {
@@ -481,12 +481,6 @@ export default function CommandCenter() {
       />
       <hr className="op-filter-rule vc-band-rule" />
 
-      <TasaBand
-        vista={tasa}
-        pending={<StatusLine section="tasa-de-conversion" errors={errors} busy={busy} />}
-      />
-      <hr className="op-filter-rule vc-band-rule" />
-
       {/* Brecha contra el ritmo por proyecto y por asesor.
       <section className="vc-grid-2" aria-label="Brechas contra el ritmo">
         <article className="vc-card">
@@ -543,6 +537,11 @@ export default function CommandCenter() {
         onProject={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
       />
       <hr className="op-filter-rule vc-band-rule" />
+      <TasaBand
+        vista={tasa}
+        pending={<StatusLine section="tasa-de-conversion" errors={errors} busy={busy} />}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
       <ControlesGrid
         descuentos={vistaOf(vistas, "descuentos")}
         descuentosPending={<StatusLine section="descuentos" errors={errors} busy={busy} />}
@@ -550,14 +549,17 @@ export default function CommandCenter() {
         preciosPending={<StatusLine section="subidas-de-precios" errors={errors} busy={busy} />}
         casos={vistaOf(vistas, "ff-y-casos-especiales")}
         casosPending={<StatusLine section="ff-y-casos-especiales" errors={errors} busy={busy} />}
-        promos={vistaOf(vistas, "promociones")}
-        promosPending={<StatusLine section="promociones" errors={errors} busy={busy} />}
         roster={roster}
       />
       <hr className="op-filter-rule vc-band-rule" />
       <ReferidosBand
         vista={vistaOf(vistas, "control-referidos")}
         pending={<StatusLine section="control-referidos" errors={errors} busy={busy} />}
+      />
+      <hr className="op-filter-rule vc-band-rule" />
+      <PromocionesBand
+        vista={vistaOf(vistas, "promociones")}
+        pending={<StatusLine section="promociones" errors={errors} busy={busy} />}
       />
       {/* Outside the 14 Operativo items: exception table and line-level sales list.
       <hr className="op-filter-rule vc-band-rule" />

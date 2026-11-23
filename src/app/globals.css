@@ -1548,6 +1548,7 @@ main:has(.section-page) > .section-page > .section-sidebar {
   gap: 8px 20px;
   min-width: 0;
 }
+.vc-grid-2 > .vc-grid-span { grid-column: 1 / -1; }
 .vc-card { min-width: 0; padding: 4px 0 0; }
 .vc-card h2 {
   margin: 0;
@@ -1680,7 +1681,7 @@ main:has(.section-page) > .section-page > .section-sidebar {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #fff;
-  padding: 10px 12px 8px;
+  padding: 10px 12px 8px 22px;
 }
 
 .mk-kpis strong {
