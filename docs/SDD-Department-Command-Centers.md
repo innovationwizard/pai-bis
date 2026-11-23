@@ -7,6 +7,7 @@
 **Date:** 10 November 2026  
 **Ventas scroll order locked:** 21 November 2026. Operativo items 1 through 14, top to bottom. See §4.1.  
 **23 November 2026:** Item 3 stays per torre. Item 7 follows §4.1.4. Item 8 follows §4.1.5. Item 9 follows §4.1.10. Item 10 follows §4.1.6. Item 11 follows §4.1.7. Item 12 follows §4.1.8. Item 14 follows §4.1.9. The Ventas project pills include NINGUNO.
+**23 November 2026 (later):** Canonical three-level pattern is now mandatory for all 14 Ventas items. Previous exceptions for Items 3, 4, 9, and 13 are removed.
 
 ---
 
@@ -66,7 +67,7 @@ Every prompt sent to a Cursor agent that operates on the repository must begin w
 ## 2.1 Mandatory Visual Nomenclature (locked)
 
 **Why this exists and why it is mandatory**  
-On 18–19 November 2026 we lost multiple hours because the same visual region was referred to by different names in prompts versus in the local agent’s interpretation. The resulting mis-edits forced repeated rework. To prevent that class of failure permanently, the following names are now the **only** official terms for these regions. They must be used in every future prompt, SDD update, and code comment that refers to layout. No synonyms, no “the left card”, no “the top section”, no quadrant labels.
+On 18–19 November 2026 we lost multiple hours because the same visual region was referred to by different names in prompts versus in the local agent’s interpretation. The resulting mis-edits forced repeated rework. To prevent that class of failure permanently, the following names are now the **only** official terms for these regions. They must be used in every future prompt, SDD update, and code comment that refers to layout. No synonyms, no “the left card”, no “the top section”, no quadrant labels. These ten names are required for every one of the 14 Ventas items. No exception language is allowed.
 
 Research basis (dashboard and data-visualization literature):
 - “Hero” / “Hero Row” / “Hero KPI strip” is the established term for the top band that holds the primary number and its immediate breakdown.
@@ -91,8 +92,9 @@ Research basis (dashboard and data-visualization literature):
 | **Member Columns** | The individual secondary/tertiary columns (asesor, modelo, torre, etc.) that live inside each Project Detail Card. | Asesores: sorted descending by the metric. Modelos: always alphabetical. Other members follow the item’s locked rule. |
 
 **Rules**
-- These names are mandatory. Any prompt or specification that uses a different label for one of these regions is incorrect and must be rewritten before it is sent to an agent.
-- The title inside the Compact Hero is always “Todos los Proyectos” unless a future locked exception is explicitly recorded here.
+- These ten names are required for every one of the 14 Ventas items and for every other department item on this cadence. No synonyms. No exception language. Any prompt or specification that uses a different label for one of these regions, or that opts an item out, is incorrect and must be rewritten before it is sent to an agent.
+- The title inside the Compact Hero is always “Todos los Proyectos”.
+- Every Ventas item uses these ten names. Synonyms are not allowed. Exception language is not allowed.
 - Canonical project order, never-hide-zeros rule, and all other existing principles continue to apply unchanged.
 - When a new visual region appears that does not fit the table above, it must be added to this table before it is referenced in any prompt.
 
@@ -105,6 +107,8 @@ Every checklist item answers three successive questions with graphics, on a sing
 1. **Compact Hero** — large number on the left, always titled “Todos los Proyectos”.
 2. **Expanded Hero** — graphical breakdown immediately to the right of the Compact Hero (Project Summary Columns for Ventas).
 3. **Project Bands** — one band per member of the previous level (one per project), each containing a Project KPI Card on the left and a Project Detail Card on the right (Member Columns, e.g. asesor bars, inside the Project Detail Card).
+
+The pattern is mandatory for all 14 Ventas Operativo items. The same three-level cadence is mandatory for the other departments. No Ventas item may omit the Hero Band, the Project Bands, or any of the ten official names.
 
 **Rules that lock this pattern**
 - **The full item fits on the page.** Compact Hero + Expanded Hero + all Project Bands must be visible together without requiring scroll beyond what Items 1 and 2 currently require. Reduce band height and empty space as needed to achieve this. This is a hard constraint.
@@ -121,7 +125,9 @@ Every checklist item answers three successive questions with graphics, on a sing
 - The legacy “Total › Proyecto › Asesor” breadcrumb/label is dead weight and must be removed.
 - Project filter pills sit above the content: TODOS + the four projects in canonical order + a NINGUNO pill on the right. Selecting NINGUNO deselects all projects. NINGUNO is pressed whenever the selection is empty, including after the last project pill is turned off. A project with a zero metric stays on screen only while that project is selected. With NINGUNO, project cards are not drawn, and any hero that remains shows zero. The page must remain stable and not crash or go blank. Default state is TODOS (full three-level view, 0-click). TODOS is the only all-projects state. This row is live on the Ventas command center as of 23 November 2026. Another department page that uses the same pills gets NINGUNO when that page is the work in front of us.
 
-This pattern is the canon for an item once its precise spec says so. Items 1, 2, 5, 6, 7, 8, 10, 11, 12, and 14 are specified on it. Item 7 adds the trajectory drawer in §4.1.4. Item 8 adds the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 adds that same toggle and a case-list drawer in §4.1.6. Item 11 adds that same toggle in §4.1.7, with no drawer. Item 12 adds a case-list drawer in §4.1.8, with no toggle. Item 14 adds that same toggle and an application-list drawer in §4.1.9. Item 3 is the locked exception in §4.1.2. Item 9 is the horizontal funnel in §4.1.10. Items 4 and 13 keep the shapes named in the §4.1 table. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
+This pattern is mandatory for all 14 Ventas Operativo items. There is no exception. Items 1 through 14 each use the Hero Band (Compact Hero on the left, always titled “Todos los Proyectos”, and Expanded Hero on the right with Project Summary Columns) and the Project Bands (one band per project in canonical order, each with a Project KPI Card on the left and a Project Detail Card on the right containing Member Columns). The ten official names in §2.1 are required on every item. No synonym is allowed.
+
+Item-specific specs add measurement and interaction rules on top of the pattern. They do not exempt the item. Item 5 keeps the modelo and torre detail in §4.2.1, inside this pattern. Item 6 keeps the measurement rules in §4.1.3 (segment labels, per-project scale, and scroll inside the fixed band). Those rules do not remove the Hero Band, the Project Bands, or the name Member Columns. Item 7 adds the trajectory drawer in §4.1.4. Item 8 adds the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 adds that same toggle and a case-list drawer in §4.1.6. Item 11 adds that same toggle in §4.1.7, with no drawer. Item 12 adds a case-list drawer in §4.1.8, with no toggle. Item 14 adds that same toggle and an application-list drawer in §4.1.9. Item 3 uses torre as the Member Columns dimension (§4.1.2). Item 4 uses Fuente as the Member Columns dimension (§4.1.11). Item 9 places the funnel stages in the Member Columns, or as a nested visualization inside the Project Detail Cards (§4.1.10). Item 13 uses tipo de referido or referidor as the Member Columns dimension (§4.1.12). Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
 
 ---
 
@@ -145,34 +151,34 @@ After the filter controls and the period + freshness line, mark the transition i
 
 **Replaces** the previous collection of sub-pages. Single vertically scrollable page. Primary language is the Reserva-level data and analytics the users already use.
 
-All 14 Operativo checklist items are 0-click.
+All 14 Operativo checklist items are 0-click. Every one of them must use the canonical three-level pattern in §3 and the ten official names in §2.1.
 
 ### 4.1 Scroll order (locked 21 November 2026)
 
-The Ventas page is one vertical stack. Top to bottom, the order is the Operativo checklist. Confirmed 21 November 2026. This list is the page. An item stays in its numbered position.
+The Ventas page is one vertical stack. Top to bottom, the order is the Operativo checklist. Confirmed 21 November 2026. This list is the page. An item stays in its numbered position. Every item in this list must use the canonical three-level pattern.
 
 The left rail scrolls to these same items in this same order.
 
 | # | Checklist item | Visualization |
 |---|----------------|---------------|
-| 1 | Ventas totales | Canonical three-level pattern: Compact Hero + Expanded Hero (Project Summary Columns) + Project Bands (Project KPI Cards + Project Detail Cards with Member Columns). No horizontal rule between the Hero Band and the Project Bands. The gap between the Hero Band and the Project Bands is 12px, the same as Item 2. Each Project Band is 156px, the Item 2 band height. The bands do not stretch to fill the viewport. |
-| 2 | Objetivos de ventas | Canonical three-level pattern (see precise spec below). |
-| 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por torre | Lifetime cumulative pace per project (and per torre). See precise spec below. No all-projects band. No per-asesor band. |
-| 4 | Ventas por canales | Ranked horizontal bars or small multiples by Fuente |
-| 5 | Split de ventas por modelo y por torre | See precise spec below (§4.2.1). Compact Hero + Expanded Hero (one column per torre; Santa Elena one column per modelo) + Project Bands. Single series at a time via the Reserva/PCV toggle. |
-| 6 | Inventario general: Vendido, congelado, disponible | Canonical three-level pattern. See precise spec below (§4.1.3). Status rows on the left. Expanded Hero: one vertical status stack per torre, scaled inside each project. Project Detail Card: one status-row block per torre, all of those bars on one shared scale. |
-| 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Canonical three-level pattern. See precise spec below (§4.1.4). Snapshot of current list value and discount. A click on an Expanded Hero project column opens that project’s price trajectory in a drawer. |
-| 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Canonical three-level pattern. See precise spec below (§4.1.5). One series at a time, U or Q, by project and by torre. |
-| 9 | Tasa de conversión | Horizontal bar funnel. See precise spec below (§4.1.10). One funnel for the current scope, then one funnel per project. Asesor changes both. The last stage is Reserva. |
-| 10 | Control de descuentos | Canonical three-level pattern. See precise spec below (§4.1.6). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s discounted sales in a drawer. |
-| 11 | Control de subidas de precios | Canonical three-level pattern. See precise spec below (§4.1.7). One series at a time, U or Q, by project and by torre. |
-| 12 | F&F y casos especiales | Canonical three-level pattern. See precise spec below (§4.1.8). Count of marked sales by project and by torre. A click on an Expanded Hero project column opens that project’s cases in a drawer. |
-| 13 | Control Referidos | Dedicated visual for the referral trail (Referido / Tipo de Referido / Nombre de Referidor): counts broken by proyecto or tipo, plus a short visible list of referidores. Not a filter on the canales chart |
-| 14 | Control de promociones | Canonical three-level pattern. See precise spec below (§4.1.9). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s promotions in a drawer. |
+| 1 | Ventas totales | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). No horizontal rule between the Hero Band and the Project Bands. The gap between the Hero Band and the Project Bands is 12px, the same as Item 2. Each Project Band is 156px, the Item 2 band height. The bands do not stretch to fill the viewport. |
+| 2 | Objetivos de ventas | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.1). |
+| 3 | Status de ventas - Déficit o excedente versus fecha de cierre, por proyecto y por torre | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). Lifetime cumulative pace. Torre is the Member Columns dimension inside each Project Detail Card. See precise spec below (§4.1.2). |
+| 4 | Ventas por canales | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). Fuente is the Member Columns dimension inside each Project Detail Card. See precise spec below (§4.1.11). |
+| 5 | Split de ventas por modelo y por torre | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.2.1). Project Summary Columns: one column per torre; Santa Elena one column per modelo. Single series at a time via the Reserva/PCV toggle. |
+| 6 | Inventario general: Vendido, congelado, disponible | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.3). Status rows on the left. Expanded Hero: one vertical status stack per torre, scaled inside each project. Project Detail Card: one status-row block per torre, all of those bars on one shared scale. |
+| 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.4). Snapshot of current list value and discount. A click on an Expanded Hero project column opens that project’s price trajectory in a drawer. |
+| 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.5). One series at a time, U or Q, by project and by torre. |
+| 9 | Tasa de conversión | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.10). Funnel stages are the Member Columns inside each Project Detail Card, or a nested visualization inside that card. Asesor changes the Compact Hero, the Project Summary Columns, and every Project Band. The last stage is Reserva. |
+| 10 | Control de descuentos | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.6). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s discounted sales in a drawer. |
+| 11 | Control de subidas de precios | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.7). One series at a time, U or Q, by project and by torre. |
+| 12 | F&F y casos especiales | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.8). Count of marked sales by project and by torre. A click on an Expanded Hero project column opens that project’s cases in a drawer. |
+| 13 | Control Referidos | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). Tipo de referido or referidor is the Member Columns dimension inside each Project Detail Card. See precise spec below (§4.1.12). This item is not a filter on the canales chart. |
+| 14 | Control de promociones | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.9). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s promotions in a drawer. |
 
-**Item 14 (decision 23 November 2026).** Control de promociones is specified in §4.1.9 and the page follows that spec. Items 7, 8, 10, 11, and 12 are specified and the page follows those specs. Item 9 is specified in §4.1.10 and the page follows that spec.
+**All 14 items (23 November 2026, later).** Every item in the scroll-order table uses the canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). Item 14 is specified in §4.1.9 and the page follows that spec. Items 7, 8, 10, 11, and 12 are specified and the page follows those specs. Item 3 is specified in §4.1.2. Item 4 is specified in §4.1.11. Item 9 is specified in §4.1.10. Item 13 is specified in §4.1.12.
 
-The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.1.7, §4.1.8, §4.1.9, §4.1.10, §4.2.1). Those numbers are not a second order.
+The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.1.7, §4.1.8, §4.1.9, §4.1.10, §4.1.11, §4.1.12, §4.2.1). Those numbers are not a second order. §4.1.11 is Item 4. §4.1.12 is Item 13.
 
 #### 4.1.1 Precise visual spec — Item 2: Objetivos de ventas
 
@@ -203,15 +209,18 @@ This replaces the previous two stacked flat charts with the single hierarchical 
 
 #### 4.1.2 Precise visual spec — Item 3: Status de ventas (lifetime vs fecha de cierre)
 
-**Critical correction:** The concept is the life of the project, not a monthly or period view. There is no all-projects band and no per-asesor band. The secondary level is per torre.
+**Decision**  
+23 November 2026 (later). This item must use the canonical three-level pattern. The Hero Band is required: Compact Hero on the left, always titled “Todos los Proyectos”, and Expanded Hero on the right with Project Summary Columns. One Project Band per project is required: Project KPI Card on the left and Project Detail Card on the right containing Member Columns. Torre is the Member Columns dimension.
 
-**Reconfirmed 23 November 2026.** The secondary level stays per torre. The Operativo checklist row still says “por asesor”. That wording stays as written. The page follows this spec.
+**Critical correction:** The concept is the life of the project, not a monthly or period view. The Hero Band is required. The secondary dimension is per torre, drawn as Member Columns inside each Project Detail Card.
+
+**Reconfirmed 23 November 2026.** The secondary level stays per torre. The Operativo checklist row still says “por asesor”. That wording stays as written. Torre stays the Member Columns dimension. This spec is the requirement.
 
 **Start date**  
 First month that appears in each project’s Ritmo de Ventas CSV.
 
 **Fecha de cierre (placeholder)**  
-Linear expected trajectory to a date 24 months after each project’s first CSV month. Replace with the real fecha de cierre when provided. Per-torre bands inherit the project’s start and placeholder close for now.
+Linear expected trajectory to a date 24 months after each project’s first CSV month. Replace with the real fecha de cierre when provided. Per-torre Member Columns inherit the project’s start and placeholder close for now.
 
 **Unit totals (live availability)**  
 - Boulevard 5: 298  
@@ -220,29 +229,39 @@ Linear expected trajectory to a date 24 months after each project’s first CSV 
 - Santa Elena: 11  
 
 **What is shown**  
-One band per project.  
-- Left: project name + current cumulative Reservas and cumulative PCV (both numbers visible) + variance versus the expected cumulative as of today.  
-- Right: lifetime cumulative chart from the project’s start month to the placeholder fecha de cierre.  
+The Hero Band, then one Project Band per project, in canonical order.
+
+**Compact Hero**  
+Title: always “Todos los Proyectos”.  
+Cumulative Reservas and cumulative PCV for the current project-pill scope, and the variance versus the expected cumulative as of today. Both numbers are visible. Semantic color only for the variance (deficit/surplus).
+
+**Expanded Hero**  
+Project Summary Columns in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
+Each column is that project’s lifetime pace: cumulative Reservas, cumulative PCV, and the variance versus the expected cumulative as of today. The numbers are always visible on or directly above the column. A project at zero stays visible.
+
+**Project Bands**  
+One Project Band per project.  
+- Project KPI Card (left): project name, current cumulative Reservas, current cumulative PCV, and variance versus the expected cumulative as of today.  
+- Project Detail Card (right): Member Columns by torre. Each column is that torre’s lifetime cumulative chart from the project’s start month to the placeholder fecha de cierre. Per-torre columns inherit the project’s start and placeholder close.  
   - Solid line = cumulative Reservas  
   - Dashed line = cumulative PCV  
   - Thin gray line = expected linear trajectory  
   Both series and the expected line appear on the **same chart** (Option A). Numbers visible on the lines or at key points. Semantic color only for the variance (deficit/surplus).  
+  Torre B of Bosque Las Tapias is shown but flagged as Congelado (F&F only).
 
-Below the project bands: one band per torre (same structure, inheriting start and placeholder close). Torre B of Bosque Las Tapias is shown but flagged as Congelado (F&F only).
-
-**Single-tower rule:** If a project has only one torre, do not draw a separate per-torre band. The project band already represents the complete picture; drawing it twice is redundant. Boulevard 5 has only one torre — its per-torre band is omitted.
+**Single-tower rule:** If a project has only one torre, that torre is the one Member Column inside its Project Detail Card. Do not draw a second Project Band for that torre. Boulevard 5 has only one torre: one Member Column.
 
 **Explicit rules**  
-- Skip the all-projects band.  
-- Skip the per-asesor band; use per-torre instead.  
-- Single-tower rule: if a project has only one torre, omit the per-torre band (Boulevard 5).  
+- The Hero Band is required for all projects in scope. The Compact Hero title is “Todos los Proyectos”.  
+- Member Columns are torres.  
+- Single-tower rule: one Member Column inside the Project Detail Card (Boulevard 5).  
 - Both series (Reservas and PCV) are shown.  
 - Ignore the negative “Ritmo de Ventas” numbers in the CSVs until someone explains them.  
 - Numbers always visible. Tooltips only for provenance.  
 - Zero or fully Congelado torres remain visible.  
 - Placeholder fecha de cierre is clearly labeled as temporary.
 
-This item does not follow the three-level Total → Project → Asesor pattern used by items 1 and 2. It is a lifetime pace view per project and per torre.
+This item uses the canonical three-level pattern. It is a lifetime pace view: Hero Band for all projects, one Project Band per project, Member Columns for the torres.
 
 #### 4.1.3 Precise visual spec — Item 6: Inventario general
 
@@ -298,7 +317,7 @@ One band per project in scope, in canonical project order. Band height stays 156
 - Project Detail Card: one block per torre, in the same alphabetical short-label order as the Expanded Hero. The block heading is that short label. Under it, the five status rows. These bars are not a waterfall and not a stack. Each bar starts at the left of the track. Its length is that count divided by the largest single status count among all torres in all Project Detail Cards on the page. That longest bar fills the track. A card with more torres than the band can show scrolls inside the card. The band does not grow.
 
 **Where this item differs from §3**  
-This section wins for Item 6. The Expanded Hero does not put a number on or above every segment. Its scale is per project. The Project Detail Card holds torre blocks of status rows, not Member Columns, and it may scroll inside the fixed band.
+This section wins for Item 6 on measurement only. The item uses the canonical three-level pattern and the ten official names. The Expanded Hero does not put a number on or above every segment. Its scale is per project. Each Member Column in the Project Detail Card is one torre block of five status rows. The card may scroll inside the fixed band.
 
 **Explicit rules**  
 - A click opens provenance and nothing else: `v_rv_units_full` (`status`, `project_slug`, `tower_name`, `unit_number`), the status counted, the active project pills, and the units in that count. Hover does not open it.  
@@ -655,7 +674,7 @@ This section wins for Item 14. The U | Q toggle is the same kind of control Item
 Tasa de conversión
 
 **Decision**  
-23 November 2026. The locked shape is a horizontal bar funnel. The CEO, the Sales Manager, and the Sales Supervisor follow this band per asesor, every day, often more than once. The asesor filter changes the funnels. The page implements this spec.
+23 November 2026 (later). This item must use the canonical three-level pattern. The funnel stages are the content of the Member Columns inside each Project Detail Card, or a nested visualization inside that card. The CEO, the Sales Manager, and the Sales Supervisor follow this item per asesor, every day, often more than once. The asesor filter changes the Compact Hero, the Project Summary Columns, and the Member Columns.
 
 **Hard rule**  
 These are real images from the current SSOT report (Pipedrive live). Do not read or use “Won” from Pipedrive. Read and use “Reserva”. “Won” is incorrectly configured in Pipedrive, has always been incorrectly configured, and has never been used. The screen never shows “Won”, “Ganado”, or “Tasa de ganados”. `status` is not an input. A stored value of `won` does not add the deal to every stage and does not produce a rate.
@@ -677,12 +696,24 @@ One row of `ventas.embudo_deal` whose `add_on` falls inside the Periodo. `add_on
 Between a stage and the next stage: the next count divided by this count, rounded to the nearest whole percent. When this count is 0, the percent is 0%. Reserva has no percent after it.
 
 **Filters**  
-Project pills apply. Periodo applies. Asesor applies. A selected asesor limits every funnel on this band to that asesor’s deals: the overall funnel and each project funnel. Modelo does not change this item. NINGUNO leaves the overall funnel at eight zeros and draws no project funnel. The page stays up.
+Project pills apply. Periodo applies. Asesor applies. A selected asesor limits the Compact Hero, every Project Summary Column, and every Project Detail Card to that asesor’s deals. Modelo does not change this item. NINGUNO leaves the Compact Hero at eight zeros and draws no Project Bands. The page stays up.
 
 **Structure**  
-One funnel for the current project-pill and asesor scope. Its heading is “Todos los Proyectos”.  
-Below it, one funnel per project in scope, canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena). The heading of each is the project name. With an asesor selected, those funnels count only that asesor’s deals.  
-Each funnel is horizontal. The stages run top to bottom in the order above. Each stage is one bar whose length is its count. The count is on the bar. A count of 0 keeps the stage, draws a bar of length zero, and prints 0. The percent sits between that bar and the next. Each funnel scales to its own largest count.  
+Full canonical three-level pattern. The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. The gap between the Hero Band and the Project Bands is 12px. Each Project Band is 156px. The gap between Project Bands is 8px. The sum stays inside the scroll of Items 1 and 2.
+
+**Compact Hero**  
+Title: always “Todos los Proyectos”.  
+The eight stage counts for the current project-pill and asesor scope, in the locked stage order, and the percent between each stage and the next. The large number is the Reserva count. Every count and every percent is visible. A count of 0 prints 0.
+
+**Expanded Hero**  
+Project Summary Columns in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
+Each column is that project’s Reserva count. The number is always visible on or directly above the column.  
+One shared y-scale for the four columns. A project with a zero count stays visible.
+
+**Project Bands**  
+One band per project in scope, canonical order. With an asesor selected, every band counts only that asesor’s deals.  
+- Project KPI Card (left): project name and that project’s Reserva count.  
+- Project Detail Card (right): Member Columns are the eight funnel stages, in the locked order, left to right. Each column is that stage’s count. The number is on or above the column. The percent sits between that column and the next. A count of 0 keeps the column, draws a length of zero, and prints 0. Each card scales to its own largest count. Columns are squeezed to fit: no wrap, no overflow, no internal scroll. The same eight stages may be drawn as a nested visualization inside the Project Detail Card. That drawing stays inside the card. The Hero Band and the Project Bands stay.  
 One series. No legend.
 
 **Provenance**  
@@ -694,7 +725,73 @@ A click on a count opens the deals in that count and nothing else. A click on a 
 - Headings are the Item Title, “Todos los Proyectos”, the project names, and the stage labels.  
 - No percentage is a stage name. The percent is the mark between two stages.  
 - The final stage is Reserva.  
-- The asesor filter changes the funnels.
+- The asesor filter changes the Compact Hero, the Project Summary Columns, and the Member Columns.
+- The item uses the canonical three-level pattern. Funnel stages are the Member Columns inside each Project Detail Card.
+
+#### 4.1.11 Precise visual spec — Item 4: Ventas por canales
+
+**Item Title**  
+Ventas por canales
+
+**Decision**  
+23 November 2026 (later). This item must use the canonical three-level pattern. Fuente is the Member Columns dimension. The ten official names in §2.1 are required.
+
+**Structure**  
+Full canonical three-level pattern. The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. The gap between the Hero Band and the Project Bands is 12px. Each Project Band is 156px. The gap between Project Bands is 8px. The sum stays inside the scroll of Items 1 and 2.
+
+**Compact Hero**  
+Title: always “Todos los Proyectos”.  
+One large number: ventas for the current scope. The number is visible.
+
+**Expanded Hero**  
+Project Summary Columns in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
+Each column is that project’s ventas. The number is always visible on or directly above the column. A project at zero stays visible.
+
+**Project Bands**  
+One Project Band per project, canonical order.  
+- Project KPI Card (left): project name and that project’s ventas.  
+- Project Detail Card (right): Member Columns by Fuente, sorted descending by the metric. Each column is that fuente’s count. The number is on or above the column. A fuente at zero stays visible. Columns are squeezed to fit: no wrap, no overflow, no internal scroll.
+
+**Explicit rules**  
+- The canonical three-level pattern is mandatory on this item.  
+- Project pills apply. NINGUNO leaves the Compact Hero at zero and draws no project cards. The page stays up.  
+- Numbers always visible on or above every column. Tooltips only for provenance (click).  
+- Projects stay in canonical order.  
+- Zeros stay visible.  
+- No static files as data sources.
+
+#### 4.1.12 Precise visual spec — Item 13: Control Referidos
+
+**Item Title**  
+Control Referidos
+
+**Decision**  
+23 November 2026 (later). This item must use the canonical three-level pattern. The Member Columns dimension is tipo de referido or referidor (nombre de referidor). The ten official names in §2.1 are required. This item is not a filter on the canales chart (Item 4).
+
+**Structure**  
+Full canonical three-level pattern. The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. The gap between the Hero Band and the Project Bands is 12px. Each Project Band is 156px. The gap between Project Bands is 8px. The sum stays inside the scroll of Items 1 and 2.
+
+**Compact Hero**  
+Title: always “Todos los Proyectos”.  
+One large number: the referral count for the current scope. The number is visible.
+
+**Expanded Hero**  
+Project Summary Columns in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
+Each column is that project’s referral count. The number is always visible on or directly above the column. A project at zero stays visible.
+
+**Project Bands**  
+One Project Band per project, canonical order.  
+- Project KPI Card (left): project name and that project’s referral count. Counts by proyecto live here and in the Project Summary Columns.  
+- Project Detail Card (right): Member Columns by tipo de referido, alphabetical. Each column is that tipo and its count, on or above the column. A tipo at zero stays visible. The short list of referidores is the same card: Member Columns by nombre de referidor, each name with its count, sorted descending by the count. Both sets stay inside the Project Detail Card. Columns are squeezed to fit: no wrap, no overflow, no internal scroll.
+
+**Explicit rules**  
+- The canonical three-level pattern is mandatory on this item.  
+- This item is not a filter on Ventas por canales.  
+- Project pills apply. NINGUNO leaves the Compact Hero at zero and draws no project cards. The page stays up.  
+- Numbers always visible on or above every column. Tooltips only for provenance (click).  
+- Projects stay in canonical order.  
+- Zeros stay visible.  
+- No static files as data sources.
 
 #### 4.2.1 Precise visual spec — Item 5: Análisis de inventario: Split de ventas por modelo
 
@@ -880,9 +977,10 @@ Checklist pending. Will follow the same 0-click single-page pattern once receive
 - [ ] Ventas is a single scrollable page; former sub-page content appears as visual bands, not separate URLs.
 - [ ] Ventas items appear in the locked scroll order in §4.1: Operativo checklist 1 through 14, top to bottom. The left rail follows that order.
 - [ ] All 14 Operativo checklist items are visible as charts or high-density visuals without clicking.
+- [ ] All 14 Ventas Operativo items use the canonical three-level pattern and the ten official names in §2.1. No item is excepted.
 - [ ] Every graphical element representing an amount displays its corresponding number.
 - [ ] No on-screen definition statements or forced alternative metrics.
-- [ ] Control Referidos has its own visual treatment (not a canales filter).
+- [ ] Control Referidos uses the canonical three-level pattern. It is its own item and is not a canales filter.
 - [ ] Recharts and/or D3 are used for the primary visualizations.
 - [ ] No conversational-question titles.
 - [ ] Page is not cluttered with explanatory text.
@@ -910,7 +1008,7 @@ Checklist pending. Will follow the same 0-click single-page pattern once receive
 - Keep the freshness stamp and filter-to-content separator.
 - Data for all checklist items is considered available for design purposes (even if not yet fully loaded into the production database).
 - Project identification colors: dark corporate blues; keep current palette for now.
-- Canonical three-level pattern locked (see section 3): Compact Hero → Expanded Hero (Project Summary Columns) → Project Bands (each with Project KPI Card + Project Detail Card containing Member Columns). Projects in fixed canonical order. Asesores descending by value; modelos alphabetical. Fixed-size Project Detail Card for Member Columns (squeeze to fit, no wrap/scroll). Numbers always visible; tooltips only for provenance. NINGUNO pill added to project filters. Remove legacy Total › Proyecto › Asesor breadcrumb.
+- Canonical three-level pattern is mandatory for all 14 Ventas items. No item is excepted (see section 3). The ten official names in §2.1 are required. Pattern: Compact Hero → Expanded Hero (Project Summary Columns) → Project Bands (each with Project KPI Card + Project Detail Card containing Member Columns). Projects in fixed canonical order. Asesores descending by value; modelos alphabetical. Fixed-size Project Detail Card for Member Columns (squeeze to fit, no wrap/scroll). Numbers always visible; tooltips only for provenance. NINGUNO pill added to project filters. Remove legacy Total › Proyecto › Asesor breadcrumb.
 
 ---
 
