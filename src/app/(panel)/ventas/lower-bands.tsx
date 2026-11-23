@@ -8,7 +8,6 @@ import type {
   CasoVista,
   ConversionVista,
   DescuentoVista,
-  DesistenciaVista,
   InventarioVista,
   NamedBar,
   PrecioVista,
@@ -896,54 +895,6 @@ export function ModeloBand({
       <h2 id="vt-modelo-title" className={styles.title}>Split de ventas por modelo y por torre</h2>
       {!vista ? pending : <ModeloSplit vista={vista} />}
     </section>
-  );
-}
-
-export function DesistimientosBands({
-  vista,
-  pending,
-  roster,
-  onProject,
-}: {
-  vista: DesistenciaVista | null;
-  pending: ReactNode;
-  roster: readonly ProjectSlot[];
-  onProject: (id: string, label: string) => void;
-}) {
-  if (!vista) {
-    return (
-      <section className={styles.band} aria-labelledby="vt-desist-title">
-        <h2 id="vt-desist-title" className={styles.title}>Desistimientos</h2>
-        {pending}
-      </section>
-    );
-  }
-  const moneyMode = vista.motivos.some((row) => row.gtq != null) || vista.byProject.some((row) => row.gtq != null);
-  const format = moneyMode ? (value: number) => money(value) : count;
-  const motivos: Mark[] = vista.motivos.map((row) => ({
-    id: row.id,
-    label: row.label,
-    value: moneyMode ? row.gtq ?? 0 : row.units,
-    tone: "red" as const,
-  }));
-  const projects: Mark[] = orderedProjects(roster, vista.byProject).map((item) => ({
-    id: item.id,
-    label: item.label,
-    value: moneyMode ? item.row?.gtq ?? 0 : item.row?.units ?? 0,
-    hue: hueKey(item.label),
-  }));
-  return (
-    <div className={styles.pair}>
-      <section className={styles.band} aria-labelledby="vt-desist-motivo-title">
-        <h2 id="vt-desist-motivo-title" className={styles.title}>Desistimientos por motivo</h2>
-        {/* {vista.notice ? <p className="op-note">{vista.notice}</p> : null} */}
-        {motivos.length === 0 ? emptyNote(null) : <MarkColumns rows={motivos} format={format} axis={moneyMode ? "money" : "count"} />}
-      </section>
-      <section className={styles.band} aria-labelledby="vt-desist-proyecto-title">
-        <h2 id="vt-desist-proyecto-title" className={styles.title}>Desistimientos por proyecto</h2>
-        {projects.length === 0 ? emptyNote(null) : <MarkColumns rows={projects} format={format} axis={moneyMode ? "money" : "count"} onPick={onProject} />}
-      </section>
-    </div>
   );
 }
 

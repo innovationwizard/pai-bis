@@ -27,7 +27,8 @@ import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/
 import { InventarioGeneral } from "./inventario-general";
 import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
 import { StatusLifetime } from "./status-bands";
-import { ControlesGrid, DesistimientosBands, ModeloBand, PromocionesBand, ReferidosBand, TasaBand } from "./lower-bands";
+import { ControlesGrid, ModeloBand, PromocionesBand, ReferidosBand, TasaBand } from "./lower-bands";
+import { Desistimientos } from "./desistimientos";
 import { ValorProyecto } from "./valor-proyecto";
 
 const NAVY = "#0d2041";
@@ -535,11 +536,9 @@ export default function CommandCenter() {
         pending={<StatusLine section="valor-del-proyecto" errors={errors} busy={busy} />}
       />
       <hr className="op-filter-rule vc-band-rule" />
-      <DesistimientosBands
+      <Desistimientos
         vista={vistaOf(vistas, "desistimientos")}
         pending={<StatusLine section="desistimientos" errors={errors} busy={busy} />}
-        roster={roster}
-        onProject={(id, label) => toggleFocus({ kind: "proyecto", id, label })}
       />
       <hr className="op-filter-rule vc-band-rule" />
       <TasaBand

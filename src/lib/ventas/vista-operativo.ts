@@ -1580,50 +1580,156 @@ export async function buildControlVista(section: ControlSection, filters: VistaF
   return buildReferidos(filters, range, dims);
 }
 
+async function loadTowerRoster(): Promise<Map<string, { key: string; label: string }[]>> {
+  const client = createAdminClient();
+  const bySlug = new Map<string, Map<string, string>>();
+  for (let offset = 0; offset < SPLIT_READ; offset += PAGE) {
+    const { data, error } = await client
+      .from("v_rv_units_full")
+      .select("id, project_slug, tower_name")
+      .order("id")
+      .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as unknown as Record<string, unknown>[];
+    for (const row of batch) {
+      const slug = String(row.project_slug ?? "");
+      const name = String(row.tower_name ?? "");
+      if (!slug || missingName(name)) continue;
+      const label = inventoryTowerLabel(name);
+      const key = inventoryTowerKey(name);
+      if (!label || label === "—") continue;
+      const towers = bySlug.get(slug) ?? new Map<string, string>();
+      if (!towers.has(key)) towers.set(key, label);
+      bySlug.set(slug, towers);
+    }
+    if (batch.length < PAGE) break;
+  }
+  const roster = new Map<string, { key: string; label: string }[]>();
+  for (const [slug, towers] of bySlug) {
+    roster.set(slug, [...towers.entries()]
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es")));
+  }
+  return roster;
+}
+
 async function buildDesistencias(client: Db, filters: VistaFilters, range: DateWindow, dims: Dims): Promise<DesistenciaVista> {
-  const losses = await fetchDated(
-    client,
-    "v_sale",
-    "lost_on",
-    "deal_id,unit_id,project_id,tower_id,asesor_id,lost_reason_id,sale_on,lost_on,value_gtq",
-    range.from,
-    range.to,
-    (query) => {
-      let next = scopeProject(query, filters);
-      if (filters.asesorId) next = next.eq("asesor_id", filters.asesorId);
-      if (filters.motivoId) next = next.eq("lost_reason_id", filters.motivoId);
-      return next;
-    },
-  );
-  const rows = losses.rows;
-  const names = await unitNames(client, rows.map((row) => String(row.unit_id)).slice(0, 80));
+  const selected = splitProjects(filters, dims);
   const choices = emptyChoices();
-  choices.motivo = countChoices(rows.map((row) => String(row.lost_reason_id)), dims.reasons);
-  choices.asesor = countChoices(rows.map((row) => String(row.asesor_id)), new Map([...dims.asesores].map(([id, row]) => [id, row.name])));
-  return {
-    ...base(
-      "¿Cuánto se desistió, y qué valor sale del proyecto?",
-      range,
-      "El valor es el del trato. Retención y reembolso no están en la base: no se muestran en cero.",
-      losses.capped ? "La consulta del periodo llegó a 5.000 filas. Afina proyecto o periodo." : rows.length === 0 ? "No hay desistimientos en este periodo." : null,
-      dims,
-      choices,
+  const blank = {
+    ...base("Desistimientos", range, "", null, dims, choices),
+    section: "desistimientos" as const,
+    units: 0,
+    gtq: 0,
+    motivos: [] as DesistenciaVista["motivos"],
+    byProject: [] as DesistenciaVista["byProject"],
+    byAsesor: [] as DesistenciaVista["byAsesor"],
+    traces: [] as DesistenciaVista["traces"],
+    board: { units: 0, gtq: 0, projects: [] as DesistenciaVista["board"]["projects"] },
+  };
+  if (selected.length === 0) return blank;
+
+  const [losses, roster] = await Promise.all([
+    fetchDated(
+      client,
+      "v_desistimiento",
+      "lost_on",
+      "deal_id,unit_id,project_id,tower_id,asesor_id,lost_reason_id,lost_on,value_gtq",
+      range.from,
+      range.to,
+      (query) => scopeProject(query, filters),
     ),
+    loadTowerRoster(),
+  ]);
+  const rows = losses.rows;
+  const names = await unitNames(client, rows.map((row) => String(row.unit_id ?? "")).filter((id) => id));
+  const allowed = new Set(selected.map((project) => project.slug));
+  const projects = selected.map((project) => {
+    const towers = new Map<string, DesistenciaVista["board"]["projects"][number]["towers"][number]>();
+    for (const tower of roster.get(project.slug) ?? []) {
+      towers.set(tower.key, { label: tower.label, units: 0, gtq: 0, cases: [] });
+    }
+    return {
+      id: ventasProjectId(dims, project.slug),
+      slug: project.slug,
+      label: project.label,
+      units: 0,
+      gtq: 0,
+      towers,
+      cases: [] as DesistenciaVista["board"]["projects"][number]["cases"],
+    };
+  });
+  const bySlug = new Map(projects.map((project) => [project.slug, project]));
+  for (const row of rows) {
+    const projectName = dims.projects.find((project) => project.id === String(row.project_id ?? ""))?.name ?? "";
+    const slug = slugForName(projectName);
+    if (!slug || !allowed.has(slug)) continue;
+    const project = bySlug.get(slug);
+    if (!project) continue;
+    const gtq = num(row.value_gtq);
+    const towerName = dims.torres.get(String(row.tower_id ?? "")) ?? "";
+    const named = !missingName(towerName);
+    const torre = named ? inventoryTowerLabel(towerName) : "";
+    const unitId = String(row.unit_id ?? "");
+    const entry = {
+      project: project.label,
+      torre: torre && torre !== "—" ? torre : "sin torre",
+      unit: names.get(unitId) || "sin unidad",
+      lostOn: typeof row.lost_on === "string" ? row.lost_on.slice(0, 10) : "",
+      gtq,
+    };
+    project.units += 1;
+    if (gtq != null) project.gtq += gtq;
+    project.cases.push(entry);
+    if (!named || !torre || torre === "—") continue;
+    const key = inventoryTowerKey(towerName);
+    const tower = towersOf(project).get(key) ?? { label: torre, units: 0, gtq: 0, cases: [] };
+    tower.units += 1;
+    if (gtq != null) tower.gtq += gtq;
+    tower.cases.push(entry);
+    towersOf(project).set(key, tower);
+  }
+  const boardProjects = projects.map((project) => ({
+    id: project.id,
+    slug: project.slug,
+    label: project.label,
+    units: project.units,
+    gtq: project.gtq,
+    towers: [...towersOf(project).values()].sort((a, b) => a.label.localeCompare(b.label, "es")),
+    cases: project.cases,
+  }));
+  const units = boardProjects.reduce((sum, project) => sum + project.units, 0);
+  const gtq = boardProjects.reduce((sum, project) => sum + project.gtq, 0);
+  const notice = losses.capped ? "La consulta del periodo llegó a 5.000 filas. Afina proyecto o periodo." : null;
+  return {
+    ...base("Desistimientos", range, "", notice, dims, choices),
     section: "desistimientos",
-    units: rows.length,
-    gtq: sumGtq(rows),
+    units,
+    gtq,
     motivos: barsFrom(rows, "lost_reason_id", (id) => dims.reasons.get(id) ?? "Sin dato"),
-    byProject: barsFrom(rows, "project_id", (id) => dims.projects.find((project) => project.id === id)?.name ?? "Sin dato"),
+    byProject: boardProjects.map((project) => ({
+      id: project.id,
+      label: project.label,
+      units: project.units,
+      gtq: project.gtq,
+    })),
     byAsesor: barsFrom(rows, "asesor_id", (id) => dims.asesores.get(id)?.name ?? "Sin dato"),
     traces: rows.slice(0, 80).map((row) => ({
-      unit: names.get(String(row.unit_id)) ?? String(row.unit_id),
+      unit: names.get(String(row.unit_id ?? "")) ?? String(row.unit_id ?? ""),
       project: dims.projects.find((project) => project.id === String(row.project_id))?.name ?? "Sin dato",
       asesor: dims.asesores.get(String(row.asesor_id))?.name ?? "Sin dato",
       motivo: dims.reasons.get(String(row.lost_reason_id)) ?? "Sin dato",
       lostOn: String(row.lost_on).slice(0, 10),
       gtq: num(row.value_gtq),
     })),
+    board: { units, gtq, projects: boardProjects },
   };
+}
+
+function towersOf(project: {
+  towers: Map<string, DesistenciaVista["board"]["projects"][number]["towers"][number]>;
+}): Map<string, DesistenciaVista["board"]["projects"][number]["towers"][number]> {
+  return project.towers;
 }
 
 async function periodSales(client: Db, filters: VistaFilters, range: DateWindow, columns: string) {

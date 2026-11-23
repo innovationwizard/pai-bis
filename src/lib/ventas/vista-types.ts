@@ -494,6 +494,37 @@ export type ConversionVista = VistaBase & {
 
 export type NamedBar = { id: string; label: string; units: number; gtq: number | null };
 
+export type DesistenciaCase = {
+  project: string;
+  torre: string;
+  unit: string;
+  lostOn: string;
+  gtq: number | null;
+};
+
+export type DesistenciaTower = {
+  label: string;
+  units: number;
+  gtq: number;
+  cases: DesistenciaCase[];
+};
+
+export type DesistenciaProject = {
+  id: string;
+  slug: string;
+  label: string;
+  units: number;
+  gtq: number;
+  towers: DesistenciaTower[];
+  cases: DesistenciaCase[];
+};
+
+export type DesistenciaBoard = {
+  units: number;
+  gtq: number;
+  projects: DesistenciaProject[];
+};
+
 export type DesistenciaVista = VistaBase & {
   section: "desistimientos";
   units: number;
@@ -502,6 +533,7 @@ export type DesistenciaVista = VistaBase & {
   byProject: NamedBar[];
   byAsesor: NamedBar[];
   traces: { unit: string; project: string; asesor: string; motivo: string; lostOn: string; gtq: number | null }[];
+  board: DesistenciaBoard;
 };
 
 export type DescuentoVista = VistaBase & {

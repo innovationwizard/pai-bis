@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import type { CasoVista, DescuentoVista, DesistenciaVista, PrecioVista, PromoVista, VentasVista } from "@/lib/ventas/vista-types";
 import { isDisplayProject } from "@/lib/projects";
+import { Desistimientos } from "./desistimientos";
 
 const moneyGtq = new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ", maximumFractionDigits: 0 });
 const moneyUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -65,34 +66,7 @@ function Kpi({ label, value, detail }: { label: string; value: string; detail: s
 }
 
 function Desistencias({ vista }: { vista: DesistenciaVista }) {
-  const [title, setTitle] = useState<string | null>(null);
-  const byProject = vista.byProject.filter((row) => isDisplayProject(row.label));
-  const rows = (title ? vista.traces.filter((row) => row.motivo === title || row.project === title) : vista.traces)
-    .filter((row) => isDisplayProject(row.project));
-  return (
-    <>
-      <div className="op-kpis op-kpis-3">
-        <Kpi label="Desistidas" value={count(vista.units)} detail="en el periodo" />
-        <Kpi label="Valor" value={money(vista.gtq)} detail="valor del trato" />
-        <Kpi label="Motivos" value={count(vista.motivos.length)} detail="en esta vista" />
-      </div>
-      <section className="op-hero op-hero-budget" aria-label="Desistimientos por motivo">
-        <header className="op-head"><div><h2>Por motivo</h2><p className="op-note">{vista.caption}</p></div></header>
-        <Bars rows={vista.motivos} onPick={(row) => setTitle(row.label)} />
-      </section>
-      <section className="op-hero" aria-label="Desistimientos por proyecto" style={{ flex: 1 }}>
-        <header className="op-head"><div><h2>Valor por proyecto</h2></div></header>
-        <Bars rows={byProject} valueKey="gtq" format={money} onPick={(row) => setTitle(row.label)} />
-      </section>
-      {title ? (
-        <Overlay title={title} onClose={() => setTitle(null)}>
-          <h3 style={{ margin: 0, color: "#0d2041", fontSize: 14 }}>Por asesor</h3>
-          <Bars rows={vista.byAsesor} />
-          <TraceTable rows={rows} columns={["Unidad", "Proyecto", "Asesor", "Motivo", "Baja", "Quetzales"]} cells={(row) => [row.unit, row.project, row.asesor, row.motivo, row.lostOn, money(row.gtq)]} />
-        </Overlay>
-      ) : null}
-    </>
-  );
+  return <Desistimientos vista={vista} pending={null} />;
 }
 
 function Descuentos({ vista }: { vista: DescuentoVista }) {
