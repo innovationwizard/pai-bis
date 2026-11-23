@@ -3,11 +3,17 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { EmbudoDeal, EmbudoFunnel } from "@/lib/ventas/embudo";
 import type { ConversionVista } from "@/lib/ventas/vista-types";
-import band from "./landing-blocks.module.css";
 import styles from "./tasa.module.css";
 
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 const percentFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
+
+const PROJECT_INK: Record<string, string> = {
+  "boulevard-5": "#3d6f8f",
+  benestare: "#0d2041",
+  "bosque-las-tapias": "#0573b0",
+  "santa-elena": "#1a4a68",
+};
 
 function count(value: number): string {
   return countFormat.format(value);
@@ -33,60 +39,68 @@ function reached(deals: readonly EmbudoDeal[], position: number): EmbudoDeal[] {
     .sort((a, b) => b.stageOrder - a.stageOrder || a.addOn.localeCompare(b.addOn) || a.id.localeCompare(b.id, "es", { numeric: true }));
 }
 
-function reservaCount(funnel: EmbudoFunnel): number {
-  return funnel.bars.find((bar) => bar.label === "Reserva")?.count ?? 0;
-}
-
-function StageColumns({
+function FunnelChart({
   funnel,
-  peak,
+  ink,
   openKey,
   onCount,
   onRate,
 }: {
   funnel: EmbudoFunnel;
-  peak: number;
+  ink: string;
   openKey: string | null;
   onCount: (key: string, deals: readonly EmbudoDeal[]) => void;
   onRate: (key: string, deals: readonly EmbudoDeal[]) => void;
 }) {
+  const peak = funnel.bars.reduce((max, bar) => Math.max(max, bar.count), 0);
   return (
-    <div className={styles.cols} role="group" aria-label={funnel.label} style={{ gridTemplateColumns: `repeat(${Math.max(funnel.bars.length, 1)}, minmax(0, 1fr))` }}>
+    <article className={styles.funnel} aria-label={funnel.label}>
+      <h3 className={styles.name}>{funnel.label}</h3>
       {funnel.bars.map((bar, index) => {
-        const height = peak > 0 ? (bar.count / peak) * 100 : 0;
+        const width = peak > 0 ? (bar.count / peak) * 100 : 0;
+        const inside = bar.count > 0 && width >= 12;
         const countKey = `${funnel.slug}:${index}`;
         const rateKey = `${funnel.slug}:rate:${index}`;
-        const next = funnel.bars[index + 1]?.label ?? "";
         return (
-          <div key={bar.label} className={styles.col}>
-            <button
-              type="button"
-              className={styles.num}
-              aria-pressed={openKey === countKey}
-              aria-label={`${funnel.label}. ${bar.label}: ${count(bar.count)}`}
-              onClick={() => onCount(countKey, reached(funnel.deals, index + 1))}
-            >
-              {count(bar.count)}
-            </button>
+          <div key={bar.label}>
+            <div className={styles.stage}>
+              <span className={styles.label}>{bar.label}</span>
+              <span className={styles.track}>
+                <span
+                  className={styles.fill}
+                  style={{ width: `${width}%`, background: bar.count > 0 ? ink : "transparent" }}
+                />
+                <button
+                  type="button"
+                  className={styles.count}
+                  aria-pressed={openKey === countKey}
+                  aria-label={`${funnel.label}. ${bar.label}: ${count(bar.count)}`}
+                  style={{
+                    left: inside ? `calc(${width}% - 8px)` : `calc(${width}% + 6px)`,
+                    transform: inside ? "translateX(-100%)" : "none",
+                    color: inside ? "#fff" : ink,
+                  }}
+                  onClick={() => onCount(countKey, reached(funnel.deals, index + 1))}
+                >
+                  {count(bar.count)}
+                </button>
+              </span>
+            </div>
             {bar.hasNext ? (
               <button
                 type="button"
                 className={styles.rate}
                 aria-pressed={openKey === rateKey}
-                aria-label={`${bar.label} a ${next}: ${percent(bar.nextRate ?? 0)}`}
+                aria-label={`${bar.label} a ${funnel.bars[index + 1]?.label ?? ""}: ${percent(bar.nextRate ?? 0)}`}
                 onClick={() => onRate(rateKey, reached(funnel.deals, index + 2))}
               >
                 {percent(bar.nextRate ?? 0)}
               </button>
             ) : null}
-            <span className={styles.plot} aria-hidden="true">
-              <span className={styles.fill} style={{ height: `${height}%` }} />
-            </span>
-            <span className={styles.colName}>{bar.label}</span>
           </div>
         );
       })}
-    </div>
+    </article>
   );
 }
 
@@ -117,68 +131,25 @@ export function TasaBand({
     <section id="tasa-de-conversion" className={styles.block} aria-labelledby="vt-tasa-title">
       <h2 id="vt-tasa-title" className={styles.title}>Tasa de conversión</h2>
       {vista == null ? pending : (
-        <div className={band.fold}>
-          <div className={`${band.top} ${band.overview}`}>
-            <div className={band.rail}>
-              <button
-                type="button"
-                className={band.kpi}
-                aria-label={`Todos los Proyectos: ${count(reservaCount(vista.all))} reservas`}
-                onClick={() => show("todos:reserva", reached(vista.all.deals, 8))}
-              >
-                <span className={band.kpiName}>Todos los Proyectos</span>
-                <span className={styles.figure}>{count(reservaCount(vista.all))}</span>
-              </button>
-            </div>
-            <div className={band.hero}>
-              <div className={styles.cols} role="group" aria-label="Proyectos" style={{ gridTemplateColumns: `repeat(${Math.max(vista.funnels.length, 1)}, minmax(0, 1fr))` }}>
-                {vista.funnels.map((funnel) => {
-                  const reservas = reservaCount(funnel);
-                  const peak = Math.max(1, ...vista.funnels.map((row) => reservaCount(row)));
-                  return (
-                    <div key={funnel.slug} className={styles.col}>
-                      <button
-                        type="button"
-                        className={styles.num}
-                        aria-label={`${funnel.label}: ${count(reservas)} reservas`}
-                        onClick={() => show(`${funnel.slug}:reserva`, reached(funnel.deals, 8))}
-                      >
-                        {count(reservas)}
-                      </button>
-                      <span className={styles.plot} aria-hidden="true">
-                        <span className={styles.fill} style={{ height: `${(reservas / peak) * 100}%` }} />
-                      </span>
-                      <span className={styles.colName}>{funnel.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          {vista.funnels.length > 0 ? (
-            <div className={band.projects}>
-              {vista.funnels.map((funnel) => (
-                <div key={funnel.slug} className={band.top}>
-                  <div className={band.rail}>
-                    <div className={band.kpi} aria-label={`${funnel.label}: ${count(reservaCount(funnel))} reservas`}>
-                      <span className={band.kpiName}>{funnel.label}</span>
-                      <span className={styles.figure}>{count(reservaCount(funnel))}</span>
-                    </div>
-                  </div>
-                  <div className={band.hero}>
-                    <StageColumns
-                      funnel={funnel}
-                      peak={Math.max(1, ...funnel.bars.map((bar) => bar.count))}
-                      openKey={proof?.key ?? null}
-                      onCount={show}
-                      onRate={show}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
+        <>
+          <FunnelChart
+            funnel={vista.all}
+            ink="#0d2041"
+            openKey={proof?.key ?? null}
+            onCount={show}
+            onRate={show}
+          />
+          {vista.funnels.map((funnel) => (
+            <FunnelChart
+              key={funnel.slug}
+              funnel={funnel}
+              ink={PROJECT_INK[funnel.slug] ?? "#0d2041"}
+              openKey={proof?.key ?? null}
+              onCount={show}
+              onRate={show}
+            />
+          ))}
+        </>
       )}
       {proof ? (
         <div className={styles.proof} role="dialog" aria-label="Tratos">

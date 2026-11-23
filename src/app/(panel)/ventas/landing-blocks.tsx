@@ -12,7 +12,7 @@
  * data-level="asesor" → Member Columns
  */
 
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { compareProjectLabels, isDisplayProject, projectKey } from "@/lib/projects";
 import type { CanalesVista, FunnelStage, ObjetivosVista, TotalesVista } from "@/lib/ventas/vista-types";
 import styles from "./landing-blocks.module.css";
@@ -162,10 +162,6 @@ function singleProject(
   return { project: row.label, projectUnits: row.units };
 }
 
-function squeeze(count: number): { gridTemplateColumns: string } {
-  return { gridTemplateColumns: `repeat(${Math.max(count, 1)}, minmax(0, 1fr))` };
-}
-
 function Columns({
   columns,
   peak,
@@ -289,12 +285,28 @@ function projectPrior(stage: FunnelStage | null, projectId: string, comparable: 
 }
 
 export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivosError }: Props) {
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [advisorName, setAdvisorName] = useState<string | null>(null);
   const stage = reservaStage(totales);
   const projects = chartProjects(objetivos);
   const total = objetivos ? objetivos.units : stage ? stage.count : null;
   const prior = stage?.priorCount ?? null;
   const priorAligned = prior != null && total != null && (objetivos == null ? stage != null : stage?.count === objetivos.units);
   const notReps = new Set((objetivos?.nonSalesReps ?? []).map((name) => name.trim()));
+  const selected = projects.find((project) => project.id === projectId) ?? null;
+  const drilled = selected ? advisorsInProject(selected.label, selected.units, stage, notReps) : null;
+  const advisorRows = drilled?.ok ? drilled.rows : null;
+  const advisorShown = advisorName && advisorRows?.some((row) => row.name === advisorName) ? advisorName : null;
+
+  function zoomOut() {
+    setProjectId(null);
+    setAdvisorName(null);
+  }
+
+  function zoomProject(id: string) {
+    setProjectId(id);
+    setAdvisorName(null);
+  }
 
   if (total == null) {
     const waiting = (!totales && !totalesError) || (!objetivos && !objetivosError);
@@ -316,7 +328,9 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
         ? <span className={styles.warn}>{totalesError}</span>
         : <Unplugged source={TOTAL_PRIOR} />;
   const cap = objetivos?.notice?.includes("5.000") ? objetivos.notice : null;
-  const peak = Math.max(1, ...projects.map((project) => project.units));
+  const peak = advisorRows
+    ? Math.max(1, ...advisorRows.map((row) => row.reservas))
+    : Math.max(1, ...projects.map((project) => project.units));
   const versus = totales?.priorLabel === "vs mes anterior" ? "frente al mes anterior" : "frente al periodo anterior";
   const totalWord = reservaWord(total);
   const totalLabel = priorAligned && prior != null
@@ -341,19 +355,20 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
             priorTitle={totales?.priorLabel === "vs mes anterior" ? "Mes anterior" : "Periodo anterior"}
             status={status}
             label={totalLabel}
+            onClick={zoomOut}
           />
         </div>
 
         <div className={styles.hero}>
           <h2 id="vt-bar-title" className={styles.srOnly}>
-            Reservas por proyecto
+            Barras por proyecto. Al elegir un proyecto, sus asesores.
           </h2>
           <div className={styles.heroChart}>
             {!objetivos && !objetivosError ? <p className={styles.caption}>Cargando…</p> : null}
             {!objetivos && objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
             {objetivos && projects.length === 0 ? <p className={styles.caption}>Sin proyectos en este periodo.</p> : null}
-            {objetivos && projects.length > 0 ? (
-              <div className={styles.vbars} role="group" aria-labelledby="vt-bar-title" aria-label="Proyectos" style={squeeze(projects.length)}>
+            {objetivos && projects.length > 0 && !selected ? (
+              <div className={styles.vbars} role="group" aria-labelledby="vt-bar-title" aria-label="Proyectos">
                 <Columns
                   peak={peak}
                   columns={projects.map((project) => ({
@@ -361,7 +376,29 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
                     name: project.label,
                     reservas: project.units,
                     hue: hueKey(project.label),
+                    pressed: false,
                     label: `${project.label}: ${whole(project.units)} reservas, ${shareText(project.units, total)} del total.`,
+                    onClick: () => zoomProject(project.id),
+                  }))}
+                />
+              </div>
+            ) : null}
+            {selected && !totales && !totalesError ? <p className={styles.caption}>Cargando…</p> : null}
+            {selected && !totales && totalesError ? <p className={styles.warn}>{totalesError}</p> : null}
+            {selected && totales && advisorRows == null ? <Unplugged source={ADVISOR_SPLIT} /> : null}
+            {selected && advisorRows && advisorRows.length === 0 ? <p className={styles.caption}>Sin asesores en este periodo.</p> : null}
+            {selected && advisorRows && advisorRows.length > 0 ? (
+              <div className={styles.vbars} role="group" aria-label={`Asesores de ${selected.label}`}>
+                <Columns
+                  peak={peak}
+                  columns={advisorRows.map((row) => ({
+                    key: `${selected.id}:${row.name}`,
+                    name: row.name,
+                    reservas: row.reservas,
+                    hue: hueKey(selected.label),
+                    pressed: advisorShown === row.name,
+                    label: `${selected.label} · ${row.name}: ${whole(row.reservas)} reservas, ${shareText(row.reservas, total)} del total, ${shareText(row.reservas, selected.units)} de ${selected.label}.`,
+                    onClick: () => setAdvisorName(row.name),
                   }))}
                 />
               </div>
@@ -763,6 +800,64 @@ export function ObjetivosBlock({
   );
 }
 
+function sinDatoLabel(label: string): boolean {
+  const key = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return key === "sin dato";
+}
+
+function channelRows(vista: CanalesVista): { id: string; label: string; units: number }[] {
+  return vista.byFuente
+    .filter((row) => row.reservas > 0 && !sinDatoLabel(row.label) && !row.label.includes(","))
+    .map((row) => ({ id: row.id, label: row.label, units: row.reservas }))
+    .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es"));
+}
+
+function ChannelPlot({
+  rows,
+  onFuente,
+}: {
+  rows: readonly { id: string; label: string; units: number }[];
+  onFuente?: (id: string, label: string) => void;
+}) {
+  const peak = rows.reduce((max, row) => Math.max(max, row.units), 0);
+  const scale = peak <= 0 ? 1 : peak;
+  const marks = gridMarks(scale);
+  return (
+    <div className={styles.channelFrame}>
+      <GoalScale marks={marks} scale={scale} span={rows.length} />
+      {rows.map((row, index) => {
+        const pct = fieldPct(row.units, scale);
+        const name = onFuente && row.id !== "otras" ? (
+          <button type="button" className={styles.goalName} onClick={() => onFuente(row.id, row.label)}>
+            {row.label}
+          </button>
+        ) : (
+          <span className={styles.goalName}>{row.label}</span>
+        );
+        return (
+          <div key={row.id} className={styles.channelRow} style={{ gridRow: index + 1 }}>
+            {name}
+            <div className={styles.channelPlot}>
+              <div className={styles.channelField}>
+                <span className={styles.channelStem} style={{ width: `${pct}%` }} aria-hidden="true" />
+                <span className={styles.channelDot} style={{ left: `${pct}%` }} aria-hidden="true" />
+                <span className={styles.channelCount} style={{ left: `calc(${pct}% + 10px)` }}>
+                  {whole(row.units)}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CanalesBlock({
   vista,
   error,
@@ -772,76 +867,15 @@ export function CanalesBlock({
   error: string | null;
   onFuente?: (id: string, label: string) => void;
 }) {
-  const board = vista?.fuenteBoard ?? [];
-  const total = board.reduce((sum, project) => sum + project.reservas, 0);
-  const peak = Math.max(1, ...board.map((project) => project.reservas));
-  const memberPeak = Math.max(1, ...board.flatMap((project) => project.fuentes.map((fuente) => fuente.reservas)));
+  const rows = vista ? channelRows(vista) : [];
   return (
-    <section className={styles.block} id="ventas-por-canales" aria-labelledby="vt-canales-title">
-      <h2 id="vt-canales-title" className={styles.srOnly}>Ventas por canales</h2>
+    <section className={`${styles.block} ${styles.panel} ${styles.channelWip}`} aria-labelledby="vt-canales-title">
+      <div className={styles.bandHead}>
+        <h2 id="vt-canales-title" className={styles.panelTitle}>Ventas por canales</h2>
+      </div>
       {!vista && error ? <p className={styles.warn}>{error}</p> : null}
       {!vista && !error ? <p className={styles.caption}>Cargando…</p> : null}
-      {vista ? (
-        <div className={styles.fold}>
-          <div className={`${styles.top} ${styles.overview}`}>
-            <div className={styles.rail}>
-              <div className={styles.kpi} aria-label={`Todos los Proyectos: ${whole(total)} reservas`}>
-                <span className={styles.kpiName}>Todos los Proyectos</span>
-                <span className={styles.kpiValue}>{whole(total)}<span className={styles.kpiUnit}>{reservaWord(total)}</span></span>
-              </div>
-            </div>
-            <div className={styles.hero}>
-              <div className={styles.heroChart}>
-                {board.length > 0 ? (
-                  <div className={styles.vbars} role="group" aria-label="Proyectos" style={squeeze(board.length)}>
-                    <Columns
-                      peak={peak}
-                      columns={board.map((project) => ({
-                        key: project.id,
-                        name: project.label,
-                        reservas: project.reservas,
-                        hue: hueKey(project.label),
-                        label: `${project.label}: ${whole(project.reservas)} reservas.`,
-                      }))}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          {board.length > 0 ? (
-            <div className={styles.projects}>
-              {board.map((project) => (
-                <div key={project.id} className={styles.top}>
-                  <div className={styles.rail}>
-                    <div className={styles.kpi} aria-label={`${project.label}: ${whole(project.reservas)} reservas`}>
-                      <span className={styles.kpiName}>{project.label}</span>
-                      <span className={styles.kpiValue}>{whole(project.reservas)}<span className={styles.kpiUnit}>{reservaWord(project.reservas)}</span></span>
-                    </div>
-                  </div>
-                  <div className={styles.hero}>
-                    <div className={styles.heroChart}>
-                      <div className={styles.vbars} role="group" aria-label={`Fuentes de ${project.label}`} style={squeeze(project.fuentes.length)}>
-                        <Columns
-                          peak={memberPeak}
-                          columns={project.fuentes.map((fuente) => ({
-                            key: `${project.id}:${fuente.id}`,
-                            name: fuente.label,
-                            reservas: fuente.reservas,
-                            hue: hueKey(project.label),
-                            label: `${project.label} · ${fuente.label}: ${whole(fuente.reservas)} reservas.`,
-                            onClick: onFuente && fuente.id !== "otras" ? () => onFuente(fuente.id, fuente.label) : undefined,
-                          }))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      {rows.length > 0 ? <ChannelPlot rows={rows} onFuente={onFuente} /> : null}
     </section>
   );
 }

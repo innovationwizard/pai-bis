@@ -1,4 +1,3 @@
-import { compareProjectLabels, isDisplayProject } from "@/lib/projects";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { eachDay, mergeWindows, round1, sumNullable } from "./pace";
 import {
@@ -995,52 +994,6 @@ function fuenteChannel(name: string): string | null {
   return segment;
 }
 
-function fuenteBoardOf(reservas: Reserva[], dims: Dims, projectIds: string[] | null): CanalesVista["fuenteBoard"] {
-  const byProject = new Map<string, Map<string, { id: string; reservas: number }>>();
-  const fuenteOrder: { id: string; label: string }[] = [];
-  const seenFuente = new Set<string>();
-  for (const row of reservas) {
-    if (!row.fuenteId || !row.projectId) continue;
-    const named = dims.fuentes.get(row.fuenteId);
-    if (!named || named.sin) continue;
-    const label = fuenteChannel(named.name);
-    if (!label) continue;
-    const exact = named.name === label;
-    if (!seenFuente.has(label)) {
-      seenFuente.add(label);
-      fuenteOrder.push({ id: exact ? row.fuenteId : label, label });
-    }
-    const bucket = byProject.get(row.projectId) ?? new Map<string, { id: string; reservas: number }>();
-    const current = bucket.get(label);
-    if (!current) bucket.set(label, { id: exact ? row.fuenteId : label, reservas: 1 });
-    else {
-      current.reservas += 1;
-      if (exact) current.id = row.fuenteId;
-    }
-    byProject.set(row.projectId, bucket);
-  }
-  const allowed = projectIds === null ? null : new Set(projectIds);
-  return dims.projects
-    .filter((project) => !project.sin && isDisplayProject(project.name) && (allowed === null || allowed.has(project.id)))
-    .sort((a, b) => compareProjectLabels(a.name, b.name))
-    .map((project) => {
-      const bucket = byProject.get(project.id) ?? new Map<string, { id: string; reservas: number }>();
-      const fuentes = fuenteOrder
-        .map((fuente) => ({
-          id: bucket.get(fuente.label)?.id ?? fuente.id,
-          label: fuente.label,
-          reservas: bucket.get(fuente.label)?.reservas ?? 0,
-        }))
-        .sort((a, b) => b.reservas - a.reservas || a.label.localeCompare(b.label, "es"));
-      return {
-        id: project.id,
-        label: project.name,
-        reservas: fuentes.reduce((sum, fuente) => sum + fuente.reservas, 0),
-        fuentes,
-      };
-    });
-}
-
 function reservasByFuente(reservas: Reserva[], dims: Dims): CanalesVista["byFuente"] {
   const counts = new Map<string, { id: string; reservas: number }>();
   for (const row of reservas) {
@@ -1130,7 +1083,6 @@ function buildCanales(
     leaderShare: channels[0]?.id === "otras" ? null : channels[0]?.share ?? null,
     channels,
     byFuente: reservasByFuente(reservas, dims),
-    fuenteBoard: fuenteBoardOf(reservas, dims, filters.projectIds),
     months: months.map(shortMonth),
     series,
   };

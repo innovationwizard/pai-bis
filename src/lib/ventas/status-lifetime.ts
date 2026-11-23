@@ -467,6 +467,7 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
 
   const byTower: StatusBand[] = [];
   for (const project of selected) {
+    if (project.key === projectKey("SANTA ELENA") || project.key === projectKey("BOULEVARD 5")) continue;
     const start = earliestMonth(reservaDays.get(project.project.id), pcvDays.get(project.project.id));
     const close = start ? addMonths(start, 24) : "";
     const towersOfProject = inventory.towers.get(project.key);

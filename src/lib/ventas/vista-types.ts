@@ -299,12 +299,6 @@ export type CanalesVista = VistaBase & {
   leaderShare: number | null;
   channels: { id: string; label: string; units: number; gtq: number | null; share: number }[];
   byFuente: { id: string; label: string; reservas: number }[];
-  fuenteBoard: {
-    id: string;
-    label: string;
-    reservas: number;
-    fuentes: { id: string; label: string; reservas: number }[];
-  }[];
   months: string[];
   series: { id: string; label: string; units: number[] }[];
 };
@@ -727,12 +721,6 @@ export type ReferidosVista = VistaBase & {
   byTipo: NamedBar[];
   nombres: string[];
   nombresTotal: number | null;
-  board: {
-    id: string;
-    label: string;
-    units: number;
-    tipos: { id: string; label: string; units: number }[];
-  }[];
 };
 
 export type VentasVista =
