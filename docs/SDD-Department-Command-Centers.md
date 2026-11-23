@@ -334,7 +334,7 @@ Full canonical three-level pattern. The Hero Band uses Item 1’s height: `18dvh
 **Compact Hero**  
 Title: always “Todos los Proyectos”.  
 One large number: the quetzal list-price sum for the current project-pill scope.  
-Under it, in the same place as Item 2’s variance: the discount amount in quetzales, and the percent when the list-price sum is above zero. Semantic color only on the discount. Above zero uses the deficit color. Zero uses the muted color.  
+Under it: the discount amount in quetzales, and the percent when the list-price sum is above zero. That pill is centered on the horizontal axis of the card. The project name stays at the start of the card. Semantic color only on the discount. Above zero uses the deficit color. Zero uses the muted color.  
 No second title. Both numbers are visible.
 
 **Expanded Hero**  
@@ -349,7 +349,7 @@ This drawer is the only deviation from §3. The trajectory is not on the page un
 
 **Project Bands**  
 One band per project in scope, canonical order.  
-- Project KPI Card (left): project name, that project’s quetzal list-price sum, and its discount under the sum, with the same color rule as the Compact Hero.  
+- Project KPI Card (left): project name, that project’s quetzal list-price sum, and its discount under the sum. The discount pill is centered on the horizontal axis of the card, the same way as the Compact Hero. The color rule matches the Compact Hero.  
 - Project Detail Card (right): fixed-size card of Member Columns by torre. Torres are alphabetical by the Odoo short label (“TA”, “Principal”, and the same labels Item 6 uses). Each column is that torre’s quetzal list-price sum, number on or above the column. One shared y-scale across every Project Detail Card. A torre with a zero sum stays visible. Columns are squeezed to fit: no wrap, no overflow, no internal scroll.
 
 **Where this item differs from §3**  
@@ -360,7 +360,7 @@ This section wins for Item 7. The trajectory is a right-side drawer opened by a 
 - A click on a number opens provenance and nothing else: the units in that sum, each with project, torre, unit number, amount, and currency. Hover does not open it. The Expanded Hero project column is the exception: that click opens the trajectory drawer and does not open provenance.  
 - Projects stay in canonical order. Torres stay alphabetical by short label.  
 - Zeros stay visible.  
-- The list-price sum is the primary label. The discount percent is only the annotation under the discount amount.  
+- The list-price sum is the primary label. The discount percent is only the annotation inside the discount pill. On the Compact Hero and on every Project KPI Card, that pill is horizontally centered.  
 - Headings are the Item Title, “Todos los Proyectos”, the project names, the torre labels, and, inside the drawer, the project name and “Cerrar”.  
 - No period, asesor, or modelo filter on the snapshot.  
 - The default view is the hierarchical snapshot. The drawer is one click away and one click to close.

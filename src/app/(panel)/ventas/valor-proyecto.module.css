@@ -33,6 +33,10 @@
   font-size: clamp(18px, 1.6vw, 32px);
 }
 
+.pill {
+  align-self: center;
+}
+
 .hit {
   align-items: stretch;
   margin: 0;

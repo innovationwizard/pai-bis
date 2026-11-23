@@ -137,7 +137,7 @@ function ValueCard({
       </button>
       <button
         type="button"
-        className={discount > 0 ? band.down : band.flat}
+        className={`${local.pill} ${discount > 0 ? band.down : band.flat}`}
         onClick={onDiscount}
       >
         {discountText(discount, list)}
