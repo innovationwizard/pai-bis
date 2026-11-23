@@ -634,6 +634,35 @@ export type PrecioVista = VistaBase & {
   board: SubidaBoard;
 };
 
+export type CasoMark = {
+  project: string;
+  torre: string;
+  unit: string;
+  saleOn: string;
+  reason: string;
+  gtq: number | null;
+};
+
+export type CasoTower = {
+  label: string;
+  units: number;
+  marks: CasoMark[];
+};
+
+export type CasoProject = {
+  id: string;
+  slug: string;
+  label: string;
+  units: number;
+  towers: CasoTower[];
+  marks: CasoMark[];
+};
+
+export type CasoBoard = {
+  units: number;
+  projects: CasoProject[];
+};
+
 export type CasoVista = VistaBase & {
   section: "ff-y-casos-especiales";
   marked: number | null;
@@ -644,6 +673,7 @@ export type CasoVista = VistaBase & {
   tipos: NamedBar[];
   byProject: { id: string; label: string; marked: number; sales: number; share: number | null }[];
   traces: { unit: string; project: string; asesor: string; tipo: string; gtq: number | null }[];
+  board: CasoBoard;
 };
 
 export type PromoVista = VistaBase & {

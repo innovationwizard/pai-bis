@@ -6,7 +6,7 @@
 **Goal:** Each department is a single, vertically scrollable command center of high-density Recharts and D3 visualizations that cover every required Operativo checklist item with 0 clicks.  
 **Date:** 10 November 2026  
 **Ventas scroll order locked:** 21 November 2026. Operativo items 1 through 14, top to bottom. See §4.1.  
-**23 November 2026:** Item 3 stays per torre. Item 7 follows §4.1.4. Item 8 follows §4.1.5. Item 10 follows §4.1.6. Item 11 follows §4.1.7. Items 12 and 14 stay on the three-level commitment and still wait for a precise spec. The Ventas project pills include NINGUNO.
+**23 November 2026:** Item 3 stays per torre. Item 7 follows §4.1.4. Item 8 follows §4.1.5. Item 10 follows §4.1.6. Item 11 follows §4.1.7. Item 12 follows §4.1.8. Item 14 stays on the three-level commitment and still waits for a precise spec. The Ventas project pills include NINGUNO.
 
 ---
 
@@ -121,7 +121,7 @@ Every checklist item answers three successive questions with graphics, on a sing
 - The legacy “Total › Proyecto › Asesor” breadcrumb/label is dead weight and must be removed.
 - Project filter pills sit above the content: TODOS + the four projects in canonical order + a NINGUNO pill on the right. Selecting NINGUNO deselects all projects. NINGUNO is pressed whenever the selection is empty, including after the last project pill is turned off. A project with a zero metric stays on screen only while that project is selected. With NINGUNO, project cards are not drawn, and any hero that remains shows zero. The page must remain stable and not crash or go blank. Default state is TODOS (full three-level view, 0-click). TODOS is the only all-projects state. This row is live on the Ventas command center as of 23 November 2026. Another department page that uses the same pills gets NINGUNO when that page is the work in front of us.
 
-This pattern is the canon for an item once its precise spec says so. Items 1, 2, 5, 6, 7, 8, 10, and 11 are specified on it. Item 7 adds the trajectory drawer in §4.1.4. Item 8 adds the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 adds that same toggle and a case-list drawer in §4.1.6. Item 11 adds that same toggle in §4.1.7, with no drawer. Item 3 is the locked exception in §4.1.2. Items 4, 9, and 13 keep the shapes named in the §4.1 table. Items 12 and 14 were committed to this pattern on 23 November 2026 and still wait for a precise spec before the page changes. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
+This pattern is the canon for an item once its precise spec says so. Items 1, 2, 5, 6, 7, 8, 10, 11, and 12 are specified on it. Item 7 adds the trajectory drawer in §4.1.4. Item 8 adds the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 adds that same toggle and a case-list drawer in §4.1.6. Item 11 adds that same toggle in §4.1.7, with no drawer. Item 12 adds a case-list drawer in §4.1.8, with no toggle. Item 3 is the locked exception in §4.1.2. Items 4, 9, and 13 keep the shapes named in the §4.1 table. Item 14 was committed to this pattern on 23 November 2026 and still waits for a precise spec before the page changes. Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
 
 ---
 
@@ -166,13 +166,13 @@ The left rail scrolls to these same items in this same order.
 | 9 | Tasa de conversión | Horizontal bar funnel of the stages currently tracked for the users’ familiar flow |
 | 10 | Control de descuentos | Canonical three-level pattern. See precise spec below (§4.1.6). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s discounted sales in a drawer. |
 | 11 | Control de subidas de precios | Canonical three-level pattern. See precise spec below (§4.1.7). One series at a time, U or Q, by project and by torre. |
-| 12 | F&F y casos especiales | Canonical three-level pattern. Precise spec not yet written. |
+| 12 | F&F y casos especiales | Canonical three-level pattern. See precise spec below (§4.1.8). Count of marked sales by project and by torre. A click on an Expanded Hero project column opens that project’s cases in a drawer. |
 | 13 | Control Referidos | Dedicated visual for the referral trail (Referido / Tipo de Referido / Nombre de Referidor): counts broken by proyecto or tipo, plus a short visible list of referidores. Not a filter on the canales chart |
 | 14 | Control de promociones | Canonical three-level pattern. Precise spec not yet written. |
 
-**Items 12 and 14 (decision 23 November 2026).** These two follow the canonical three-level pattern. Each one gets a precise spec in this section before its band on the page changes. Until that spec is written, the live page keeps the compact summary it already shows. Items 7, 8, and 10 are specified and the page follows those specs. Item 11 is specified in §4.1.7 and the page follows that spec.
+**Item 14 (decision 23 November 2026).** Control de promociones follows the canonical three-level pattern. It gets a precise spec in this section before its band on the page changes. Until that spec is written, the live page keeps the compact summary it already shows. Items 7, 8, 10, and 11 are specified and the page follows those specs. Item 12 is specified in §4.1.8 and the page follows that spec.
 
-The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.1.7, §4.2.1). Those numbers are not a second order.
+The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.1.7, §4.1.8, §4.2.1). Those numbers are not a second order.
 
 #### 4.1.1 Precise visual spec — Item 2: Objetivos de ventas
 
@@ -535,6 +535,59 @@ This section wins for Item 11. The U | Q toggle is the same kind of control Item
 - No percentage is a primary label.  
 - Headings are the Item Title, “Todos los Proyectos”, the project names, the torre labels, and the toggle labels U and Q.  
 - The default view is the hierarchical snapshot on U.
+
+#### 4.1.8 Precise visual spec — Item 12: F&F y casos especiales
+
+**Item Title**  
+F&F y casos especiales
+
+**Decision**  
+23 November 2026. This item follows the canonical three-level pattern. The page implements this spec.
+
+**The number**  
+One series: the count of cases. There is no toggle and no second series. A null amount is not a count. No percentage.
+
+**A case**  
+One row of `ventas.fact_case_mark` on a sale in `ventas.v_sale` whose `sale_on` falls inside the Periodo. The grain is one deal and one case type, so a sale with two marks counts twice. The mark has no date of its own. The Periodo applies through `sale_on`. The reason is the case-type name. The amount, when the sale has `value_gtq`, is that quetzal value. It is shown on the case. It is not a second total. No static files.
+
+**Filters**  
+Project pills apply. Periodo applies. Asesor, modelo, and case type do not change this item. NINGUNO leaves the Compact Hero at zero and draws no project cards. The page stays up. Unmarked sales are not drawn.
+
+**Structure**  
+Full canonical three-level pattern. The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. The gap between the Hero Band and the Project Bands is 12px. Each Project Band is 156px. The gap between Project Bands is 8px. The sum stays inside the scroll of Items 1 and 2.
+
+**Compact Hero**  
+Title: always “Todos los Proyectos”.  
+One large number: the count of cases for the current project-pill scope.  
+No second title. No percentage. The number is visible.
+
+**Expanded Hero**  
+Project Summary Columns in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
+Each column is that project’s count. The number is always visible on or directly above the column.  
+One shared y-scale for the four columns. A project with a zero count stays visible.
+
+**Drawer**  
+A click on a project column in the Expanded Hero opens one right-side drawer over the page. The drawer lists the cases that make up that project’s count. Each row shows the unit, `sale_on`, the case-type name, and `value_gtq` when the sale has one. The heading is the project name. The close control reads “Cerrar”. Closing it returns to the same snapshot, unmoved and unshifted. A click on another project column replaces the open drawer. A second drawer is never open.  
+A case that names no unit still appears in the list.  
+This drawer follows the Item 10 pattern. The list is not on the page until that click.
+
+**Project Bands**  
+One band per project in scope, canonical order.  
+- Project KPI Card (left): project name and that project’s count.  
+- Project Detail Card (right): fixed-size card of Member Columns by torre. Torres are alphabetical by the Odoo short label (“TA”, “Principal”, and the same labels Item 6 uses). Each column is that torre’s count, number on or above the column. One shared y-scale across every Project Detail Card. A torre with a zero count stays visible. Columns are squeezed to fit: no wrap, no overflow, no internal scroll.  
+A case that names no torre stays in the project count, in the hero, and in the drawer. It does not open a torre column.
+
+**Where this item differs from §3**  
+This section wins for Item 12. The case list is a right-side drawer opened by a click on an Expanded Hero project column. There is no toggle. Every other rule in §3 stands.
+
+**Explicit rules**  
+- Numbers are always visible on or above every column.  
+- A click on a number opens provenance and nothing else: the cases in that count, each with project, torre, unit, `sale_on`, the case-type name, and `value_gtq` when present. Hover does not open it. The Expanded Hero project column is the exception: that click opens the drawer and does not open provenance.  
+- Projects stay in canonical order. Torres stay alphabetical by short label.  
+- Zeros stay visible.  
+- No percentage is a label.  
+- Headings are the Item Title, “Todos los Proyectos”, the project names, the torre labels, and, inside the drawer, the project name and “Cerrar”.  
+- The default view is the hierarchical snapshot.
 
 #### 4.2.1 Precise visual spec — Item 5: Análisis de inventario: Split de ventas por modelo
 

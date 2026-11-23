@@ -5,7 +5,6 @@ import { isDisplayProject, projectKey } from "@/lib/projects";
 import { UNIT_STATUS_COLORS } from "@/lib/reservas/constants";
 import type {
   AnalisisVista,
-  CasoVista,
   ConversionVista,
   InventarioVista,
   NamedBar,
@@ -904,24 +903,6 @@ function amountRows(rows: readonly NamedBar[], tone: Tone): { marks: Mark[]; mon
   };
 }
 
-function casoAmounts(vista: CasoVista): NamedBar[] {
-  const byTipo = new Map<string, { n: number; gtq: number; priced: boolean }>();
-  for (const row of vista.traces) {
-    const current = byTipo.get(row.tipo) ?? { n: 0, gtq: 0, priced: true };
-    current.n += 1;
-    if (row.gtq == null) current.priced = false;
-    else current.gtq += row.gtq;
-    byTipo.set(row.tipo, current);
-  }
-  const complete = vista.marked != null && vista.traces.length > 0 && vista.traces.length === vista.marked;
-  return vista.tipos.map((row) => {
-    if (row.gtq != null || !complete || row.id === "resto") return row;
-    const found = byTipo.get(row.label);
-    if (!found || !found.priced || found.n !== row.units) return row;
-    return { ...row, gtq: found.gtq };
-  });
-}
-
 function AmountCard({
   title,
   id,
@@ -970,48 +951,6 @@ export function PromocionesBand({
       tone="navy"
     />
   );
-}
-
-export function ControlesGrid({
-  casos,
-  casosPending,
-}: {
-  casos: CasoVista | null;
-  casosPending: ReactNode;
-}) {
-  const casoChart = casos ? casoMarks(casos) : null;
-  return (
-    <section className={styles.band} aria-labelledby="vt-casos-title">
-        <h2 id="vt-casos-title" className={styles.title}>F&amp;F y casos especiales</h2>
-        {!casos ? casosPending : (
-          <>
-            {/* {casos.notice ? <p className="op-note">{casos.notice}</p> : null} */}
-            {casoChart && casoChart.rows.length === 0 ? emptyNote(null) : null}
-            {casoChart && casoChart.rows.length > 0 ? (
-              <MarkColumns rows={casoChart.rows} format={casoChart.moneyMode ? money : count} axis={casoChart.moneyMode ? "money" : "count"} />
-            ) : null}
-          </>
-        )}
-    </section>
-  );
-}
-
-function casoMarks(vista: CasoVista): { rows: Mark[]; moneyMode: boolean } {
-  const marked = vista.marked != null && vista.marked > 0;
-  const source = casoAmounts(vista)
-    .filter((row) => marked || row.id !== "resto")
-    .filter((row) => !isMissingLabel(row.label));
-  const moneyMode = source.length > 0 && source.every((row) => row.gtq != null);
-  return {
-    moneyMode,
-    rows: source.map((row) => ({
-      id: row.id,
-      label: row.label,
-      value: moneyMode ? row.gtq ?? 0 : row.units,
-      tone: "navy" as const,
-      text: !moneyMode && row.gtq != null ? `${count(row.units)} · ${money(row.gtq)}` : undefined,
-    })),
-  };
 }
 
 export function ReferidosBand({

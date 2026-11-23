@@ -2052,86 +2052,134 @@ function sumAmount(rows: Record<string, unknown>[], key: string): number | null 
 }
 
 async function buildCasos(client: Db, filters: VistaFilters, range: DateWindow, dims: Dims): Promise<CasoVista> {
-  const loaded = await tableCount(client, "fact_case_mark");
-  const sales = await periodSales(client, filters, range, "deal_id,unit_id,project_id,asesor_id,value_gtq,sale_on");
+  const selected = splitProjects(filters, dims);
   const choices = emptyChoices();
-  choices.asesor = countChoices(sales.rows.map((row) => String(row.asesor_id)), new Map([...dims.asesores].map(([id, row]) => [id, row.name])));
+  const blank = {
+    ...base("F&F y casos especiales", range, "", null, dims, choices),
+    section: "ff-y-casos-especiales" as const,
+    marked: 0,
+    ff: 0,
+    especial: 0,
+    sales: 0,
+    share: null,
+    tipos: [] as CasoVista["tipos"],
+    byProject: [] as CasoVista["byProject"],
+    traces: [] as CasoVista["traces"],
+    board: { units: 0, projects: [] as CasoVista["board"]["projects"] },
+  };
+  if (selected.length === 0) return blank;
+
+  const roster = await loadTowerRoster();
+  const projects = selected.map((project) => {
+    const towers = new Map<string, CasoVista["board"]["projects"][number]["towers"][number]>();
+    for (const tower of roster.get(project.slug) ?? []) {
+      towers.set(tower.key, { label: tower.label, units: 0, marks: [] });
+    }
+    return {
+      id: ventasProjectId(dims, project.slug),
+      slug: project.slug,
+      label: project.label,
+      units: 0,
+      towers,
+      marks: [] as CasoVista["board"]["projects"][number]["marks"],
+    };
+  });
+  const loaded = await tableCount(client, "fact_case_mark");
   if (loaded === 0) {
     return {
-      ...base(
-        "¿Cuántas ventas del periodo son Friends & Family o caso especial, y qué peso tienen?",
-        range,
-        "Estas ventas siguen dentro de Ventas totales. La marca entra con Odoo.",
-        NO_PIPEDRIVE,
-        dims,
-        choices,
-      ),
-      section: "ff-y-casos-especiales",
-      marked: null,
-      ff: null,
-      especial: null,
-      sales: sales.rows.length,
-      share: null,
-      tipos: sales.rows.length ? [{ id: "resto", label: "Ventas del periodo", units: sales.rows.length, gtq: sumGtq(sales.rows) }] : [],
-      byProject: barsFrom(sales.rows, "project_id", (id) => dims.projects.find((project) => project.id === id)?.name ?? "Sin dato").map((row) => ({
-        id: row.id,
-        label: row.label,
-        marked: 0,
-        sales: row.units,
-        share: null,
-      })),
-      traces: [],
+      ...blank,
+      board: {
+        units: 0,
+        projects: projects.map((project) => ({
+          id: project.id,
+          slug: project.slug,
+          label: project.label,
+          units: 0,
+          towers: [...project.towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es")),
+          marks: [],
+        })),
+      },
     };
   }
-  const marks = await rowsIn(client, "fact_case_mark", "deal_id,case_type_id", "deal_id", sales.rows.map((row) => String(row.deal_id)));
-  const filtered = filters.casoId ? marks.filter((row) => String(row.case_type_id) === filters.casoId) : marks;
-  const markedDeals = new Set(filtered.map((row) => String(row.deal_id)));
-  const ff = filtered.filter((row) => /friend|familia/i.test(dims.cases.get(String(row.case_type_id))?.name ?? "")).length;
-  const especial = filtered.length - ff;
-  const tipos = barsFrom(filtered.map((row) => ({ ...row, value_gtq: null })), "case_type_id", (id) => dims.cases.get(id)?.name ?? "Sin dato");
-  const resto = sales.rows.filter((row) => !markedDeals.has(String(row.deal_id)));
-  if (resto.length) tipos.push({ id: "resto", label: "Resto de ventas", units: resto.length, gtq: sumGtq(resto) });
-  const names = await unitNames(client, sales.rows.filter((row) => markedDeals.has(String(row.deal_id))).map((row) => String(row.unit_id)).slice(0, 80));
+
+  const sales = await fetchDated(
+    client,
+    "v_sale",
+    "sale_on",
+    "deal_id,unit_id,project_id,tower_id,sale_on,value_gtq",
+    range.from,
+    range.to,
+    (query) => scopeProject(query, filters),
+  );
+  const dealIds = [...new Set(sales.rows.map((row) => String(row.deal_id ?? "")).filter((id) => id))];
+  const marks = dealIds.length === 0
+    ? []
+    : await rowsIn(client, "fact_case_mark", "deal_id,case_type_id", "deal_id", dealIds);
   const saleByDeal = new Map(sales.rows.map((row) => [String(row.deal_id), row]));
-  choices.caso = countChoices(filtered.map((row) => String(row.case_type_id)), new Map([...dims.cases].map(([id, row]) => [id, row.name])));
-  const projectIds = new Set(sales.rows.map((row) => String(row.project_id)));
+  const names = await unitNames(client, sales.rows.map((row) => String(row.unit_id ?? "")).filter((id) => id));
+  const allowed = new Set(selected.map((project) => project.slug));
+  const bySlug = new Map(projects.map((project) => [project.slug, project]));
+  let ff = 0;
+  for (const row of marks) {
+    const sale = saleByDeal.get(String(row.deal_id ?? ""));
+    if (!sale) continue;
+    const projectName = dims.projects.find((project) => project.id === String(sale.project_id ?? ""))?.name ?? "";
+    const slug = slugForName(projectName);
+    if (!slug || !allowed.has(slug)) continue;
+    const project = bySlug.get(slug);
+    if (!project) continue;
+    const reason = dims.cases.get(String(row.case_type_id ?? ""))?.name ?? "Sin dato";
+    if (/friend|familia/i.test(reason)) ff += 1;
+    const towerName = dims.torres.get(String(sale.tower_id ?? "")) ?? "";
+    const named = !missingName(towerName);
+    const torre = named ? inventoryTowerLabel(towerName) : "";
+    const torreLabel = torre && torre !== "—" ? torre : "sin torre";
+    const unitId = String(sale.unit_id ?? "");
+    const mark = {
+      project: project.label,
+      torre: torreLabel,
+      unit: names.get(unitId) || "sin unidad",
+      saleOn: typeof sale.sale_on === "string" ? sale.sale_on.slice(0, 10) : "",
+      reason,
+      gtq: num(sale.value_gtq),
+    };
+    project.units += 1;
+    project.marks.push(mark);
+    if (!named || !torre || torre === "—") continue;
+    const key = inventoryTowerKey(towerName);
+    const tower = project.towers.get(key) ?? { label: torre, units: 0, marks: [] };
+    tower.units += 1;
+    tower.marks.push(mark);
+    project.towers.set(key, tower);
+  }
+  const boardProjects = projects.map((project) => ({
+    id: project.id,
+    slug: project.slug,
+    label: project.label,
+    units: project.units,
+    towers: [...project.towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es")),
+    marks: project.marks,
+  }));
+  const units = boardProjects.reduce((sum, project) => sum + project.units, 0);
+  const notice = sales.capped ? "La consulta del periodo llegó a 5.000 filas. Afina proyecto o periodo." : null;
   return {
-    ...base(
-      "¿Cuántas ventas del periodo son Friends & Family o caso especial, y qué peso tienen?",
-      range,
-      "Estas ventas siguen dentro de Ventas totales.",
-      filtered.length === 0 ? "No hay casos en este periodo." : null,
-      dims,
-      choices,
-    ),
+    ...base("F&F y casos especiales", range, "", notice, dims, choices),
     section: "ff-y-casos-especiales",
-    marked: filtered.length,
+    marked: units,
     ff,
-    especial,
+    especial: units - ff,
     sales: sales.rows.length,
-    share: sales.rows.length ? filtered.length / sales.rows.length : null,
-    tipos,
-    byProject: [...projectIds].map((id) => {
-      const mine = sales.rows.filter((row) => String(row.project_id) === id);
-      const marked = mine.filter((row) => markedDeals.has(String(row.deal_id))).length;
-      return {
-        id,
-        label: dims.projects.find((project) => project.id === id)?.name ?? "Sin dato",
-        marked,
-        sales: mine.length,
-        share: mine.length ? marked / mine.length : null,
-      };
-    }).sort((a, b) => b.marked - a.marked || a.label.localeCompare(b.label, "es")),
-    traces: filtered.slice(0, 80).map((row) => {
-      const sale = saleByDeal.get(String(row.deal_id));
-      return {
-        unit: names.get(String(sale?.unit_id ?? "")) ?? "Sin unidad",
-        project: dims.projects.find((project) => project.id === String(sale?.project_id ?? ""))?.name ?? "Sin dato",
-        asesor: dims.asesores.get(String(sale?.asesor_id ?? ""))?.name ?? "Sin dato",
-        tipo: dims.cases.get(String(row.case_type_id))?.name ?? "Sin dato",
-        gtq: num(sale?.value_gtq),
-      };
-    }),
+    share: null,
+    tipos: [],
+    byProject: boardProjects.map((project) => ({
+      id: project.id,
+      label: project.label,
+      marked: project.units,
+      sales: 0,
+      share: null,
+    })),
+    traces: [],
+    board: { units, projects: boardProjects },
   };
 }
 

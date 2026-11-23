@@ -18,6 +18,7 @@ import {
 import type { CasoVista, DescuentoVista, DesistenciaVista, PrecioVista, PromoVista, VentasVista } from "@/lib/ventas/vista-types";
 import { isDisplayProject } from "@/lib/projects";
 import { ControlDescuentos } from "./descuentos";
+import { ControlCasos } from "./casos";
 import { ControlSubidas } from "./subidas";
 import { Desistimientos } from "./desistimientos";
 
@@ -80,50 +81,7 @@ function Precios({ vista }: { vista: PrecioVista }) {
 }
 
 function Casos({ vista }: { vista: CasoVista }) {
-  const [open, setOpen] = useState(false);
-  const known = vista.marked != null;
-  const byProject = vista.byProject.filter((row) => isDisplayProject(row.label));
-  return (
-    <>
-      <div className="op-kpis">
-        <Kpi label="Friends & Family" value={vista.ff == null ? "Sin marcas" : count(vista.ff)} detail={known ? "en el periodo" : "la marca no está cargada"} />
-        <Kpi label="Caso especial" value={vista.especial == null ? "Sin marcas" : count(vista.especial)} detail={known ? "en el periodo" : "la marca no está cargada"} />
-        <Kpi label="Ventas" value={count(vista.sales)} detail="siguen en Ventas totales" />
-        <Kpi label="Peso" value={pct(vista.share)} detail={known ? "sobre las ventas" : "sin marcas"} />
-      </div>
-      <section className="op-hero op-hero-budget" aria-label="Casos contra el resto">
-        <header className="op-head"><div><h2>Contra el resto de ventas</h2><p className="op-note">{vista.caption}</p></div></header>
-        <Bars rows={vista.tipos} />
-      </section>
-      <section className="op-hero" aria-label="Casos por proyecto" style={{ flex: 1 }}>
-        <header className="op-head"><div><h2>Por proyecto</h2>{vista.traces.length ? <button type="button" className="op-text" onClick={() => setOpen(true)}>Ver ventas</button> : null}</div></header>
-        <div className="op-chart">
-          {byProject.length === 0 ? <p className="op-note">Nada que graficar en este periodo.</p> : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byProject} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                <CartesianGrid stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} interval={0} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} width={32} axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="sales" name="Ventas" fill="#94a3b8" isAnimationActive={false} />
-                {known ? <Bar dataKey="marked" name="Con marca" fill="#0d2041" isAnimationActive={false} /> : null}
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </section>
-      {open ? (
-        <Overlay title="Ventas marcadas" onClose={() => setOpen(false)}>
-          <TraceTable
-            rows={vista.traces.filter((row) => isDisplayProject(row.project))}
-            columns={["Unidad", "Proyecto", "Asesor", "Tipo", "Quetzales"]}
-            cells={(row) => [row.unit, row.project, row.asesor, row.tipo, money(row.gtq)]}
-          />
-        </Overlay>
-      ) : null}
-    </>
-  );
+  return <ControlCasos vista={vista} pending={null} />;
 }
 
 function Promos({ vista }: { vista: PromoVista }) {

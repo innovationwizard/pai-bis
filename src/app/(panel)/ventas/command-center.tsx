@@ -27,7 +27,8 @@ import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/
 import { InventarioGeneral } from "./inventario-general";
 import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
 import { StatusLifetime } from "./status-bands";
-import { ControlesGrid, ModeloBand, PromocionesBand, ReferidosBand, TasaBand } from "./lower-bands";
+import { ModeloBand, PromocionesBand, ReferidosBand, TasaBand } from "./lower-bands";
+import { ControlCasos } from "./casos";
 import { ControlDescuentos } from "./descuentos";
 import { ControlSubidas } from "./subidas";
 import { Desistimientos } from "./desistimientos";
@@ -550,9 +551,9 @@ export default function CommandCenter() {
         pending={<StatusLine section="subidas-de-precios" errors={errors} busy={busy} />}
       />
       <hr className="op-filter-rule vc-band-rule" />
-      <ControlesGrid
-        casos={vistaOf(vistas, "ff-y-casos-especiales")}
-        casosPending={<StatusLine section="ff-y-casos-especiales" errors={errors} busy={busy} />}
+      <ControlCasos
+        vista={vistaOf(vistas, "ff-y-casos-especiales")}
+        pending={<StatusLine section="ff-y-casos-especiales" errors={errors} busy={busy} />}
       />
       <hr className="op-filter-rule vc-band-rule" />
       <ReferidosBand
