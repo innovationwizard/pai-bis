@@ -713,6 +713,28 @@ export type PromoVista = VistaBase & {
   board: PromoBoard;
 };
 
+export const REFERIDO_TIPOS: readonly string[] = [
+  "Referido Cartera",
+  "Referido Corporación",
+  "Referido Corredor",
+  "Referido entre Proyectos",
+].sort((a, b) => a.localeCompare(b, "es"));
+
+export type ReferidoTipo = {
+  id: string;
+  label: string;
+  units: number;
+  nombres: string[];
+};
+
+export type ReferidoProject = {
+  id: string;
+  label: string;
+  units: number;
+  nombres: string[];
+  tipos: ReferidoTipo[];
+};
+
 export type ReferidosVista = VistaBase & {
   section: "control-referidos";
   scopedDeals: number;
@@ -721,6 +743,8 @@ export type ReferidosVista = VistaBase & {
   byTipo: NamedBar[];
   nombres: string[];
   nombresTotal: number | null;
+  referidores: string[];
+  byProject: ReferidoProject[];
 };
 
 export type VentasVista =

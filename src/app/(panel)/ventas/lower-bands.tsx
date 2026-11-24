@@ -6,7 +6,6 @@ import { UNIT_STATUS_COLORS } from "@/lib/reservas/constants";
 import type {
   AnalisisVista,
   InventarioVista,
-  ReferidosVista,
 } from "@/lib/ventas/vista-types";
 import { ModeloSplit } from "./modelo-split";
 import styles from "./lower-bands.module.css";
@@ -736,54 +735,3 @@ export function ModeloBand({
   );
 }
 
-export function ReferidosBand({
-  vista,
-  pending,
-}: {
-  vista: ReferidosVista | null;
-  pending: ReactNode;
-}) {
-  return (
-    <section className={styles.band} aria-labelledby="vt-referidos-title">
-      <h2 id="vt-referidos-title" className={styles.title}>Control Referidos</h2>
-      {!vista ? pending : <ReferidosBody vista={vista} />}
-    </section>
-  );
-}
-
-function ReferidosBody({ vista }: { vista: ReferidosVista }) {
-  const marked = vista.si != null && vista.si > 0;
-  const names = vista.nombres.length > 0;
-  if (vista.scopedDeals === 0) return null;
-  if (vista.si == null && !names) {
-    // return <p className="op-note">Estos tratos no traen referido, tipo de referido ni nombre de referidor.</p>;
-    return null;
-  }
-  const typed = vista.byTipo
-    .filter((row) => !isMissingLabel(row.label))
-    .map((row) => ({ id: row.id, label: row.label, value: row.units, tone: "navy" as const }));
-  const rows: Mark[] = typed.length > 0
-    ? typed
-    : marked && vista.si != null
-      ? [{ id: "referidos", label: "Referidos", value: vista.si, tone: "navy" as const }]
-      : [];
-  return (
-    <>
-      {/* {vista.notice ? <p className="op-note">{vista.notice}</p> : null} */}
-      {/* {vista.si === 0 ? <p className="op-note">Ningún trato está marcado como referido.</p> : null} */}
-      {/* {vista.sinTipo != null && vista.sinTipo > 0 ? <p className="op-note">{count(vista.sinTipo)} sin tipo de referido.</p> : null} */}
-      {rows.length > 0 ? <MarkColumns rows={rows} format={count} /> : null}
-      {names ? (
-        <>
-          <h3 className={styles.subTitle}>Referidores</h3>
-          <ul className={styles.names}>
-            {vista.nombres.map((name, index) => <li key={`${name}:${index}`}>{name}</li>)}
-          </ul>
-          {/* {vista.nombresTotal != null && vista.nombresTotal > vista.nombres.length ? (
-            <p className="op-note">La lista trae {vista.nombres.length} de {vista.nombresTotal}.</p>
-          ) : null} */}
-        </>
-      ) : null}
-    </>
-  );
-}

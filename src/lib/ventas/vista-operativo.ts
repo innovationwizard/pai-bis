@@ -5,6 +5,7 @@ import { EMBUDO_PIPELINES, embudoFunnel, type EmbudoInput } from "./embudo";
 import { resolveRange, windowLabel, guatemalaToday, type DateWindow } from "./period";
 import { creditedAsesor, factComprobanteHasAsesor } from "./reserva-asesor";
 import type { VistaFilters } from "./vista";
+import { REFERIDO_TIPOS } from "./vista-types";
 import type {
   AnalisisVista,
   CasoVista,
@@ -2307,11 +2308,68 @@ function referralScopeNote(filters: VistaFilters): string {
   return `Estos tratos son los de créditos. ${limit}`;
 }
 
+function referidoRoster(filters: VistaFilters, dims: Dims): { id: string; label: string }[] {
+  return splitProjects(filters, dims).map((project) => ({ id: project.slug, label: project.label }));
+}
+
+function sortedNames(names: ReadonlySet<string>): string[] {
+  return [...names].sort((a, b) => a.localeCompare(b, "es"));
+}
+
+type ReferidoBucket = {
+  units: number;
+  nombres: Set<string>;
+  tipos: Map<string, { units: number; nombres: Set<string> }>;
+};
+
+function referidoBucket(): ReferidoBucket {
+  const tipos = new Map<string, { units: number; nombres: Set<string> }>();
+  for (const label of REFERIDO_TIPOS) tipos.set(label, { units: 0, nombres: new Set() });
+  return { units: 0, nombres: new Set(), tipos };
+}
+
+function referidoProjects(
+  roster: readonly { id: string; label: string }[],
+  buckets: ReadonlyMap<string, ReferidoBucket>,
+): ReferidosVista["byProject"] {
+  return roster.map((project) => {
+    const bucket = buckets.get(project.id) ?? referidoBucket();
+    return {
+      id: project.id,
+      label: project.label,
+      units: bucket.units,
+      nombres: sortedNames(bucket.nombres),
+      tipos: REFERIDO_TIPOS.map((label) => {
+        const bar = bucket.tipos.get(label);
+        return {
+          id: label,
+          label,
+          units: bar?.units ?? 0,
+          nombres: bar ? sortedNames(bar.nombres) : [],
+        };
+      }),
+    };
+  });
+}
+
 async function creditosProjectIds(names: string[]): Promise<Set<string>> {
   const db = createAdminClient().schema("creditos");
   const { data, error } = await db.from("dim_project").select("id,name").in("name", names);
   if (error) throw new Error(error.message);
   return new Set((data ?? []).map((row) => String((row as { id: unknown }).id)));
+}
+
+async function creditosProjectSlugs(): Promise<Map<string, string>> {
+  const db = createAdminClient().schema("creditos");
+  const { data, error } = await db.from("dim_project").select("id,name");
+  if (error) throw new Error(error.message);
+  const slugs = new Map<string, string>();
+  for (const row of data ?? []) {
+    const id = String((row as { id: unknown }).id ?? "");
+    const slug = slugForName(String((row as { name: unknown }).name ?? ""));
+    if (id !== "" && slug) slugs.set(id, slug);
+  }
+  return slugs;
 }
 
 async function loadReferralDeals(): Promise<{ rows: Record<string, unknown>[]; capped: boolean }> {
@@ -2333,6 +2391,7 @@ async function loadReferralDeals(): Promise<{ rows: Record<string, unknown>[]; c
 
 async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Dims): Promise<ReferidosVista> {
   const choices = emptyChoices();
+  const roster = referidoRoster(filters, dims);
   const names = filters.projectIds === null
     ? null
     : filters.projectIds
@@ -2356,9 +2415,11 @@ async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Di
       byTipo: [],
       nombres: [],
       nombresTotal: null,
+      referidores: [],
+      byProject: referidoProjects(roster, new Map()),
     };
   }
-  const loaded = await loadReferralDeals();
+  const [loaded, slugOf] = await Promise.all([loadReferralDeals(), creditosProjectSlugs()]);
   const rows = projectIds ? loaded.rows.filter((row) => projectIds.has(String(row.project_id ?? ""))) : loaded.rows;
   const seen = new Set<string>();
   let sawReferido = false;
@@ -2366,6 +2427,9 @@ async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Di
   let sinTipo = 0;
   const tipos = new Map<string, number>();
   const nombres = new Set<string>();
+  const scopeNames = new Set<string>();
+  const buckets = new Map<string, ReferidoBucket>();
+  for (const project of roster) buckets.set(project.id, referidoBucket());
   for (const row of rows) {
     const id = String(row.pipedrive_deal_id ?? "");
     if (id === "" || seen.has(id)) continue;
@@ -2379,6 +2443,20 @@ async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Di
         si += 1;
         if (tipo == null) sinTipo += 1;
         else tipos.set(tipo, (tipos.get(tipo) ?? 0) + 1);
+        if (nombre != null) scopeNames.add(nombre);
+        const slug = slugOf.get(String(row.project_id ?? ""));
+        const bucket = slug ? buckets.get(slug) : undefined;
+        if (bucket) {
+          bucket.units += 1;
+          if (nombre != null) bucket.nombres.add(nombre);
+          if (tipo != null) {
+            const bar = bucket.tipos.get(tipo);
+            if (bar) {
+              bar.units += 1;
+              if (nombre != null) bar.nombres.add(nombre);
+            }
+          }
+        }
       }
     }
     if (nombre != null) nombres.add(nombre);
@@ -2410,5 +2488,7 @@ async function buildReferidos(filters: VistaFilters, range: DateWindow, dims: Di
       .sort((a, b) => b.units - a.units || a.label.localeCompare(b.label, "es")),
     nombres: listed.slice(0, NAME_CAP),
     nombresTotal: listed.length === 0 ? null : listed.length,
+    referidores: sortedNames(scopeNames),
+    byProject: referidoProjects(roster, buckets),
   };
 }
