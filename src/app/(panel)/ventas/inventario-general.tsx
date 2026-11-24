@@ -84,7 +84,7 @@ function figureInk(hex: string): string {
 const figureWidths = new Map<string, number>();
 
 function figureWidth(text: string, fontFamily: string, fontSize: number): number {
-  const key = `${fontFamily}\0${fontSize}\0${text}`;
+  const key = `${fontFamily}\u0000${fontSize}\u0000${text}`;
   const cached = figureWidths.get(key);
   if (cached != null) return cached;
   const probe = document.createElement("span");
