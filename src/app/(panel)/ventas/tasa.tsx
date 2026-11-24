@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import type { EmbudoDeal, EmbudoFunnel } from "@/lib/ventas/embudo";
+import { leakage, type EmbudoDeal, type EmbudoFunnel, type Leakage, type LeakageTone } from "@/lib/ventas/embudo";
 import type { ConversionVista } from "@/lib/ventas/vista-types";
 import band from "./landing-blocks.module.css";
 import styles from "./tasa.module.css";
@@ -10,7 +10,7 @@ const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 })
 const percentFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 const COLUMN_HEADROOM = 1.14;
 
-function activateColumn(event: ReactKeyboardEvent<HTMLDivElement>, action: () => void) {
+function activateColumn(event: ReactKeyboardEvent<HTMLButtonElement>, action: () => void) {
   if (event.target !== event.currentTarget) return;
   if (event.key !== "Enter" && event.key !== " ") return;
   event.preventDefault();
@@ -23,6 +23,13 @@ function count(value: number): string {
 
 function percent(rate: number): string {
   return `${percentFormat.format(Math.round(rate * 100))}%`;
+}
+
+function zText(z: number): string {
+  if (!Number.isFinite(z)) return z < 0 ? "(Z = -∞)" : "(Z = ∞)";
+  const rounded = Math.round(z * 100) / 100;
+  const body = rounded === 0 ? "0.00" : rounded.toFixed(2);
+  return `(Z = ${body})`;
 }
 
 function dotted(iso: string): string {
@@ -55,60 +62,25 @@ function scaleOf(values: readonly number[]): number {
   return peak > 0 ? peak * COLUMN_HEADROOM : 1;
 }
 
-function reservaCount(funnel: EmbudoFunnel): number {
-  return funnel.bars.find((bar) => bar.label === "Reserva")?.count ?? 0;
-}
-
-function reservaDeals(funnel: EmbudoFunnel): EmbudoDeal[] {
-  const index = funnel.bars.findIndex((bar) => bar.label === "Reserva");
-  if (index < 0) return [];
-  return reached(funnel.deals, index + 1);
-}
-
-function SummaryColumns({
-  funnels,
-  openKey,
-  onOpen,
+function LeakCard({
+  name,
+  reading,
+  atZero,
 }: {
-  funnels: readonly EmbudoFunnel[];
-  openKey: string | null;
-  onOpen: (key: string, deals: readonly EmbudoDeal[]) => void;
+  name: string;
+  reading: Leakage;
+  atZero: boolean;
 }) {
-  const scale = scaleOf(funnels.map((funnel) => reservaCount(funnel)));
+  const stage = atZero ? "0" : (reading.stage ?? "Saludable");
+  const tone: LeakageTone = atZero ? "green" : reading.tone;
+  const z = atZero ? 0 : reading.z;
   return (
-    <div className={band.ogCols} data-level="project" role="group" aria-label="Proyectos">
-      {funnels.map((funnel) => {
-        const units = reservaCount(funnel);
-        const height = (Math.max(0, units) / scale) * 100;
-        const key = `${funnel.slug}:reserva`;
-        const open = () => onOpen(key, reservaDeals(funnel));
-        return (
-          <div
-            key={funnel.slug}
-            className={`${band.ogCol} ${styles.count}`}
-            role="button"
-            tabIndex={0}
-            aria-pressed={openKey === key}
-            aria-label={`${funnel.label}: ${count(units)}`}
-            onClick={open}
-            onKeyDown={(event) => activateColumn(event, open)}
-          >
-            <div className={band.ogColBody}>
-              <div className={band.ogPlotWrap}>
-                <div className={band.ogPlot}>
-                  <span className={band.ogNum} style={{ bottom: `calc(${height}% + 2px)` }}>{count(units)}</span>
-                  <span
-                    className={band.ogBar}
-                    data-project={hueKey(funnel.label) || undefined}
-                    style={{ height: `${height}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-            <span className={band.ogName}>{funnel.label}</span>
-          </div>
-        );
-      })}
+    <div className={band.kpi}>
+      <span className={band.kpiName}>{name}</span>
+      <span className={styles.leak}>
+        <span className={styles.leakStage}>{stage}</span>
+        <span className={styles.zPill} data-tone={tone}>{zText(z)}</span>
+      </span>
     </div>
   );
 }
@@ -128,7 +100,7 @@ function StageColumns({
 }) {
   const scale = scaleOf(funnel.bars.map((bar) => bar.count));
   return (
-    <div className={band.ogCols} data-level="asesor" role="group" aria-label={`Etapas de ${funnel.label}`}>
+    <div className={styles.funnel} role="group" aria-label={`Etapas de ${funnel.label}`}>
       {funnel.bars.map((bar, index) => {
         const height = (Math.max(0, bar.count) / scale) * 100;
         const countKey = `${funnel.slug}:${index}`;
@@ -136,77 +108,42 @@ function StageColumns({
         const next = funnel.bars[index + 1];
         const openCount = () => onCount(countKey, reached(funnel.deals, index + 1));
         return (
-          <div
-            key={bar.label}
-            className={`${band.ogCol} ${styles.count}`}
-            role="button"
-            tabIndex={0}
-            aria-pressed={openKey === countKey}
-            aria-label={`${funnel.label}. ${bar.label}: ${count(bar.count)}`}
-            onClick={openCount}
-            onKeyDown={(event) => activateColumn(event, openCount)}
-          >
-            <div className={band.ogColBody}>
-              <div className={band.ogPlotWrap}>
-                <div className={band.ogPlot}>
-                  <span className={band.ogNum} style={{ bottom: `calc(${height}% + 2px)` }}>{count(bar.count)}</span>
-                  <span
-                    className={band.ogBar}
-                    data-project={hue || undefined}
-                    style={{ height: `${height}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-            <span className={band.ogName}>{bar.label}</span>
-            {bar.hasNext && next ? (
+          <div key={bar.label} className={styles.stageWrap}>
+            <div className={styles.stage}>
               <button
                 type="button"
-                className={`${band.ogDelta} ${styles.count}`}
-                aria-pressed={openKey === rateKey}
-                aria-label={`${bar.label} a ${next.label}: ${percent(bar.nextRate ?? 0)}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onRate(rateKey, reached(funnel.deals, index + 2));
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") event.stopPropagation();
-                }}
+                className={styles.plot}
+                aria-pressed={openKey === countKey}
+                aria-label={`${funnel.label}. ${bar.label}: ${count(bar.count)}`}
+                onClick={openCount}
+                onKeyDown={(event) => activateColumn(event, openCount)}
               >
-                {percent(bar.nextRate ?? 0)}
+                <span className={styles.num} style={{ bottom: `calc(${height}% + 2px)` }}>{count(bar.count)}</span>
+                <span
+                  className={styles.bar}
+                  data-project={hue || undefined}
+                  style={{ height: `${height}%` }}
+                />
               </button>
-            ) : (
-              <span className={band.ogDelta}>{"\u00a0"}</span>
-            )}
+              <span className={styles.name}><span>{bar.label}</span></span>
+            </div>
+            {bar.hasNext && next ? (
+              <div className={styles.joint}>
+                <button
+                  type="button"
+                  className={styles.rate}
+                  aria-pressed={openKey === rateKey}
+                  aria-label={`${bar.label} a ${next.label}: ${percent(bar.nextRate ?? 0)}`}
+                  onClick={() => onRate(rateKey, reached(funnel.deals, index + 2))}
+                >
+                  {percent(bar.nextRate ?? 0)}
+                </button>
+              </div>
+            ) : null}
           </div>
         );
       })}
     </div>
-  );
-}
-
-function ReservaFigure({
-  units,
-  pressed,
-  label,
-  onClick,
-}: {
-  units: number;
-  pressed: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`${band.kpiValue} ${styles.count}`}
-      aria-pressed={pressed}
-      aria-label={label}
-      onClick={onClick}
-    >
-      {count(units)}
-      <span className={band.kpiUnit}>Reserva</span>
-    </button>
   );
 }
 
@@ -233,68 +170,49 @@ export function TasaBand({
     setProof((current) => (current?.key === key ? null : { key, lines }));
   }
 
-  const reservaKey = vista ? `${vista.all.slug}:reserva` : "";
-  const reserva = vista ? reservaCount(vista.all) : 0;
+  const atZero = vista != null && vista.funnels.length === 0;
+  const portfolio = vista?.all ?? null;
+  const heroLeak = portfolio ? leakage(portfolio, portfolio) : null;
 
   return (
     <section id="tasa-de-conversion" className={band.block} aria-labelledby="vt-tasa-title">
       <h2 id="vt-tasa-title" className={styles.title}>Tasa de conversión</h2>
-      {vista == null ? pending : (
+      {vista == null || portfolio == null || heroLeak == null ? pending : (
         <div className={band.fold}>
           <div className={`${band.top} ${band.overview}`}>
             <div className={band.rail}>
-              <div className={band.kpi}>
-                <span className={band.kpiName}>Todos los Proyectos</span>
-                <ReservaFigure
-                  units={reserva}
-                  pressed={proof?.key === reservaKey}
-                  label={`Todos los Proyectos. Reserva: ${count(reserva)}`}
-                  onClick={() => show(reservaKey, reservaDeals(vista.all))}
-                />
-              </div>
+              <LeakCard name="Todos los Proyectos" reading={heroLeak} atZero={atZero} />
             </div>
-            <div className={`${band.hero} ${band.ogCard}`}>
-              {vista.funnels.length > 0 ? (
-                <SummaryColumns
-                  funnels={vista.funnels}
-                  openKey={proof?.key ?? null}
-                  onOpen={show}
-                />
-              ) : null}
+            <div className={`${band.hero} ${band.ogCard} ${styles.funnelCard}`}>
+              <StageColumns
+                funnel={portfolio}
+                hue=""
+                openKey={proof?.key ?? null}
+                onCount={show}
+                onRate={show}
+              />
             </div>
           </div>
-          {vista.funnels.length > 0 ? (
+          {atZero ? null : (
             <div className={band.projects}>
-              {vista.funnels.map((funnel) => {
-                const units = reservaCount(funnel);
-                const key = `${funnel.slug}:reserva`;
-                return (
-                  <div key={funnel.slug} className={band.top}>
-                    <div className={band.rail}>
-                      <div className={band.kpi}>
-                        <span className={band.kpiName}>{funnel.label}</span>
-                        <ReservaFigure
-                          units={units}
-                          pressed={proof?.key === key}
-                          label={`${funnel.label}. Reserva: ${count(units)}`}
-                          onClick={() => show(key, reservaDeals(funnel))}
-                        />
-                      </div>
-                    </div>
-                    <div className={`${band.hero} ${band.ogCard}`}>
-                      <StageColumns
-                        funnel={funnel}
-                        hue={hueKey(funnel.label)}
-                        openKey={proof?.key ?? null}
-                        onCount={show}
-                        onRate={show}
-                      />
-                    </div>
+              {vista.funnels.map((funnel) => (
+                <div key={funnel.slug} className={band.top}>
+                  <div className={band.rail}>
+                    <LeakCard name={funnel.label} reading={leakage(funnel, portfolio)} atZero={false} />
                   </div>
-                );
-              })}
+                  <div className={`${band.hero} ${band.ogCard} ${styles.funnelCard}`}>
+                    <StageColumns
+                      funnel={funnel}
+                      hue={hueKey(funnel.label)}
+                      openKey={proof?.key ?? null}
+                      onCount={show}
+                      onRate={show}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : null}
+          )}
         </div>
       )}
       {proof ? (

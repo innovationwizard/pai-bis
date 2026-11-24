@@ -91,3 +91,67 @@ export function embudoFunnel(slug: string, label: string, deals: readonly Embudo
     })),
   };
 }
+
+const LEAK_SIGNIFICANCE = -1.96;
+
+export type LeakageTone = "green" | "amber" | "red" | "open";
+
+export type Leakage = {
+  stage: string | null;
+  z: number;
+  tone: LeakageTone;
+};
+
+function roundZ(z: number): number {
+  if (!Number.isFinite(z)) return z;
+  const rounded = Math.round(z * 100) / 100;
+  return rounded === 0 ? 0 : rounded;
+}
+
+function toneOf(z: number): LeakageTone {
+  if (!Number.isFinite(z)) return z < 0 ? "red" : "open";
+  if (z > 0) return "open";
+  if (z >= -2) return "green";
+  if (z >= -3) return "amber";
+  return "red";
+}
+
+function transitionZ(n: number, next: number, baseN: number, baseNext: number): number | null {
+  if (n <= 0 || baseN <= 0) return null;
+  const p = next / n;
+  const pBar = baseNext / baseN;
+  const variance = pBar * (1 - pBar);
+  if (variance <= 0) {
+    if (p === pBar) return 0;
+    return p < pBar ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
+  }
+  return (p - pBar) / Math.sqrt(variance / n);
+}
+
+export function leakage(subject: EmbudoFunnel, portfolio: EmbudoFunnel): Leakage {
+  let bestZ = Number.POSITIVE_INFINITY;
+  let bestStage: string | null = null;
+  let found = false;
+  const steps = Math.min(subject.bars.length, portfolio.bars.length) - 1;
+  for (let index = 0; index < steps; index += 1) {
+    const from = subject.bars[index];
+    const to = subject.bars[index + 1];
+    const baseFrom = portfolio.bars[index];
+    const baseTo = portfolio.bars[index + 1];
+    if (!from || !to || !baseFrom || !baseTo) continue;
+    const raw = transitionZ(from.count, to.count, baseFrom.count, baseTo.count);
+    if (raw == null) continue;
+    const z = roundZ(raw);
+    if (!found || z < bestZ) {
+      found = true;
+      bestZ = z;
+      bestStage = from.label;
+    }
+  }
+  if (!found) return { stage: null, z: 0, tone: "green" };
+  return {
+    stage: bestZ < LEAK_SIGNIFICANCE ? bestStage : null,
+    z: bestZ,
+    tone: toneOf(bestZ),
+  };
+}

@@ -7,9 +7,9 @@
 **Date:** 10 November 2026  
 **Ventas scroll order locked:** 21 November 2026. Operativo items 1 through 14, top to bottom. See §4.1.  
 **23 November 2026:** Item 3 stays per torre. Item 7 follows §4.1.4. Item 8 follows §4.1.5. Item 9 follows §4.1.10. Item 10 follows §4.1.6. Item 11 follows §4.1.7. Item 12 follows §4.1.8. Item 14 follows §4.1.9. The Ventas project pills include NINGUNO.
-**23 November 2026 (later):** Canonical three-level pattern is now mandatory for all 14 Ventas items. Previous exceptions for Items 3, 4, 9, and 13 are removed.
-**23 November 2026 (17:09 GT):** Items 5 and 6 are locked as the reference examples of the canonical three-level pattern. DO NOT BREAK their layout, hierarchy, labels, or measurement rules. All other items must eventually match this reference. Residual flexibility is removed from every item except Item 9, which remains non-compliant pending redesign. Item 9 hard rule persists: never read or display ‘Won’, ‘Ganado’, or ‘Tasa de ganados’; the last stage is always Reserva.
-**23 November 2026 (later):** Item 9 draws the eight stages as ordinary Member Columns inside each Project Detail Card. The nested visualization is not an option. The Compact Hero and the Expanded Hero stay. The last stage is Reserva. The screen never shows “Won”, “Ganado”, or “Tasa de ganados”.
+**23 November 2026 (later):** Canonical three-level pattern is now mandatory for all 14 Ventas items. Previous exceptions for Items 3, 4, and 13 are removed. Item 9 keeps the canonical three-level names. Its content is locked in §4.1.10.
+**23 November 2026 (17:09 GT):** Items 5 and 6 are locked as the reference examples of the canonical three-level pattern. DO NOT BREAK their layout, hierarchy, labels, or measurement rules. Every item other than Item 9 must eventually match this reference. Residual flexibility is removed. Item 9 is locked in §4.1.10. Item 9 hard rule persists: never read or display ‘Won’, ‘Ganado’, or ‘Tasa de ganados’; the last stage is always Reserva.
+**24 November 2026:** These Item 9 rulings supersede the 23 November 2026 decision that the eight stages are ordinary Member Columns inside each Project Detail Card and that a nested visualization is not an option. Item 9 keeps the canonical three-level names (Compact Hero, Expanded Hero, Project KPI Cards, Project Detail Cards). The Compact Hero, always titled “Todos los Proyectos”, shows the Standardized Leakage KPI on the combined 8-stage funnel. The Expanded Hero shows that combined funnel. Each Project KPI Card shows that project’s Standardized Leakage KPI. The Z-score pill on the Compact Hero and on each Project KPI Card is green, amber, or red, per §4.1.10. The meaning of each color is not written on the screen. Each Project Detail Card shows that project’s 8-stage funnel, with the conversion percentage between the columns. The last stage is Reserva. The screen never shows “Won”, “Ganado”, or “Tasa de ganados”. The full lock is §4.1.10.
 
 ---
 
@@ -69,7 +69,7 @@ Every prompt sent to a Cursor agent that operates on the repository must begin w
 ## 2.1 Mandatory Visual Nomenclature (locked)
 
 **Why this exists and why it is mandatory**  
-On 18–19 November 2026 we lost multiple hours because the same visual region was referred to by different names in prompts versus in the local agent’s interpretation. The resulting mis-edits forced repeated rework. To prevent that class of failure permanently, the following names are now the **only** official terms for these regions. They must be used in every future prompt, SDD update, and code comment that refers to layout. No synonyms, no “the left card”, no “the top section”, no quadrant labels. These ten names are required for every one of the 14 Ventas items. No exception language is allowed, except the explicit lock on Items 5 and 6.
+On 18–19 November 2026 we lost multiple hours because the same visual region was referred to by different names in prompts versus in the local agent’s interpretation. The resulting mis-edits forced repeated rework. To prevent that class of failure permanently, the following names are now the **only** official terms for these regions. They must be used in every future prompt, SDD update, and code comment that refers to layout. No synonyms, no “the left card”, no “the top section”, no quadrant labels. These ten names are required for every one of the 14 Ventas items. No exception language is allowed, except the explicit lock on Items 5 and 6 and the Item 9 lock in §4.1.10. Item 9 keeps these names. On that item the Compact Hero and each Project KPI Card hold the Standardized Leakage KPI, and the Expanded Hero and each Project Detail Card hold the 8-stage funnel.
 
 Research basis (dashboard and data-visualization literature):
 - “Hero” / “Hero Row” / “Hero KPI strip” is the established term for the top band that holds the primary number and its immediate breakdown.
@@ -85,18 +85,18 @@ Research basis (dashboard and data-visualization literature):
 | **Item Title** | The heading of the checklist item (e.g. “Split de ventas por modelo y por torre”). | Does not yet exist as a named element in the codebase; must be treated as a first-class region. |
 | **Page** | The entire vertically scrollable content area that belongs to one checklist item. | One Item per Page. |
 | **Hero Band** | The top horizontal band of the Page. Contains the Compact Hero on the left and the Expanded Hero on the right. | Matches the widely used “Hero Row”. |
-| **Compact Hero** | The single left-hand card inside the Hero Band. | Always titled “Todos los Proyectos”. Holds the overall number(s) for the current filter scope. |
-| **Expanded Hero** | The single right-hand card inside the Hero Band. | Contains the Project Summary Columns. |
-| **Project Summary Columns** | The individual project columns that live inside the Expanded Hero. | Canonical project order. |
+| **Compact Hero** | The single left-hand card inside the Hero Band. | Always titled “Todos los Proyectos”. Holds the overall number(s) for the current filter scope. Item 9 holds the Standardized Leakage KPI (§4.1.10). |
+| **Expanded Hero** | The single right-hand card inside the Hero Band. | Contains the Project Summary Columns. Item 9 contains the combined 8-stage funnel (§4.1.10). |
+| **Project Summary Columns** | The individual project columns that live inside the Expanded Hero. | Canonical project order. Item 9 does not draw these; its Expanded Hero is the combined funnel (§4.1.10). |
 | **Project Bands** | The set of horizontal bands that appear below the Hero Band, one per project. | |
-| **Project KPI Cards** | The left-hand cards inside each Project Band. | Each shows that project’s aggregate number. |
-| **Project Detail Cards** | The right-hand cards inside each Project Band. | Contain the Member Columns. |
-| **Member Columns** | The individual secondary/tertiary columns (asesor, modelo, torre, etc.) that live inside each Project Detail Card. | Asesores: sorted descending by the metric. Modelos: always alphabetical. Other members follow the item’s locked rule. |
+| **Project KPI Cards** | The left-hand cards inside each Project Band. | Each shows that project’s aggregate number. Item 9 shows that project’s Standardized Leakage KPI and does not show “X Reserva” (§4.1.10). |
+| **Project Detail Cards** | The right-hand cards inside each Project Band. | Contain the Member Columns. Item 9 contains that project’s 8-stage funnel (§4.1.10). |
+| **Member Columns** | The individual secondary/tertiary columns (asesor, modelo, torre, etc.) that live inside each Project Detail Card. | Asesores: sorted descending by the metric. Modelos: always alphabetical. Other members follow the item’s locked rule. Item 9’s Project Detail Card is that project’s 8-stage funnel (§4.1.10). |
 
 **Rules**
-- These ten names are required for every one of the 14 Ventas items and for every other department item on this cadence. No synonyms. Exception language is not allowed, except the explicit lock on Items 5 and 6. Any prompt or specification that uses a different label for one of these regions, or that opts an item out, is incorrect and must be rewritten before it is sent to an agent.
+- These ten names are required for every one of the 14 Ventas items and for every other department item on this cadence. No synonyms. Exception language is not allowed, except the explicit lock on Items 5 and 6 and the Item 9 lock in §4.1.10. Any prompt or specification that uses a different label for one of these regions is incorrect and must be rewritten before it is sent to an agent. Item 9 does not rename the regions. Its Compact Hero and each Project KPI Card hold the Standardized Leakage KPI. Its Expanded Hero and each Project Detail Card hold the 8-stage funnel.
 - The title inside the Compact Hero is always “Todos los Proyectos”.
-- Every Ventas item uses these ten names. Synonyms are not allowed. Exception language is not allowed, except the explicit lock on Items 5 and 6.
+- Every Ventas item uses these ten names. Synonyms are not allowed. Exception language is not allowed, except the explicit lock on Items 5 and 6 and the Item 9 lock in §4.1.10.
 - Canonical project order, never-hide-zeros rule, and all other existing principles continue to apply unchanged.
 - When a new visual region appears that does not fit the table above, it must be added to this table before it is referenced in any prompt.
 
@@ -106,11 +106,11 @@ Research basis (dashboard and data-visualization literature):
 
 Every checklist item answers three successive questions with graphics, on a single page, with zero clicks in the default view:
 
-1. **Compact Hero** — large number on the left, always titled “Todos los Proyectos”.
-2. **Expanded Hero** — graphical breakdown immediately to the right of the Compact Hero (Project Summary Columns for Ventas).
-3. **Project Bands** — one band per member of the previous level (one per project), each containing a Project KPI Card on the left and a Project Detail Card on the right (Member Columns, e.g. asesor bars, inside the Project Detail Card).
+1. **Compact Hero** — large number on the left, always titled “Todos los Proyectos”. Item 9’s Compact Hero is the Standardized Leakage KPI on the combined 8-stage funnel (§4.1.10).
+2. **Expanded Hero** — graphical breakdown immediately to the right of the Compact Hero (Project Summary Columns for Ventas). Item 9’s Expanded Hero is the combined 8-stage funnel (§4.1.10).
+3. **Project Bands** — one band per member of the previous level (one per project), each containing a Project KPI Card on the left and a Project Detail Card on the right (Member Columns, e.g. asesor bars, inside the Project Detail Card). Item 9’s Project KPI Card is that project’s Standardized Leakage KPI. Item 9’s Project Detail Card is that project’s 8-stage funnel (§4.1.10).
 
-The pattern is mandatory for all 14 Ventas Operativo items. The same three-level cadence is mandatory for the other departments. No Ventas item may omit the Hero Band, the Project Bands, or any of the ten official names.
+The pattern is mandatory for all 14 Ventas Operativo items. The same three-level cadence is mandatory for the other departments. No Ventas item may omit the Hero Band or the Project Bands. No item may rename the ten official names. Item 9 keeps Compact Hero, Expanded Hero, Project KPI Cards, and Project Detail Cards. Its Expanded Hero is the combined 8-stage funnel, and its Project Detail Cards are per-project 8-stage funnels (§4.1.10).
 
 **Rules that lock this pattern**
 - **The full item fits on the page.** Compact Hero + Expanded Hero + all Project Bands must be visible together without requiring scroll beyond what Items 1 and 2 currently require. Reduce band height and empty space as needed to achieve this. This is a hard constraint.
@@ -127,9 +127,9 @@ The pattern is mandatory for all 14 Ventas Operativo items. The same three-level
 - The legacy “Total › Proyecto › Asesor” breadcrumb/label is dead weight and must be removed.
 - Project filter pills sit above the content: TODOS + the four projects in canonical order + a NINGUNO pill on the right. Selecting NINGUNO deselects all projects. NINGUNO is pressed whenever the selection is empty, including after the last project pill is turned off. A project with a zero metric stays on screen only while that project is selected. With NINGUNO, project cards are not drawn, and any hero that remains shows zero. The page must remain stable and not crash or go blank. Default state is TODOS (full three-level view, 0-click). TODOS is the only all-projects state. This row is live on the Ventas command center as of 23 November 2026. Another department page that uses the same pills gets NINGUNO when that page is the work in front of us.
 
-This pattern is mandatory for all 14 Ventas Operativo items. There is no exception. Items 5 and 6 are the locked reference examples of this pattern. Every other item must eventually match their structure, density, and use of the ten official names. Do not break Items 5 and 6. Items 1 through 14 each use the Hero Band (Compact Hero on the left, always titled “Todos los Proyectos”, and Expanded Hero on the right with Project Summary Columns) and the Project Bands (one band per project in canonical order, each with a Project KPI Card on the left and a Project Detail Card on the right containing Member Columns). The ten official names in §2.1 are required on every item. No synonym is allowed.
+This pattern is mandatory for all 14 Ventas Operativo items. Items 5 and 6 are the locked reference examples of this pattern. Every other item except Item 9 must eventually match their structure, density, and use of the ten official names. Do not break Items 5 and 6. Items 1 through 14, other than Item 9, each use the Hero Band (Compact Hero on the left, always titled “Todos los Proyectos”, and Expanded Hero on the right with Project Summary Columns) and the Project Bands (one band per project in canonical order, each with a Project KPI Card on the left and a Project Detail Card on the right containing Member Columns). Item 9 uses those same region names. Its Compact Hero and each Project KPI Card show the Standardized Leakage KPI, and its Expanded Hero and each Project Detail Card show the 8-stage funnel (§4.1.10). The ten official names in §2.1 are required on every item. No synonym is allowed.
 
-Items 5 and 6 are the locked reference examples (§4.2.1 and §4.1.3). Every other item must match their structure: Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing ordinary Member Columns. Item 7 keeps the trajectory drawer in §4.1.4. Item 8 keeps the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 keeps that same toggle and a case-list drawer in §4.1.6. Item 11 keeps that same toggle in §4.1.7, with no drawer. Item 12 keeps a case-list drawer in §4.1.8, with no toggle. Item 14 keeps that same toggle and an application-list drawer in §4.1.9. Item 3 uses torre as ordinary Member Columns (§4.1.2). Item 4 uses Fuente as ordinary Member Columns (§4.1.11). Item 13 uses tipo de referido as ordinary Member Columns (§4.1.12). Item 9 places the eight funnel stages as ordinary Member Columns inside each Project Detail Card (§4.1.10). Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
+Items 5 and 6 are the locked reference examples (§4.2.1 and §4.1.3). Every other item except Item 9 must match their structure: Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing ordinary Member Columns. Item 7 keeps the trajectory drawer in §4.1.4. Item 8 keeps the U | Q toggle in §4.1.5, on the same row Item 5 uses. Item 10 keeps that same toggle and a case-list drawer in §4.1.6. Item 11 keeps that same toggle in §4.1.7, with no drawer. Item 12 keeps a case-list drawer in §4.1.8, with no toggle. Item 14 keeps that same toggle and an application-list drawer in §4.1.9. Item 3 uses torre as ordinary Member Columns (§4.1.2). Item 4 uses Fuente as ordinary Member Columns (§4.1.11). Item 13 uses tipo de referido as ordinary Member Columns (§4.1.12). Item 9 places the combined 8-stage funnel in the Expanded Hero and that project’s 8-stage funnel in each Project Detail Card, and the Standardized Leakage KPI on the Compact Hero and on each Project KPI Card (§4.1.10). Other departments follow the same three-level graphics-first cadence adapted to their own hierarchy.
 
 ---
 
@@ -153,11 +153,11 @@ After the filter controls and the period + freshness line, mark the transition i
 
 **Replaces** the previous collection of sub-pages. Single vertically scrollable page. Primary language is the Reserva-level data and analytics the users already use.
 
-All 14 Operativo checklist items are 0-click. Every one of them must use the canonical three-level pattern in §3 and the ten official names in §2.1.
+All 14 Operativo checklist items are 0-click. Every one of them must use the canonical three-level pattern in §3 and the ten official names in §2.1. Item 9’s regions are filled as locked in §4.1.10.
 
 ### 4.1 Scroll order (locked 21 November 2026)
 
-The Ventas page is one vertical stack. Top to bottom, the order is the Operativo checklist. Confirmed 21 November 2026. This list is the page. An item stays in its numbered position. Every item in this list must use the canonical three-level pattern.
+The Ventas page is one vertical stack. Top to bottom, the order is the Operativo checklist. Confirmed 21 November 2026. This list is the page. An item stays in its numbered position. Every item in this list must use the canonical three-level pattern. Item 9 follows §4.1.10.
 
 The left rail scrolls to these same items in this same order.
 
@@ -171,14 +171,14 @@ The left rail scrolls to these same items in this same order.
 | 6 | Inventario general: Vendido, congelado, disponible | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.3). Status rows on the left. Expanded Hero: one vertical status stack per torre, scaled inside each project. Project Detail Card: one status-row block per torre, all of those bars on one shared scale. |
 | 7 | Valor de proyecto - trazabilidad de precios por valorización y descuentos | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.4). Snapshot of current list value and discount. A click on an Expanded Hero project column opens that project’s price trajectory in a drawer. |
 | 8 | Desistimientos - Reembolsos, retención de reembolso y valorización de proyectos | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.5). One series at a time, U or Q, by project and by torre. |
-| 9 | Tasa de conversión | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.10). Funnel stages are ordinary Member Columns inside each Project Detail Card. Asesor changes the Compact Hero, the Project Summary Columns, and every Project Band. The last stage is Reserva. |
+| 9 | Tasa de conversión | Canonical three-level names (Compact Hero + Expanded Hero + Project Bands with Project KPI Cards + Project Detail Cards). See precise spec below (§4.1.10). Compact Hero: Standardized Leakage KPI on the combined 8-stage funnel of all active and selected projects. Expanded Hero: that combined funnel, numbers on or above the columns, percentages between the columns. Each Project KPI Card: that project’s Standardized Leakage KPI (bottleneck stage and a colored Z-score pill; do not show “X Reserva”). The pill color is green, amber, or red (§4.1.10). The color’s meaning is not written on the screen. Each Project Detail Card: that project’s 8-stage funnel, conversion percentage between the columns, stage labels not truncated. Asesor changes the Compact Hero, the Expanded Hero funnel, and every Project Band. The last stage is Reserva. The screen never shows “Won”, “Ganado”, or “Tasa de ganados”. |
 | 10 | Control de descuentos | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.6). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s discounted sales in a drawer. |
 | 11 | Control de subidas de precios | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.7). One series at a time, U or Q, by project and by torre. |
 | 12 | F&F y casos especiales | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.8). Count of marked sales by project and by torre. A click on an Expanded Hero project column opens that project’s cases in a drawer. |
 | 13 | Control Referidos | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing ordinary Member Columns by tipo de referido. See precise spec below (§4.1.12). This item is not a filter on the canales chart. |
 | 14 | Control de promociones | Canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). See precise spec below (§4.1.9). One series at a time, U or Q, by project and by torre. A click on an Expanded Hero project column opens that project’s promotions in a drawer. |
 
-**All 14 items (23 November 2026, later).** Every item in the scroll-order table uses the canonical three-level pattern (Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing Member Columns). Item 14 is specified in §4.1.9 and the page follows that spec. Items 7, 8, 10, 11, and 12 are specified and the page follows those specs. Item 3 is specified in §4.1.2. Item 4 is specified in §4.1.11. Item 9 is specified in §4.1.10. Item 13 is specified in §4.1.12.
+**All 14 items (23 November 2026, later; Item 9 superseded 24 November 2026).** Every item in the scroll-order table uses the canonical three-level names (Compact Hero, Expanded Hero, Project Bands, Project KPI Cards, Project Detail Cards). Items other than Item 9 place Project Summary Columns in the Expanded Hero and Member Columns in the Project Detail Cards. Item 9 is locked in §4.1.10: the Compact Hero and each Project KPI Card show the Standardized Leakage KPI, and the Expanded Hero and each Project Detail Card show the 8-stage funnel. Item 14 is specified in §4.1.9 and the page follows that spec. Items 7, 8, 10, 11, and 12 are specified and the page follows those specs. Item 3 is specified in §4.1.2. Item 4 is specified in §4.1.11. Item 13 is specified in §4.1.12.
 
 The precise specs below keep their existing subsection numbers (§4.1.1, §4.1.2, §4.1.3, §4.1.4, §4.1.5, §4.1.6, §4.1.7, §4.1.8, §4.1.9, §4.1.10, §4.1.11, §4.1.12, §4.2.1). Those numbers are not a second order. §4.1.11 is Item 4. §4.1.12 is Item 13.
 
@@ -657,17 +657,15 @@ An application that names no torre stays in the project total, in the hero, and 
 Tasa de conversión
 
 **Decision**  
-23 November 2026 (later). This item must use the canonical three-level pattern. The funnel stages are ordinary Member Columns inside each Project Detail Card. The CEO, the Sales Manager, and the Sales Supervisor follow this item per asesor, every day, often more than once. The asesor filter changes the Compact Hero, the Project Summary Columns, and the Member Columns.
+24 November 2026. These rulings supersede every earlier Item 9 decision, including the 23 November 2026 ruling that the eight stages are ordinary Member Columns inside each Project Detail Card and that a nested visualization is not an option. The canonical three-level names remain: Compact Hero, Expanded Hero, Project KPI Cards, Project Detail Cards. The CEO, the Sales Manager, and the Sales Supervisor follow this item per asesor, every day, often more than once.
 
-**Hard rule**  
-These are real images from the current SSOT report (Pipedrive live). Do not read or use “Won” from Pipedrive. Read and use “Reserva”. “Won” is incorrectly configured in Pipedrive, has always been incorrectly configured, and has never been used. The screen never shows “Won”, “Ganado”, or “Tasa de ganados”. `status` is not an input. A stored value of `won` does not add the deal to every stage and does not produce a rate.
+**Hard rules that remain**  
+- The last stage is always Reserva.  
+- The screen never shows “Won”, “Ganado”, or “Tasa de ganados”.  
+- Never read or display those terms.  
+- The eight stages are: Ingreso → Contactado → En Perfilamiento → Calificados → Cita Programada → Visita Efectiva → En Decisión → Reserva.
 
-**Stages**  
-In this order, the labels the users already recognize:
-
-Ingreso → Contactado → En Perfilamiento → Calificados → Cita Programada → Visita Efectiva → En Decisión → Reserva
-
-A project prefix on the SSOT report (“[BN]”, “[BLT]”, “[BLV5]”) is not part of the label. “Visita Efectiva” is that label on every project.
+These are real images from the current SSOT report (Pipedrive live). Do not read or use “Won” from Pipedrive. Read and use “Reserva”. “Won” is incorrectly configured in Pipedrive, has always been incorrectly configured, and has never been used. `status` is not an input. A stored value of `won` does not add the deal to every stage and does not produce a rate. A project prefix on the SSOT report (“[BN]”, “[BLT]”, “[BLV5]”) is not part of the label. “Visita Efectiva” is that label on every project.
 
 **A deal**  
 One row of `ventas.embudo_deal` whose `add_on` falls inside the Periodo. `add_on` is the Guatemala day the deal was created. Stage history is not stored. No static files.
@@ -676,40 +674,78 @@ One row of `ventas.embudo_deal` whose `add_on` falls inside the Periodo. `add_on
 `stage_order` is the deal’s current position, 1 through 8. The deal counts in that position and in every earlier position. It does not count in a later position. Position 1 is Ingreso. Position 8 is Reserva. The eight labels above are those eight positions.
 
 **The percent**  
-Between a stage and the next stage: the next count divided by this count, rounded to the nearest whole percent. When this count is 0, the percent is 0%. Reserva has no percent after it.
+Between a stage and the next stage: the next count divided by this count, rounded to the nearest whole percent. When this count is 0, the percent is 0%. Reserva has no percent after it. The percentage sits between the vertical columns, not under them.
 
 **Filters**  
-Project pills apply. Periodo applies. Asesor applies. A selected asesor limits the Compact Hero, every Project Summary Column, and every Project Detail Card to that asesor’s deals. Modelo does not change this item. NINGUNO leaves the Compact Hero at Reserva 0 and draws no Project Bands. The page stays up.
+Project pills apply. Periodo applies. Asesor applies. The asesor filter changes the Compact Hero, the Expanded Hero funnel, and every Project Band. A selected asesor limits those three to that asesor’s deals. Modelo does not change this item. NINGUNO leaves the Compact Hero at zero and draws no project cards. The page stays up.
 
 **Structure**  
-Full canonical three-level pattern. The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. The gap between the Hero Band and the Project Bands is 12px. Each Project Band is 156px. The gap between Project Bands is 8px. The sum stays inside the scroll of Items 1 and 2.
+The canonical three-level names remain. The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. The gap between the Hero Band and the Project Bands is 12px. Each Project Band is 156px. The gap between Project Bands is 8px. The sum stays inside the scroll of Items 1 and 2.
 
-**Compact Hero**  
-Title: always “Todos los Proyectos”.  
-The large number is the Reserva count for the current project-pill and asesor scope. A count of 0 prints 0. The eight stage counts, in the locked stage order, and the percent between each stage and the next, are the ordinary Member Columns in each Project Detail Card.
-
-**Expanded Hero**  
-Project Summary Columns in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
-Each column is that project’s Reserva count. The number is always visible on or directly above the column.  
-One shared y-scale for the four columns. A project with a zero count stays visible.
+**Hero Band**  
+- Compact Hero (left, always titled “Todos los Proyectos”): displays the Standardized Leakage KPI calculated on the combined 8-stage funnel of all active and selected projects (the funnel shown in the Expanded Hero to its right).  
+  Two rows, matching the second-row pill style of Item 2:  
+  - Row 1: the bottleneck stage name (or “Saludable” / “Healthy / No acute bleed” when no stage crosses the significance threshold).  
+  - Row 2: the Z-score in a pill, e.g. “(Z = -7.60)”. The pill is colored by the Z-score color scale below. The pill text is the Z-score only.  
+- Expanded Hero (right): displays the single 8-stage funnel using the combined numbers of all active and selected projects. Numbers are always visible on or above the columns. Percentages sit between the vertical columns (not under them).
 
 **Project Bands**  
-One band per project in scope, canonical order. With an asesor selected, every band counts only that asesor’s deals.  
-- Project KPI Card (left): project name and that project’s Reserva count.  
-- Project Detail Card (right): Member Columns are the eight funnel stages, in the locked order, left to right. Each column is that stage’s count. The number is on or above the column. The percent sits between that column and the next. A count of 0 keeps the column, draws a length of zero, and prints 0. Each card scales to its own largest count. Columns are squeezed to fit: no wrap, no overflow, no internal scroll. The Hero Band and the Project Bands stay.  
+One Project Band per project, canonical order.  
+- Project KPI Card (left): displays the Standardized Leakage KPI for that project’s own funnel. Two rows, matching the second-row pill style of Item 2:  
+  - Row 1: the bottleneck stage name (e.g. “Ingreso”) or “Saludable” when no stage crosses the significance threshold.  
+  - Row 2: the Z-score in a pill, e.g. “(Z = -7.60)”. The pill is colored by the Z-score color scale below. The pill text is the Z-score only.  
+  Do not show “X Reserva”.  
+- Project Detail Card (right): the 8-stage funnel for that project only. Numbers are always visible on or above the columns. The conversion percentage is placed between the vertical columns (exactly as the arrows sit between bars in the current Pipedrive SSOT report), not under the columns. Stage labels must not be truncated. Zeros stay visible. A count of 0 keeps the column, draws a length of zero, and prints 0. Each card scales to its own largest count. Columns are squeezed to fit: no wrap, no overflow, no internal scroll.
+
 One series. No legend.
 
+**Standardized Leakage (Z-Score Bottleneck)**  
+Instead of a single float, the executive shorthand KPI is a Bottleneck Tag: `[Stage Name] ([Conversion %] vs. [Portfolio Avg %])`.
+
+Compute the one-sided Binomial Z-score for every transition \(k\) in project \(i\) against the portfolio baseline \(\bar{p}_k\):
+
+\[
+Z_{i,k} = \frac{p_{i,k} - \bar{p}_k}{\sqrt{\frac{\bar{p}_k(1 - \bar{p}_k)}{N_{i,k}}}}
+\]
+
+Selection Rule: \(\arg\min_k Z_{i,k}\) (the most negative Z-score).
+
+Why it works: The denominator scales by \(\sqrt{N_{i,k}}\). A −10% miss on 1,449 leads is a statistical catastrophe (Z = −7.6), whereas a −44% miss on 2 leads is just noise (Z = −1.26).
+
+Significance threshold: e.g. Z < −1.96. If no stage crosses it, the card displays “Saludable” / “Healthy / No acute bleed” rather than forcing a false alarm. The color scale does not replace this rule. Row 1 still follows the threshold. Row 2’s color follows the selected Z.
+
+**Z-score pill color**  
+The pill is colored in the UI. The sentence after each color is the meaning of that color. That sentence is not displayed: not as copy, not as a caption, not in a tooltip, and not as an accessible name. The pill’s only text is the Z-score, e.g. “(Z = -7.60)”.
+
+A value sits in one band. The shared edges belong to the milder color. −2 is green. −3 is amber.
+
+- Green (`#16a34a`, the same green as a surplus on this page). From 0 through −2, including both (−2 ≤ Z ≤ 0): Everyday noise. Ignore it.
+- Amber (`#b45309`, the amber already used on Ventas). Below −2 through −3, including −3 (−3 ≤ Z < −2): Statistically unlikely to be luck. Investigate.
+- Red (`#b91c1c`, the same red as a deficit on this page). Worse than −3 (Z < −3): Confirmed structural bleed. Fix immediately.
+
+A Z above 0 is outside these three bands. This ruling does not assign it a color. The pill still shows the number.
+
+Principal Note: Calculating \(\bar{p}_k\) dynamically across active projects creates a moving goalpost (if all projects degrade together, Z stays near 0). Once 1–2 quarters of clean data exist, lock \(\bar{p}_k\) to a static Target SLA or a Rolling 90-Day Historical Baseline so the card catches systemic portfolio-wide degradation, not just relative underperformance.
+
+The Compact Hero runs this calculation on the combined 8-stage funnel of all active and selected projects. Each Project KPI Card runs it on that project’s own funnel.
+
 **Provenance**  
-A click on a count opens the deals in that count and nothing else. A click on a percent opens the deals in the next stage and nothing else. Each row shows the project, the stage, `add_on`, and the Pipedrive deal id. Hover does not open it. The close control reads “Cerrar”. There is no drawer.
+A click on a count opens the deals in that count and nothing else. A click on a percent opens the deals in the next stage and nothing else. Each row shows the project, the stage, `add_on`, and the Pipedrive deal id. Hover does not open it. The close control reads “Cerrar”. There is no drawer. Tooltips only for provenance (click).
 
 **Explicit rules**  
-- Counts and percents are always visible.  
+- The canonical three-level names remain (Compact Hero, Expanded Hero, Project KPI Cards, Project Detail Cards, etc.).  
+- Project pills apply. NINGUNO leaves the Compact Hero at zero and draws no project cards. The page stays up.  
+- Numbers always visible on or above every column. Tooltips only for provenance (click).  
+- Projects stay in canonical order.  
 - Zeros stay visible.  
+- No static files as data sources.  
+- The asesor filter changes the Compact Hero, the Expanded Hero funnel, and every Project Band.  
+- Counts and percents are always visible.  
 - Headings are the Item Title, “Todos los Proyectos”, the project names, and the stage labels.  
 - No percentage is a stage name. The percent is the mark between two stages.  
 - The final stage is Reserva.  
-- The asesor filter changes the Compact Hero, the Project Summary Columns, and the Member Columns.
-- The item uses the canonical three-level pattern. Funnel stages are the Member Columns inside each Project Detail Card.
+- The screen never shows “Won”, “Ganado”, or “Tasa de ganados”. Never read or display those terms.  
+- The Z-score pill is green, amber, or red, per the color scale in this section. The screen shows the color and the Z-score. It does not show the meaning of the color.
 
 #### 4.1.11 Precise visual spec — Item 4: Ventas por canales
 
@@ -964,8 +1000,8 @@ Checklist pending. Will follow the same 0-click single-page pattern once receive
 - [ ] Ventas is a single scrollable page; former sub-page content appears as visual bands, not separate URLs.
 - [ ] Ventas items appear in the locked scroll order in §4.1: Operativo checklist 1 through 14, top to bottom. The left rail follows that order.
 - [ ] All 14 Operativo checklist items are visible as charts or high-density visuals without clicking.
-- [ ] All 14 Ventas Operativo items use the canonical three-level pattern and the ten official names in §2.1. No item is excepted.
-- [ ] Exception language is not allowed, except the explicit lock on Items 5 and 6.
+- [ ] All 14 Ventas Operativo items use the canonical three-level names in §2.1 and the pattern in §3. Item 9’s Compact Hero and Project KPI Cards show the Standardized Leakage KPI. Item 9’s Expanded Hero and Project Detail Cards show the 8-stage funnel (§4.1.10).
+- [ ] Exception language is not allowed, except the explicit lock on Items 5 and 6 and the Item 9 lock in §4.1.10.
 - [ ] Every graphical element representing an amount displays its corresponding number.
 - [ ] No on-screen definition statements or forced alternative metrics.
 - [ ] Control Referidos uses the canonical three-level pattern. It is its own item and is not a canales filter.
@@ -996,7 +1032,7 @@ Checklist pending. Will follow the same 0-click single-page pattern once receive
 - Keep the freshness stamp and filter-to-content separator.
 - Data for all checklist items is considered available for design purposes (even if not yet fully loaded into the production database).
 - Project identification colors: dark corporate blues; keep current palette for now.
-- Canonical three-level pattern is mandatory for all 14 Ventas items. No item is excepted (see section 3). The ten official names in §2.1 are required. Pattern: Compact Hero → Expanded Hero (Project Summary Columns) → Project Bands (each with Project KPI Card + Project Detail Card containing Member Columns). Projects in fixed canonical order. Asesores descending by value; modelos alphabetical. Fixed-size Project Detail Card for Member Columns (squeeze to fit, no wrap/scroll). Numbers always visible; tooltips only for provenance. NINGUNO pill added to project filters. Remove legacy Total › Proyecto › Asesor breadcrumb.
+- Canonical three-level names are mandatory for all 14 Ventas items (see section 3 and §2.1). Items other than Item 9 use Compact Hero → Expanded Hero (Project Summary Columns) → Project Bands (each with Project KPI Card + Project Detail Card containing Member Columns). Item 9 is locked in §4.1.10: Standardized Leakage on the Compact Hero and each Project KPI Card, and the 8-stage funnel on the Expanded Hero and each Project Detail Card, with the conversion percentage between the columns. Projects in fixed canonical order. Asesores descending by value; modelos alphabetical. Fixed-size Project Detail Card (squeeze to fit, no wrap/scroll). Numbers always visible; tooltips only for provenance. NINGUNO pill added to project filters. Remove legacy Total › Proyecto › Asesor breadcrumb.
 
 ---
 
