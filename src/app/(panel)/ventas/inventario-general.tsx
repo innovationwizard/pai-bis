@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, ZIndexLayer } from "recharts";
 import type { BarShapeProps, XAxisTickContentProps } from "recharts";
 import { UNIT_STATUS_COLORS, UNIT_STATUS_LABELS } from "@/lib/reservas/constants";
 import type { RvUnitStatus } from "@/lib/reservas/types";
@@ -27,6 +27,14 @@ const STATUSES: { key: InventoryStatusKey; status: RvUnitStatus }[] = [
 ];
 
 const WATERFALL: InventoryStatusKey[] = ["congelado", "disponible", "revision", "reservado", "vendido"];
+const CASCADE_SLOT: Record<InventoryStatusKey, number> = {
+  congelado: -2,
+  disponible: -1,
+  revision: 0,
+  reservado: 1,
+  vendido: 2,
+};
+const CASCADE_STEP = 14;
 
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 
@@ -58,6 +66,10 @@ const HERO_FONT = "Inter, ui-sans-serif, system-ui, sans-serif";
 const HERO_FIGURE = 10;
 const HERO_FIGURE_PAD = 2;
 const HERO_AXIS = 22;
+const INSIDE_MIN = 14;
+const OUTSIDE_FIGURE = HERO_FIGURE - 1;
+const OUTSIDE_GAP = 3;
+const OUTSIDE_SEP = OUTSIDE_FIGURE + 2;
 
 function figureInk(hex: string): string {
   const raw = hex.replace("#", "");
@@ -71,8 +83,8 @@ function figureInk(hex: string): string {
 
 const figureWidths = new Map<string, number>();
 
-function figureWidth(text: string, fontFamily: string): number {
-  const key = `${fontFamily}\0${text}`;
+function figureWidth(text: string, fontFamily: string, fontSize: number): number {
+  const key = `${fontFamily}\0${fontSize}\0${text}`;
   const cached = figureWidths.get(key);
   if (cached != null) return cached;
   const probe = document.createElement("span");
@@ -84,7 +96,7 @@ function figureWidth(text: string, fontFamily: string): number {
   probe.style.pointerEvents = "none";
   probe.style.whiteSpace = "nowrap";
   probe.style.fontFamily = fontFamily;
-  probe.style.fontSize = `${HERO_FIGURE}px`;
+  probe.style.fontSize = `${fontSize}px`;
   probe.style.fontWeight = "700";
   probe.style.fontVariantNumeric = "tabular-nums";
   probe.style.lineHeight = "1";
@@ -93,6 +105,10 @@ function figureWidth(text: string, fontFamily: string): number {
   probe.remove();
   figureWidths.set(key, width);
   return width;
+}
+
+function fitsInside(text: string, height: number, width: number): boolean {
+  return height >= INSIDE_MIN && width >= figureWidth(text, HERO_FONT, HERO_FIGURE) + HERO_FIGURE_PAD;
 }
 
 type HeroDatum = {
@@ -119,10 +135,251 @@ function heroDatum(payload: unknown): HeroDatum | null {
   return row as HeroDatum;
 }
 
+type PlotBox = { left: number; right: number; top: number; bottom: number };
+
+type OutsideMark = {
+  id: string;
+  stack: string;
+  x: number;
+  width: number;
+  midY: number;
+  text: string;
+  plot: PlotBox | null;
+  solo: boolean;
+  slot: number | null;
+  color: string;
+  barHeight: number;
+  open: () => void;
+  aria: string;
+};
+
+type PlacedMark = OutsideMark & {
+  labelY: number;
+  textX: number;
+  edgeX: number;
+  anchor: "start" | "middle" | "end";
+  fill: string;
+};
+
+type LabelBook = {
+  marks: Map<string, OutsideMark>;
+  listener: (() => void) | null;
+  frame: boolean;
+};
+
+function touchBook(book: LabelBook) {
+  if (book.frame) return;
+  book.frame = true;
+  queueMicrotask(() => {
+    book.frame = false;
+    book.listener?.();
+  });
+}
+
+function plotBox(props: BarShapeProps): PlotBox | null {
+  const view = (props as { parentViewBox?: { x?: unknown; y?: unknown; width?: unknown; height?: unknown } }).parentViewBox;
+  if (!view || typeof view.x !== "number" || typeof view.y !== "number" || typeof view.width !== "number" || typeof view.height !== "number") return null;
+  if (view.width <= 0 || view.height <= 0) return null;
+  return { left: view.x, right: view.x + view.width, top: view.y, bottom: view.y + view.height };
+}
+
+type ColumnSpan = { stack: string; left: number; right: number; center: number; plot: PlotBox | null };
+
+function placeBeside(items: readonly OutsideMark[]): PlacedMark[] {
+  const ordered = [...items].sort((a, b) => a.midY - b.midY || a.id.localeCompare(b.id, "es"));
+  const slots = ordered.map((item) => ({ ...item, labelY: item.midY }));
+  for (let pass = 0; pass < 8; pass += 1) {
+    for (let index = 1; index < slots.length; index += 1) {
+      const overlap = slots[index - 1].labelY + OUTSIDE_SEP - slots[index].labelY;
+      if (overlap > 0) {
+        slots[index - 1].labelY -= overlap / 2;
+        slots[index].labelY += overlap / 2;
+      }
+    }
+  }
+  const plot = slots.find((slot) => slot.plot)?.plot;
+  if (plot) {
+    const pad = OUTSIDE_FIGURE / 2;
+    const minY = plot.top + pad;
+    const maxY = plot.bottom - pad;
+    for (const slot of slots) slot.labelY = Math.min(maxY, Math.max(minY, slot.labelY));
+    for (let index = 1; index < slots.length; index += 1) {
+      const min = slots[index - 1].labelY + OUTSIDE_SEP;
+      if (slots[index].labelY < min) slots[index].labelY = min;
+    }
+    if (slots.length > 0) {
+      const overflow = slots[slots.length - 1].labelY - maxY;
+      if (overflow > 0) {
+        for (const slot of slots) slot.labelY -= overflow;
+      }
+    }
+  }
+  return slots.map((slot) => {
+    const textWidth = figureWidth(slot.text, HERO_FONT, OUTSIDE_FIGURE);
+    let textX = slot.x + slot.width + OUTSIDE_GAP;
+    let anchor: "start" | "end" = "start";
+    let edgeX = slot.x + slot.width;
+    if (slot.plot && textX + textWidth > slot.plot.right - 1) {
+      textX = slot.x - OUTSIDE_GAP;
+      anchor = "end";
+      edgeX = slot.x;
+    }
+    return { ...slot, textX, edgeX, anchor, fill: NAVY };
+  });
+}
+
+function columnSpans(groups: ReadonlyMap<string, OutsideMark[]>): ColumnSpan[] {
+  const spans: ColumnSpan[] = [];
+  for (const [stack, items] of groups) {
+    const sample = items[0];
+    if (!sample) continue;
+    spans.push({
+      stack,
+      left: sample.x,
+      right: sample.x + sample.width,
+      center: sample.x + sample.width / 2,
+      plot: sample.plot,
+    });
+  }
+  spans.sort((a, b) => a.center - b.center);
+  return spans;
+}
+
+function placeCascade(items: readonly OutsideMark[], column: ColumnSpan, columns: readonly ColumnSpan[]): PlacedMark[] {
+  const index = columns.findIndex((item) => item.stack === column.stack);
+  const previous = index > 0 ? columns[index - 1] : null;
+  const next = index >= 0 && index < columns.length - 1 ? columns[index + 1] : null;
+  const leftBound = previous ? (previous.right + column.left) / 2 : (column.plot?.left ?? column.left);
+  const rightBound = next ? (column.right + next.left) / 2 : (column.plot?.right ?? column.right);
+  const leftOuter = items.find((item) => item.slot === -2);
+  const rightOuter = items.find((item) => item.slot === 2);
+  const leftHalf = leftOuter ? figureWidth(leftOuter.text, HERO_FONT, HERO_FIGURE) / 2 : 0;
+  const rightHalf = rightOuter ? figureWidth(rightOuter.text, HERO_FONT, HERO_FIGURE) / 2 : 0;
+  const roomLeft = column.center - leftBound - leftHalf;
+  const roomRight = rightBound - column.center - rightHalf;
+  const step = Math.max(0, Math.min(CASCADE_STEP, roomLeft / 2, roomRight / 2));
+  return items.map((item) => {
+    const slot = item.slot ?? 0;
+    const textWidth = figureWidth(item.text, HERO_FONT, HERO_FIGURE);
+    const half = textWidth / 2;
+    let textX = column.center + slot * step;
+    const thin = item.barHeight < INSIDE_MIN;
+    const overlapsBar = textX + half > item.x && textX - half < item.x + item.width;
+    if (thin && overlapsBar) {
+      const roomL = item.x - leftBound;
+      const roomR = rightBound - (item.x + item.width);
+      const sign = slot < 0 || (slot === 0 && roomL >= roomR) ? -1 : 1;
+      const rank = sign < 0 ? (slot >= 0 ? 1 : 1 - slot) : (slot <= 0 ? 1 : slot + 1);
+      const stride = Math.max(step, textWidth + 2);
+      textX = sign < 0
+        ? item.x - OUTSIDE_GAP - half - (rank - 1) * stride
+        : item.x + item.width + OUTSIDE_GAP + half + (rank - 1) * stride;
+    }
+    if (textX - half < leftBound) textX = leftBound + half;
+    if (textX + half > rightBound) textX = rightBound - half;
+    const onBar = textX + half > item.x + 0.5 && textX - half < item.x + item.width - 0.5;
+    const fill = onBar && item.barHeight >= INSIDE_MIN ? figureInk(item.color) : NAVY;
+    return { ...item, labelY: item.midY, textX, edgeX: textX, anchor: "middle" as const, fill };
+  });
+}
+
+function placeMarks(marks: Iterable<OutsideMark>): PlacedMark[] {
+  const groups = new Map<string, OutsideMark[]>();
+  for (const mark of marks) {
+    const group = groups.get(mark.stack);
+    if (group) group.push(mark);
+    else groups.set(mark.stack, [mark]);
+  }
+  const columns = columnSpans(groups);
+  const placed: PlacedMark[] = [];
+  for (const [stack, group] of groups) {
+    const column = columns.find((item) => item.stack === stack);
+    if (group.some((item) => item.slot != null) && column) placed.push(...placeCascade(group, column, columns));
+    else placed.push(...placeBeside(group));
+  }
+  placed.sort((a, b) => a.id.localeCompare(b.id, "es"));
+  return placed;
+}
+
+function samePlacement(current: readonly PlacedMark[], next: readonly PlacedMark[]): boolean {
+  if (current.length !== next.length) return false;
+  for (let index = 0; index < current.length; index += 1) {
+    const left = current[index];
+    const right = next[index];
+    if (
+      left.id !== right.id ||
+      left.text !== right.text ||
+      left.labelY !== right.labelY ||
+      left.textX !== right.textX ||
+      left.edgeX !== right.edgeX ||
+      left.anchor !== right.anchor ||
+      left.fill !== right.fill ||
+      left.solo !== right.solo ||
+      left.aria !== right.aria
+    ) return false;
+  }
+  return true;
+}
+
+function OutsideLabels({ book }: { book: LabelBook }) {
+  const [marks, setMarks] = useState<PlacedMark[]>([]);
+  useLayoutEffect(() => {
+    const publish = () => {
+      const next = placeMarks(book.marks.values());
+      setMarks((current) => (samePlacement(current, next) ? current : next));
+    };
+    book.listener = publish;
+    publish();
+    return () => {
+      if (book.listener === publish) book.listener = null;
+    };
+  }, [book]);
+  const onKey = (event: ReactKeyboardEvent<SVGGElement>, open: () => void) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    open();
+  };
+  return (
+    <ZIndexLayer zIndex={2000}>
+      <g>
+        {marks.map((mark) => (
+          <g
+            key={mark.id}
+            role={mark.solo ? "button" : undefined}
+            tabIndex={mark.solo ? 0 : undefined}
+            aria-label={mark.solo ? mark.aria : undefined}
+            style={{ cursor: "pointer" }}
+            onClick={() => book.marks.get(mark.id)?.open()}
+            onKeyDown={mark.solo ? (event) => onKey(event, () => book.marks.get(mark.id)?.open()) : undefined}
+          >
+            <text
+              x={mark.textX}
+              y={mark.labelY}
+              textAnchor={mark.anchor}
+              dominantBaseline="central"
+              fill={mark.fill}
+              stroke={mark.fill === NAVY ? "var(--color-card, #fff)" : "none"}
+              strokeWidth={mark.fill === NAVY ? 2 : 0}
+              paintOrder="stroke"
+              fontFamily={HERO_FONT}
+              fontSize={mark.slot == null ? OUTSIDE_FIGURE : HERO_FIGURE}
+              fontWeight={700}
+            >
+              {mark.text}
+            </text>
+          </g>
+        ))}
+      </g>
+    </ZIndexLayer>
+  );
+}
+
 function segmentShape(
   key: InventoryStatusKey,
   color: string,
   place: string,
+  book: LabelBook,
+  cascade: boolean,
   onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void,
 ) {
   return function Segment(props: BarShapeProps) {
@@ -134,17 +391,39 @@ function segmentShape(
     const text = count(value);
     const item = statusOf(key);
     const drawn = width > 0 && height > 0;
-    const inside = drawn && height >= HERO_FIGURE + HERO_FIGURE_PAD && width >= figureWidth(text, HERO_FONT) + HERO_FIGURE_PAD;
+    const id = `${row.label}:${key}`;
     const open = () => onOpen(row.tower, key);
+    const aria = `${place}, ${row.label}, ${item.label}: ${text}`;
+    const inside = !cascade && fitsInside(text, height, width);
+    if (cascade || !inside) {
+      book.marks.set(id, {
+        id,
+        stack: row.label,
+        x,
+        width,
+        midY: y + height / 2,
+        text,
+        plot: plotBox(props),
+        solo: !drawn,
+        slot: cascade ? CASCADE_SLOT[key] : null,
+        color,
+        barHeight: height,
+        open,
+        aria,
+      });
+      touchBook(book);
+    } else if (book.marks.delete(id)) {
+      touchBook(book);
+    }
+    if (!drawn) return null;
     const onKey = (event: ReactKeyboardEvent<SVGGElement>) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       open();
     };
-    if (!drawn && !inside) return null;
     return (
-      <g role="button" tabIndex={0} aria-label={`${place}, ${row.label}, ${item.label}: ${text}`} style={{ cursor: "pointer" }} onClick={open} onKeyDown={onKey}>
-        {drawn ? <rect x={x} y={y} width={width} height={height} fill={color} /> : null}
+      <g role="button" tabIndex={0} aria-label={aria} style={{ cursor: "pointer" }} onClick={open} onKeyDown={onKey}>
+        <rect x={x} y={y} width={width} height={height} fill={color} />
         {inside ? (
           <text x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill={figureInk(color)} fontFamily={HERO_FONT} fontSize={HERO_FIGURE} fontWeight={700}>
             {text}
@@ -155,12 +434,12 @@ function segmentShape(
   };
 }
 
-function linesFor(projects: readonly InventoryProject[], status: InventoryStatusKey | null): string[] {
+function linesFor(projects: readonly InventoryProject[], status: InventoryStatusKey): string[] {
   const lines: string[] = [];
   for (const project of projects) {
     for (const tower of project.towers) {
       for (const unit of tower.units) {
-        if (status && unit.status !== status) continue;
+        if (unit.status !== status) continue;
         lines.push(`${project.label} · ${tower.label} · ${unit.code}`);
       }
     }
@@ -168,25 +447,20 @@ function linesFor(projects: readonly InventoryProject[], status: InventoryStatus
   return lines;
 }
 
-function formulaFor(status: InventoryStatusKey | null): string {
-  if (!status) {
-    return "Suma de unidades en v_rv_units_full con estado Disponible, En revisión, Reservado, Congelado o Vendido.";
-  }
+function formulaFor(status: InventoryStatusKey): string {
   const item = statusOf(status);
   return `Unidades en v_rv_units_full con estado ${item.label} (${item.status}).`;
 }
 
 function StatusList({
   counts,
-  includeTotal,
   onOpen,
 }: {
   counts: InventoryCounts;
-  includeTotal: boolean;
-  onOpen: (status: InventoryStatusKey | null) => void;
+  onOpen: (status: InventoryStatusKey) => void;
 }) {
   const ceiling = counts.total > 0 ? counts.total : 1;
-  const rows: { key: string; label: string; value: number; color: string; status: InventoryStatusKey | null; start: number; summary: boolean }[] = [];
+  const rows: { key: InventoryStatusKey; label: string; value: number; color: string; start: number }[] = [];
   let start = 0;
   for (const key of WATERFALL) {
     const item = STATUSES.find((entry) => entry.key === key);
@@ -197,35 +471,26 @@ function StatusList({
       label: UNIT_STATUS_LABELS[item.status],
       value,
       color: UNIT_STATUS_COLORS[item.status],
-      status: key,
       start,
-      summary: false,
     });
     start += value;
   }
-  if (includeTotal) {
-    rows.push({ key: "total", label: "Total", value: counts.total, color: NAVY, status: null, start: 0, summary: true });
-  }
   return (
     <ul className={styles.statusList}>
-      {rows.map((row) => {
-        const width = row.summary ? (row.value > 0 ? 100 : 0) : (row.value / ceiling) * 100;
-        const left = row.summary ? 0 : (row.start / ceiling) * 100;
-        return (
-          <li key={row.key}>
-            <span className={styles.statusName}>{row.label}</span>
-            <button type="button" className={styles.statusTrack} onClick={() => onOpen(row.status)}>
-              <span className={styles.statusPlot}>
-                <span
-                  className={styles.statusBar}
-                  style={{ left: `${left}%`, width: `${width}%`, background: row.color }}
-                />
-              </span>
-              <span className={styles.statusCount} style={{ color: row.color }}>{count(row.value)}</span>
-            </button>
-          </li>
-        );
-      })}
+      {[...rows].reverse().map((row) => (
+        <li key={row.key}>
+          <span className={styles.statusName}>{row.label}</span>
+          <button type="button" className={styles.statusTrack} onClick={() => onOpen(row.key)}>
+            <span className={styles.statusPlot}>
+              <span
+                className={styles.statusBar}
+                style={{ left: `${(row.start / ceiling) * 100}%`, width: `${(row.value / ceiling) * 100}%`, background: row.color }}
+              />
+            </span>
+            <span className={styles.statusCount} style={{ color: row.color }}>{count(row.value)}</span>
+          </button>
+        </li>
+      ))}
     </ul>
   );
 }
@@ -240,6 +505,9 @@ function HeroTowers({
   fit?: boolean;
 }) {
   const yMax = useMemo(() => heroScale(project), [project]);
+  const bookRef = useRef<LabelBook | null>(null);
+  if (!bookRef.current) bookRef.current = { marks: new Map(), listener: null, frame: false };
+  const book = bookRef.current;
   const host = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState(0);
   useEffect(() => {
@@ -254,6 +522,10 @@ function HeroTowers({
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+  useLayoutEffect(() => {
+    touchBook(book);
+  });
+  book.marks.clear();
   const rows: HeroDatum[] = project.towers.map((tower) => ({
     label: tower.label,
     tower,
@@ -292,10 +564,11 @@ function HeroTowers({
                   isAnimationActive={false}
                   activeBar={false}
                   maxBarSize={fit ? undefined : 32}
-                  shape={segmentShape(key, item.color, project.label, onOpen)}
+                  shape={segmentShape(key, item.color, project.label, book, fit, onOpen)}
                 />
               );
             })}
+            <OutsideLabels book={book} />
           </BarChart>
         </ResponsiveContainer>
       ) : null}
@@ -331,15 +604,12 @@ export function InventarioGeneral({
     setTip((current) => (current?.key === next.key ? null : next));
   }
 
-  function openScope(status: InventoryStatusKey | null, place: string, source: readonly InventoryProject[]) {
-    const name = status ? statusOf(status).label : "Total";
-    const value = status
-      ? source.reduce((sum, project) => sum + project.counts[status], 0)
-      : source.reduce((sum, project) => sum + project.counts.total, 0);
-    const key = `${place}:${status ?? "total"}`;
+  function openScope(status: InventoryStatusKey, place: string, source: readonly InventoryProject[]) {
+    const item = statusOf(status);
+    const value = source.reduce((sum, project) => sum + project.counts[status], 0);
     toggle({
-      key,
-      title: place === "todos" ? `${name} ${count(value)}` : `${place} · ${name} ${count(value)}`,
+      key: `${place}:${status}`,
+      title: place === "todos" ? `${item.label} ${count(value)}` : `${place} · ${item.label} ${count(value)}`,
       formula: formulaFor(status),
       scope: board?.scope ?? "",
       rows: linesFor(source, status),
@@ -367,7 +637,6 @@ export function InventarioGeneral({
               <span className={styles.kpiName}>Todos los Proyectos</span>
               <StatusList
                 counts={board.counts}
-                includeTotal
                 onOpen={(status) => openScope(status, "todos", projects)}
               />
             </article>
@@ -390,7 +659,6 @@ export function InventarioGeneral({
                     <span className={styles.kpiName}>{project.label}</span>
                     <StatusList
                       counts={project.counts}
-                      includeTotal={false}
                       onOpen={(status) => openScope(status, project.label, [project])}
                     />
                   </article>
