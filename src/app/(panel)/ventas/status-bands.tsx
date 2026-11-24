@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import type { StatusBand, StatusPoint, StatusVista } from "@/lib/ventas/vista-types";
+import band from "./landing-blocks.module.css";
 import styles from "./status-bands.module.css";
 
 const RESERVAS = "#0d2041";
@@ -34,6 +35,51 @@ function gapClass(value: number): string {
   if (value > 0.05) return styles.up;
   if (value < -0.05) return styles.down;
   return styles.flat;
+}
+
+const COLUMN_HEADROOM = 1.14;
+
+function hueKey(label: string): string {
+  return label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function sumGap(columns: readonly StatusBand[]): number {
+  const total = columns.reduce((sum, column) => sum + column.gap, 0);
+  return Math.round(total * 10) / 10;
+}
+
+function columnScale(columns: readonly StatusBand[]): number {
+  const peak = columns.reduce((max, column) => Math.max(max, Math.abs(column.gap)), 0);
+  return peak > 0 ? peak * COLUMN_HEADROOM : 1;
+}
+
+function memberName(column: StatusBand): string {
+  const mark = " · ";
+  const index = column.label.lastIndexOf(mark);
+  return index < 0 ? column.label : column.label.slice(index + mark.length);
+}
+
+function projectIdOfTower(column: StatusBand): string {
+  const index = column.id.indexOf("|");
+  return index < 0 ? "" : column.id.slice(0, index);
+}
+
+function towersOf(projectId: string, towers: readonly StatusBand[]): StatusBand[] {
+  const rows = towers.filter((column) => column.kind === "torre" && projectIdOfTower(column) === projectId);
+  if (rows.length < 2) return [];
+  return [...rows].sort((a, b) => memberName(a).localeCompare(memberName(b), "es") || a.id.localeCompare(b.id));
+}
+
+function activateColumn(event: ReactKeyboardEvent<HTMLDivElement>, action: () => void) {
+  if (event.target !== event.currentTarget) return;
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  action();
 }
 
 function dayNumber(iso: string): number {
@@ -335,6 +381,111 @@ function StatusRow({ band }: { band: StatusBand }) {
   );
 }
 
+function PaceColumns({
+  columns,
+  level,
+  label,
+  hueFor,
+  openId,
+  onOpen,
+  onFrozen,
+}: {
+  columns: readonly StatusBand[];
+  level: "project" | "asesor";
+  label: string;
+  hueFor: (column: StatusBand) => string;
+  openId: string | null;
+  onOpen: (id: string) => void;
+  onFrozen: (column: StatusBand) => void;
+}) {
+  const scale = columnScale(columns);
+  const flagged = columns.some((column) => column.congelado);
+  return (
+    <div className={band.ogCols} data-level={level} role="group" aria-label={label}>
+      {columns.map((column) => {
+        const height = (Math.max(0, Math.abs(column.gap)) / scale) * 100;
+        const name = level === "project" ? column.label : memberName(column);
+        const hue = hueFor(column);
+        return (
+          <div
+            key={column.id}
+            className={band.ogCol}
+            role="button"
+            tabIndex={0}
+            aria-pressed={openId === column.id}
+            aria-label={`${name}: ${formatGap(column.gap)}`}
+            style={{ cursor: "pointer" }}
+            onClick={() => onOpen(column.id)}
+            onKeyDown={(event) => activateColumn(event, () => onOpen(column.id))}
+          >
+            <div className={band.ogColBody}>
+              <div className={band.ogPlotWrap}>
+                <div className={band.ogPlot}>
+                  <span className={band.ogNum} style={{ bottom: `calc(${height}% + 2px)` }}>
+                    <span className={gapClass(column.gap)}>{formatGap(column.gap)}</span>
+                  </span>
+                  <span
+                    className={band.ogBar}
+                    data-project={hue || undefined}
+                    style={{ height: `${height}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            <span className={band.ogName} style={{ whiteSpace: "nowrap" }}>{name}</span>
+            {flagged ? (
+              <span className={band.ogDelta}>
+                {column.congelado ? (
+                  <button
+                    type="button"
+                    className={styles.frozen}
+                    data-frozen=""
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onFrozen(column);
+                    }}
+                  >
+                    Congelado
+                  </button>
+                ) : "\u00a0"}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChartDrawer({ band: scope, onClose }: { band: StatusBand; onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+  }, [scope.id]);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="op-overlay">
+      <button type="button" className="op-backdrop" aria-label="Cerrar" onClick={onClose} />
+      <aside className="op-drawer" role="dialog" aria-label={scope.label}>
+        <header>
+          <h2>{scope.label}</h2>
+          <button ref={closeRef} type="button" onClick={onClose}>Cerrar</button>
+        </header>
+        <StatusRow band={scope} />
+      </aside>
+    </div>
+  );
+}
+
 export function StatusLifetime({
   vista,
   pending,
@@ -342,16 +493,129 @@ export function StatusLifetime({
   vista: StatusVista | null;
   pending: ReactNode;
 }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [frozen, setFrozen] = useState<Tip | null>(null);
+  const frozenRef = useRef<HTMLDivElement>(null);
+  const closeDrawer = useCallback(() => setOpenId(null), []);
+
+  const openBand = !vista || openId == null
+    ? null
+    : vista.byProject.find((column) => column.id === openId)
+      ?? vista.byTower.find((column) => column.id === openId)
+      ?? null;
+
+  useEffect(() => {
+    if (!openId || !vista) return;
+    const exists = vista.byProject.some((column) => column.id === openId)
+      || vista.byTower.some((column) => column.id === openId);
+    if (!exists) setOpenId(null);
+  }, [openId, vista]);
+
+  useEffect(() => {
+    if (!frozen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setFrozen(null);
+    }
+    function onPointer(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (frozenRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest("[data-frozen]")) return;
+      setFrozen(null);
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointer);
+    };
+  }, [frozen]);
+
   if (!vista) return <>{pending}</>;
+
+  const projects = vista.byProject;
+  const overall = sumGap(projects);
+
+  function openScope(id: string) {
+    setFrozen(null);
+    setOpenId((current) => (current === id ? null : id));
+  }
+
+  function showFrozen(column: StatusBand) {
+    setFrozen((current) => current?.key === column.id ? null : {
+      key: column.id,
+      title: "Congelado",
+      body: column.frozenDetail ?? "Esta torre está congelada.",
+    });
+  }
+
   return (
-    <div className={styles.stack}>
+    <div className={`${band.block} ${band.ogSection}`}>
       {vista.notice ? <p className={styles.warn}>{vista.notice}</p> : null}
-      {vista.byProject.map((band) => <StatusRow key={band.id} band={band} />)}
-      {vista.byTower.length > 0 ? (
-        <div className={styles.towers}>
-          {vista.byTower.map((band) => <StatusRow key={band.id} band={band} />)}
+      <div className={`${band.top} ${band.ogLead}`}>
+        <div className={band.rail}>
+          <div className={band.kpi}>
+            <span className={band.kpiName}>Todos los Proyectos</span>
+            <span className={`${band.kpiValue} ${gapClass(overall)}`}>{formatGap(overall)}</span>
+          </div>
+        </div>
+        <div className={`${band.hero} ${band.ogCard}`}>
+          {projects.length > 0 ? (
+            <PaceColumns
+              columns={projects}
+              level="project"
+              label="Proyectos"
+              hueFor={(column) => hueKey(column.label)}
+              openId={openId}
+              onOpen={openScope}
+              onFrozen={showFrozen}
+            />
+          ) : null}
+        </div>
+      </div>
+      {projects.length > 0 ? (
+        <div className={band.ogBands}>
+          {projects.map((project) => {
+            const towers = towersOf(project.id, vista.byTower);
+            return (
+              <div key={project.id} className={`${band.top} ${band.ogBand}`}>
+                <div className={band.rail}>
+                  <button
+                    type="button"
+                    className={band.kpi}
+                    aria-pressed={openId === project.id}
+                    aria-label={`${project.label}: ${formatGap(project.gap)}`}
+                    onClick={() => openScope(project.id)}
+                  >
+                    <span className={band.kpiName}>{project.label}</span>
+                    <span className={`${band.kpiValue} ${gapClass(project.gap)}`}>{formatGap(project.gap)}</span>
+                  </button>
+                </div>
+                <div className={`${band.hero} ${band.ogCard}`}>
+                  {towers.length > 0 ? (
+                    <PaceColumns
+                      columns={towers}
+                      level="asesor"
+                      label={`Torres de ${project.label}`}
+                      hueFor={() => hueKey(project.label)}
+                      openId={openId}
+                      onOpen={openScope}
+                      onFrozen={showFrozen}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : null}
+      {frozen ? (
+        <div ref={frozenRef} className={styles.tip} role="dialog">
+          <strong>{frozen.title}</strong>
+          {frozen.body}
+        </div>
+      ) : null}
+      {openBand ? <ChartDrawer key={openBand.id} band={openBand} onClose={closeDrawer} /> : null}
     </div>
   );
 }
