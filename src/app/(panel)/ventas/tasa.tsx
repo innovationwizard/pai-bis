@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import type { EmbudoDeal, EmbudoFunnel } from "@/lib/ventas/embudo";
 import type { ConversionVista } from "@/lib/ventas/vista-types";
 import band from "./landing-blocks.module.css";
@@ -10,7 +10,7 @@ const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 })
 const percentFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 const COLUMN_HEADROOM = 1.14;
 
-function activateColumn(event: KeyboardEvent<HTMLDivElement>, action: () => void) {
+function activateColumn(event: ReactKeyboardEvent<HTMLDivElement>, action: () => void) {
   if (event.target !== event.currentTarget) return;
   if (event.key !== "Enter" && event.key !== " ") return;
   event.preventDefault();
