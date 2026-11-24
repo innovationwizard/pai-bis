@@ -34,7 +34,6 @@ const CASCADE_SLOT: Record<InventoryStatusKey, number> = {
   reservado: 1,
   vendido: 2,
 };
-const CASCADE_STEP = 14;
 
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 
@@ -64,12 +63,8 @@ function heroScale(project: InventoryProject): number {
 
 const HERO_FONT = "Inter, ui-sans-serif, system-ui, sans-serif";
 const HERO_FIGURE = 10;
-const HERO_FIGURE_PAD = 2;
 const HERO_AXIS = 22;
-const INSIDE_MIN = 14;
-const OUTSIDE_FIGURE = HERO_FIGURE - 1;
-const OUTSIDE_GAP = 3;
-const OUTSIDE_SEP = OUTSIDE_FIGURE + 2;
+const LABEL_GAP = 2;
 
 function figureInk(hex: string): string {
   const raw = hex.replace("#", "");
@@ -105,10 +100,6 @@ function figureWidth(text: string, fontFamily: string, fontSize: number): number
   probe.remove();
   figureWidths.set(key, width);
   return width;
-}
-
-function fitsInside(text: string, height: number, width: number): boolean {
-  return height >= INSIDE_MIN && width >= figureWidth(text, HERO_FONT, HERO_FIGURE) + HERO_FIGURE_PAD;
 }
 
 type HeroDatum = {
@@ -185,47 +176,71 @@ function plotBox(props: BarShapeProps): PlotBox | null {
 
 type ColumnSpan = { stack: string; left: number; right: number; center: number; plot: PlotBox | null };
 
-function placeBeside(items: readonly OutsideMark[]): PlacedMark[] {
-  const ordered = [...items].sort((a, b) => a.midY - b.midY || a.id.localeCompare(b.id, "es"));
-  const slots = ordered.map((item) => ({ ...item, labelY: item.midY }));
-  for (let pass = 0; pass < 8; pass += 1) {
-    for (let index = 1; index < slots.length; index += 1) {
-      const overlap = slots[index - 1].labelY + OUTSIDE_SEP - slots[index].labelY;
-      if (overlap > 0) {
-        slots[index - 1].labelY -= overlap / 2;
-        slots[index].labelY += overlap / 2;
-      }
-    }
+type Draft = {
+  mark: OutsideMark;
+  x: number;
+  y: number;
+  w: number;
+  slot: number;
+};
+
+function labelWidth(text: string): number {
+  return figureWidth(text, HERO_FONT, HERO_FIGURE);
+}
+
+function halfW(d: Draft): number {
+  return d.w / 2;
+}
+
+function hitsBar(d: Draft, bars: readonly { left: number; right: number }[]): boolean {
+  const left = d.x - halfW(d);
+  const right = d.x + halfW(d);
+  return bars.some((bar) => right > bar.left + 0.5 && left < bar.right - 0.5);
+}
+
+function barList(drafts: readonly Draft[]): { left: number; right: number }[] {
+  const bars = new Map<string, { left: number; right: number }>();
+  for (const draft of drafts) bars.set(draft.mark.stack, { left: draft.mark.x, right: draft.mark.x + draft.mark.width });
+  return [...bars.values()];
+}
+
+function hitsLabel(a: Draft, b: Draft): boolean {
+  const h = HERO_FIGURE / 2;
+  if (a.y + h <= b.y - h + 0.25 || b.y + h <= a.y - h + 0.25) return false;
+  if (a.x + halfW(a) <= b.x - halfW(b) + 0.25 || b.x + halfW(b) <= a.x - halfW(a) + 0.25) return false;
+  return true;
+}
+
+function clampY(d: Draft) {
+  const plot = d.mark.plot;
+  if (!plot) return;
+  const pad = HERO_FIGURE / 2 + 2;
+  const minY = plot.top + pad;
+  const maxY = plot.bottom - pad;
+  if (d.y > maxY) d.y = maxY;
+  if (d.y < minY) d.y = minY;
+}
+
+function clearBar(d: Draft) {
+  const own = [{ left: d.mark.x, right: d.mark.x + d.mark.width }];
+  if (!hitsBar(d, own)) return;
+  d.x = d.slot > 0
+    ? d.mark.x + d.mark.width + LABEL_GAP + halfW(d)
+    : d.mark.x - LABEL_GAP - halfW(d);
+}
+
+function packSide(items: ReadonlyMap<number, OutsideMark>, slots: readonly number[], anchor: number, direction: -1 | 1): Map<string, number> {
+  const positions = new Map<string, number>();
+  let cursor = anchor;
+  for (const slot of slots) {
+    const item = items.get(slot);
+    if (!item) continue;
+    const width = labelWidth(item.text);
+    const x = direction < 0 ? cursor - width / 2 : cursor + width / 2;
+    positions.set(item.id, x);
+    cursor = direction < 0 ? x - width / 2 - LABEL_GAP : x + width / 2 + LABEL_GAP;
   }
-  const plot = slots.find((slot) => slot.plot)?.plot;
-  if (plot) {
-    const pad = OUTSIDE_FIGURE / 2;
-    const minY = plot.top + pad;
-    const maxY = plot.bottom - pad;
-    for (const slot of slots) slot.labelY = Math.min(maxY, Math.max(minY, slot.labelY));
-    for (let index = 1; index < slots.length; index += 1) {
-      const min = slots[index - 1].labelY + OUTSIDE_SEP;
-      if (slots[index].labelY < min) slots[index].labelY = min;
-    }
-    if (slots.length > 0) {
-      const overflow = slots[slots.length - 1].labelY - maxY;
-      if (overflow > 0) {
-        for (const slot of slots) slot.labelY -= overflow;
-      }
-    }
-  }
-  return slots.map((slot) => {
-    const textWidth = figureWidth(slot.text, HERO_FONT, OUTSIDE_FIGURE);
-    let textX = slot.x + slot.width + OUTSIDE_GAP;
-    let anchor: "start" | "end" = "start";
-    let edgeX = slot.x + slot.width;
-    if (slot.plot && textX + textWidth > slot.plot.right - 1) {
-      textX = slot.x - OUTSIDE_GAP;
-      anchor = "end";
-      edgeX = slot.x;
-    }
-    return { ...slot, textX, edgeX, anchor, fill: NAVY };
-  });
+  return positions;
 }
 
 function columnSpans(groups: ReadonlyMap<string, OutsideMark[]>): ColumnSpan[] {
@@ -245,42 +260,66 @@ function columnSpans(groups: ReadonlyMap<string, OutsideMark[]>): ColumnSpan[] {
   return spans;
 }
 
-function placeCascade(items: readonly OutsideMark[], column: ColumnSpan, columns: readonly ColumnSpan[]): PlacedMark[] {
-  const index = columns.findIndex((item) => item.stack === column.stack);
-  const previous = index > 0 ? columns[index - 1] : null;
-  const next = index >= 0 && index < columns.length - 1 ? columns[index + 1] : null;
-  const leftBound = previous ? (previous.right + column.left) / 2 : (column.plot?.left ?? column.left);
-  const rightBound = next ? (column.right + next.left) / 2 : (column.plot?.right ?? column.right);
-  const leftOuter = items.find((item) => item.slot === -2);
-  const rightOuter = items.find((item) => item.slot === 2);
-  const leftHalf = leftOuter ? figureWidth(leftOuter.text, HERO_FONT, HERO_FIGURE) / 2 : 0;
-  const rightHalf = rightOuter ? figureWidth(rightOuter.text, HERO_FONT, HERO_FIGURE) / 2 : 0;
-  const roomLeft = column.center - leftBound - leftHalf;
-  const roomRight = rightBound - column.center - rightHalf;
-  const step = Math.max(0, Math.min(CASCADE_STEP, roomLeft / 2, roomRight / 2));
-  return items.map((item) => {
-    const slot = item.slot ?? 0;
-    const textWidth = figureWidth(item.text, HERO_FONT, HERO_FIGURE);
-    const half = textWidth / 2;
-    let textX = column.center + slot * step;
-    const thin = item.barHeight < INSIDE_MIN;
-    const overlapsBar = textX + half > item.x && textX - half < item.x + item.width;
-    if (thin && overlapsBar) {
-      const roomL = item.x - leftBound;
-      const roomR = rightBound - (item.x + item.width);
-      const sign = slot < 0 || (slot === 0 && roomL >= roomR) ? -1 : 1;
-      const rank = sign < 0 ? (slot >= 0 ? 1 : 1 - slot) : (slot <= 0 ? 1 : slot + 1);
-      const stride = Math.max(step, textWidth + 2);
-      textX = sign < 0
-        ? item.x - OUTSIDE_GAP - half - (rank - 1) * stride
-        : item.x + item.width + OUTSIDE_GAP + half + (rank - 1) * stride;
-    }
-    if (textX - half < leftBound) textX = leftBound + half;
-    if (textX + half > rightBound) textX = rightBound - half;
-    const onBar = textX + half > item.x + 0.5 && textX - half < item.x + item.width - 0.5;
-    const fill = onBar && item.barHeight >= INSIDE_MIN ? figureInk(item.color) : NAVY;
-    return { ...item, labelY: item.midY, textX, edgeX: textX, anchor: "middle" as const, fill };
+function packColumn(items: readonly OutsideMark[], column: ColumnSpan): Draft[] {
+  const bySlot = new Map<number, OutsideMark>();
+  for (const item of items) bySlot.set(item.slot ?? 0, item);
+  const left = packSide(bySlot, [0, -1, -2], column.left - LABEL_GAP, -1);
+  const right = packSide(bySlot, [1, 2], column.right + LABEL_GAP, 1);
+  return items.map((mark) => {
+    const slot = mark.slot ?? 0;
+    const x = left.get(mark.id) ?? right.get(mark.id) ?? column.center;
+    const draft: Draft = { mark, x, y: mark.midY, w: labelWidth(mark.text), slot };
+    clampY(draft);
+    clearBar(draft);
+    return draft;
   });
+}
+
+function resolveLabels(drafts: Draft[]) {
+  const bars = barList(drafts);
+  for (let pass = 0; pass < 24; pass += 1) {
+    let moved = false;
+    for (let i = 0; i < drafts.length; i += 1) {
+      for (let j = i + 1; j < drafts.length; j += 1) {
+        const a = drafts[i];
+        const b = drafts[j];
+        if (!a || !b || !hitsLabel(a, b)) continue;
+        const overlap = Math.min(a.x + halfW(a), b.x + halfW(b)) - Math.max(a.x - halfW(a), b.x - halfW(b));
+        const push = Math.max(0.5, overlap / 2);
+        const aIsLeft = a.slot < b.slot || (a.slot === b.slot && a.x <= b.x);
+        const left = aIsLeft ? a : b;
+        const right = aIsLeft ? b : a;
+        const nextLeft = left.x - push;
+        const nextRight = right.x + push;
+        const leftFree = !hitsBar({ ...left, x: nextLeft }, bars);
+        const rightFree = !hitsBar({ ...right, x: nextRight }, bars);
+        if (leftFree) {
+          left.x = nextLeft;
+          moved = true;
+        }
+        if (rightFree) {
+          right.x = nextRight;
+          moved = true;
+        }
+        if (hitsLabel(left, right)) {
+          const beforeLeft = left.y;
+          const beforeRight = right.y;
+          const yPush = Math.max(0.5, (HERO_FIGURE - Math.abs(left.y - right.y)) / 2 + 0.5);
+          if (left.y <= right.y) {
+            left.y -= yPush;
+            right.y += yPush;
+          } else {
+            left.y += yPush;
+            right.y -= yPush;
+          }
+          clampY(left);
+          clampY(right);
+          if (left.y !== beforeLeft || right.y !== beforeRight) moved = true;
+        }
+      }
+    }
+    if (!moved) break;
+  }
 }
 
 function placeMarks(marks: Iterable<OutsideMark>): PlacedMark[] {
@@ -291,14 +330,24 @@ function placeMarks(marks: Iterable<OutsideMark>): PlacedMark[] {
     else groups.set(mark.stack, [mark]);
   }
   const columns = columnSpans(groups);
-  const placed: PlacedMark[] = [];
+  const drafts: Draft[] = [];
   for (const [stack, group] of groups) {
     const column = columns.find((item) => item.stack === stack);
-    if (group.some((item) => item.slot != null) && column) placed.push(...placeCascade(group, column, columns));
-    else placed.push(...placeBeside(group));
+    if (!column) continue;
+    drafts.push(...packColumn(group, column));
   }
-  placed.sort((a, b) => a.id.localeCompare(b.id, "es"));
-  return placed;
+  resolveLabels(drafts);
+  const bars = barList(drafts);
+  return drafts
+    .map((draft) => ({
+      ...draft.mark,
+      labelY: draft.y,
+      textX: draft.x,
+      edgeX: draft.x,
+      anchor: "middle" as const,
+      fill: hitsBar(draft, bars) ? figureInk(draft.mark.color) : NAVY,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id, "es"));
 }
 
 function samePlacement(current: readonly PlacedMark[], next: readonly PlacedMark[]): boolean {
@@ -362,7 +411,7 @@ function OutsideLabels({ book }: { book: LabelBook }) {
               strokeWidth={mark.fill === NAVY ? 2 : 0}
               paintOrder="stroke"
               fontFamily={HERO_FONT}
-              fontSize={mark.slot == null ? OUTSIDE_FIGURE : HERO_FIGURE}
+              fontSize={HERO_FIGURE}
               fontWeight={700}
             >
               {mark.text}
@@ -379,7 +428,6 @@ function segmentShape(
   color: string,
   place: string,
   book: LabelBook,
-  cascade: boolean,
   onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void,
 ) {
   return function Segment(props: BarShapeProps) {
@@ -394,27 +442,22 @@ function segmentShape(
     const id = `${row.label}:${key}`;
     const open = () => onOpen(row.tower, key);
     const aria = `${place}, ${row.label}, ${item.label}: ${text}`;
-    const inside = !cascade && fitsInside(text, height, width);
-    if (cascade || !inside) {
-      book.marks.set(id, {
-        id,
-        stack: row.label,
-        x,
-        width,
-        midY: y + height / 2,
-        text,
-        plot: plotBox(props),
-        solo: !drawn,
-        slot: cascade ? CASCADE_SLOT[key] : null,
-        color,
-        barHeight: height,
-        open,
-        aria,
-      });
-      touchBook(book);
-    } else if (book.marks.delete(id)) {
-      touchBook(book);
-    }
+    book.marks.set(id, {
+      id,
+      stack: row.label,
+      x,
+      width,
+      midY: y + height / 2,
+      text,
+      plot: plotBox(props),
+      solo: !drawn,
+      slot: CASCADE_SLOT[key],
+      color,
+      barHeight: height,
+      open,
+      aria,
+    });
+    touchBook(book);
     if (!drawn) return null;
     const onKey = (event: ReactKeyboardEvent<SVGGElement>) => {
       if (event.key !== "Enter" && event.key !== " ") return;
@@ -424,11 +467,6 @@ function segmentShape(
     return (
       <g role="button" tabIndex={0} aria-label={aria} style={{ cursor: "pointer" }} onClick={open} onKeyDown={onKey}>
         <rect x={x} y={y} width={width} height={height} fill={color} />
-        {inside ? (
-          <text x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill={figureInk(color)} fontFamily={HERO_FONT} fontSize={HERO_FIGURE} fontWeight={700}>
-            {text}
-          </text>
-        ) : null}
       </g>
     );
   };
@@ -564,7 +602,7 @@ function HeroTowers({
                   isAnimationActive={false}
                   activeBar={false}
                   maxBarSize={fit ? undefined : 32}
-                  shape={segmentShape(key, item.color, project.label, book, fit, onOpen)}
+                  shape={segmentShape(key, item.color, project.label, book, onOpen)}
                 />
               );
             })}
