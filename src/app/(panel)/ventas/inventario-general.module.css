@@ -161,6 +161,11 @@
   overflow: hidden;
 }
 
+.detail {
+  flex-direction: column;
+  min-height: 0;
+}
+
 .cards {
   display: flex;
   gap: 6px;
@@ -191,31 +196,6 @@
   font-weight: 700;
   line-height: 1.15;
   overflow-wrap: anywhere;
-}
-
-.torreBlocks {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  min-height: 0;
-  overflow: auto;
-}
-
-.torreBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.torreHeading {
-  margin: 0;
-  color: #0d2041;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.2;
 }
 
 .tipHead button {

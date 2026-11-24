@@ -264,7 +264,8 @@ This item uses the canonical three-level pattern. It is a lifetime pace view: Co
 
 **EXEMPLARY — DO NOT BREAK**  
 This is the reference implementation of the canonical three-level pattern. Do not change layout, hierarchy, labels, or measurement rules unless a new decision is recorded here.  
-(23 November 2026, 17:09 GT)
+(23 November 2026, 17:09 GT)  
+(24 November 2026) Locked ruling for the Project Detail Cards on this item. This supersedes any prior description of those cards, including status-row blocks, a scale shared across every Project Detail Card, and scroll inside the card. The Hero Band is unchanged.
 
 **Item Title**  
 Inventario general
@@ -292,10 +293,10 @@ Project pills only. Periodo, asesor, and modelo do not change this item. NINGUNO
 **Structure**  
 Full canonical three-level pattern. On the Ventas page the item is `#inventario-general`. Locked scroll order (§4.1, 21 November 2026): sixth, after Split de ventas por modelo y por torre and before Valor de proyecto. Projects in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena), limited to the pills that are on. A selected project with no units stays visible.
 
-The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. Each Project Band is fixed at 156px, the Item 2 band height. The Compact Hero card uses the Item 1 / Item 2 card chrome: 8px radius, 1px border, padding 12px 14px, title `calc(26px * 0.75)` at weight 700. Project KPI cards use the Item 1 project-row padding, 10px 12px. The sum is shorter than Item 2’s hero plus four bands, so the item does not ask for more page scroll than Items 1 and 2. Scroll inside a Project Detail Card is not page scroll.
+The Hero Band uses Item 1’s height: `18dvh`, minimum `calc(168px * 18 / 22)`. Each Project Band is fixed at 156px, the Item 2 band height. The Compact Hero card uses the Item 1 / Item 2 card chrome: 8px radius, 1px border, padding 12px 14px, title `calc(26px * 0.75)` at weight 700. Project KPI cards use the Item 1 project-row padding, 10px 12px. The sum is shorter than Item 2’s hero plus four bands, so the item does not ask for more page scroll than Items 1 and 2. A Project Detail Card has no internal scroll. Its columns are squeezed to fit inside the fixed band.
 
 **Row language**  
-The Compact Hero, each Project KPI Card, and each torre block in a Project Detail Card use the same row: status name on the left, a horizontal track, a colored bar, and the integer at the right in that status color. The track is the gray ground. The bar never carries a number inside it. A zero count keeps the row, draws a bar of length zero, and prints 0.
+The Compact Hero and each Project KPI Card use the same row: status name on the left, a horizontal track, a colored bar, and the integer at the right in that status color. The track is the gray ground. The bar never carries a number inside it. A zero count keeps the row, draws a bar of length zero, and prints 0. The Project Detail Card does not use these rows.
 
 On the Compact Hero and on each Project KPI Card the five bars are a waterfall. Each bar’s length is that status count divided by that card’s own total, and each bar starts where the previous status ended. The Compact Hero then adds Total: a navy bar that fills the track when the total is above zero. A Project KPI Card does not add Total.
 
@@ -315,10 +316,10 @@ A count is drawn inside its segment only when the segment is tall enough and wid
 **Project Bands**  
 One band per project in scope, in canonical project order. Band height stays 156px.  
 - Project KPI Card: project name and the five status rows, on that project’s own waterfall. No total row.  
-- Project Detail Card: one block per torre, in the same alphabetical short-label order as the Expanded Hero. The block heading is that short label. Under it, the five status rows. These bars are not a waterfall and not a stack. Each bar starts at the left of the track. Its length is that count divided by the largest single status count among all torres in all Project Detail Cards on the page. That longest bar fills the track. A card with more torres than the band can show scrolls inside the card. The band does not grow.
+- Project Detail Card: must display one stacked column per torre, exactly as the Expanded Hero does. One vertical stacked column per torre of that project, with status segments. The stack runs bottom to top in the status order above. Numbers are visible on or above the segments when space allows. Zeros are zero-height segments. Torre labels use the Odoo short form (“TA”, “Principal”, and the same labels as the Expanded Hero). Columns are squeezed to fit: no wrap, no overflow, no internal scroll. The scale is shared within the card. The band does not grow.
 
 **Where this item differs from §3**  
-This section wins for Item 6 on measurement only. The item uses the canonical three-level pattern and the ten official names. The Expanded Hero does not put a number on or above every segment. Its scale is per project. Each Member Column in the Project Detail Card is one torre block of five status rows. The card may scroll inside the fixed band.
+This section wins for Item 6 on measurement only. The item uses the canonical three-level pattern and the ten official names. The Expanded Hero does not put a number on or above every segment. Its scale is per project. Each Member Column in the Project Detail Card is one vertical stacked column for one torre, the same treatment as the Expanded Hero. A number is visible on or above a segment when space allows. A zero is a zero-height segment. Columns are squeezed to fit: no wrap, no overflow, no internal scroll. The scale is shared within the card.
 
 **Explicit rules**  
 - A click opens provenance and nothing else: `v_rv_units_full` (`status`, `project_slug`, `tower_name`, `unit_number`), the status counted, the active project pills, and the units in that count. Hover does not open it.  
