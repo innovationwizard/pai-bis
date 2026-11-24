@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { EmbudoDeal, EmbudoFunnel } from "@/lib/ventas/embudo";
 import type { ConversionVista } from "@/lib/ventas/vista-types";
+import band from "./landing-blocks.module.css";
 import styles from "./tasa.module.css";
 
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 const percentFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
+const COLUMN_HEADROOM = 1.14;
 
-const PROJECT_INK: Record<string, string> = {
-  "boulevard-5": "#3d6f8f",
-  benestare: "#0d2041",
-  "bosque-las-tapias": "#0573b0",
-  "santa-elena": "#1a4a68",
+const stageHit: CSSProperties = {
+  display: "flex",
+  flex: "1 1 auto",
+  flexDirection: "column",
+  alignItems: "stretch",
+  width: "100%",
+  minWidth: 0,
+  minHeight: 0,
 };
 
 function count(value: number): string {
@@ -39,68 +44,162 @@ function reached(deals: readonly EmbudoDeal[], position: number): EmbudoDeal[] {
     .sort((a, b) => b.stageOrder - a.stageOrder || a.addOn.localeCompare(b.addOn) || a.id.localeCompare(b.id, "es", { numeric: true }));
 }
 
-function FunnelChart({
+function hueKey(label: string): string {
+  return label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function scaleOf(values: readonly number[]): number {
+  const peak = values.reduce((max, value) => Math.max(max, value), 0);
+  return peak > 0 ? peak * COLUMN_HEADROOM : 1;
+}
+
+function reservaCount(funnel: EmbudoFunnel): number {
+  return funnel.bars.find((bar) => bar.label === "Reserva")?.count ?? 0;
+}
+
+function reservaDeals(funnel: EmbudoFunnel): EmbudoDeal[] {
+  const index = funnel.bars.findIndex((bar) => bar.label === "Reserva");
+  if (index < 0) return [];
+  return reached(funnel.deals, index + 1);
+}
+
+function SummaryColumns({
+  funnels,
+  openKey,
+  onOpen,
+}: {
+  funnels: readonly EmbudoFunnel[];
+  openKey: string | null;
+  onOpen: (key: string, deals: readonly EmbudoDeal[]) => void;
+}) {
+  const scale = scaleOf(funnels.map((funnel) => reservaCount(funnel)));
+  return (
+    <div className={band.ogCols} data-level="project" role="group" aria-label="Proyectos">
+      {funnels.map((funnel) => {
+        const units = reservaCount(funnel);
+        const height = (Math.max(0, units) / scale) * 100;
+        const key = `${funnel.slug}:reserva`;
+        return (
+          <button
+            key={funnel.slug}
+            type="button"
+            className={`${band.ogCol} ${styles.count}`}
+            aria-pressed={openKey === key}
+            aria-label={`${funnel.label}: ${count(units)}`}
+            onClick={() => onOpen(key, reservaDeals(funnel))}
+          >
+            <span className={band.ogColBody}>
+              <span className={band.ogPlotWrap}>
+                <span className={band.ogPlot}>
+                  <span className={band.ogNum} style={{ bottom: `calc(${height}% + 2px)` }}>{count(units)}</span>
+                  <span
+                    className={band.ogBar}
+                    data-project={hueKey(funnel.label) || undefined}
+                    style={{ height: `${height}%` }}
+                  />
+                </span>
+              </span>
+            </span>
+            <span className={band.ogName}>{funnel.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function StageColumns({
   funnel,
-  ink,
+  hue,
   openKey,
   onCount,
   onRate,
 }: {
   funnel: EmbudoFunnel;
-  ink: string;
+  hue: string;
   openKey: string | null;
   onCount: (key: string, deals: readonly EmbudoDeal[]) => void;
   onRate: (key: string, deals: readonly EmbudoDeal[]) => void;
 }) {
-  const peak = funnel.bars.reduce((max, bar) => Math.max(max, bar.count), 0);
+  const scale = scaleOf(funnel.bars.map((bar) => bar.count));
   return (
-    <article className={styles.funnel} aria-label={funnel.label}>
-      <h3 className={styles.name}>{funnel.label}</h3>
+    <div className={band.ogCols} data-level="asesor" role="group" aria-label={`Etapas de ${funnel.label}`}>
       {funnel.bars.map((bar, index) => {
-        const width = peak > 0 ? (bar.count / peak) * 100 : 0;
-        const inside = bar.count > 0 && width >= 12;
+        const height = (Math.max(0, bar.count) / scale) * 100;
         const countKey = `${funnel.slug}:${index}`;
         const rateKey = `${funnel.slug}:rate:${index}`;
+        const next = funnel.bars[index + 1];
         return (
-          <div key={bar.label}>
-            <div className={styles.stage}>
-              <span className={styles.label}>{bar.label}</span>
-              <span className={styles.track}>
-                <span
-                  className={styles.fill}
-                  style={{ width: `${width}%`, background: bar.count > 0 ? ink : "transparent" }}
-                />
-                <button
-                  type="button"
-                  className={styles.count}
-                  aria-pressed={openKey === countKey}
-                  aria-label={`${funnel.label}. ${bar.label}: ${count(bar.count)}`}
-                  style={{
-                    left: inside ? `calc(${width}% - 8px)` : `calc(${width}% + 6px)`,
-                    transform: inside ? "translateX(-100%)" : "none",
-                    color: inside ? "#fff" : ink,
-                  }}
-                  onClick={() => onCount(countKey, reached(funnel.deals, index + 1))}
-                >
-                  {count(bar.count)}
-                </button>
+          <div key={bar.label} className={band.ogCol}>
+            <button
+              type="button"
+              className={styles.count}
+              style={stageHit}
+              aria-pressed={openKey === countKey}
+              aria-label={`${funnel.label}. ${bar.label}: ${count(bar.count)}`}
+              onClick={() => onCount(countKey, reached(funnel.deals, index + 1))}
+            >
+              <span className={band.ogColBody}>
+                <span className={band.ogPlotWrap}>
+                  <span className={band.ogPlot}>
+                    <span className={band.ogNum} style={{ bottom: `calc(${height}% + 2px)` }}>{count(bar.count)}</span>
+                    <span
+                      className={band.ogBar}
+                      data-project={hue || undefined}
+                      style={{ height: `${height}%` }}
+                    />
+                  </span>
+                </span>
               </span>
-            </div>
-            {bar.hasNext ? (
+              <span className={band.ogName}>{bar.label}</span>
+            </button>
+            {bar.hasNext && next ? (
               <button
                 type="button"
-                className={styles.rate}
+                className={`${band.ogDelta} ${styles.count}`}
                 aria-pressed={openKey === rateKey}
-                aria-label={`${bar.label} a ${funnel.bars[index + 1]?.label ?? ""}: ${percent(bar.nextRate ?? 0)}`}
+                aria-label={`${bar.label} a ${next.label}: ${percent(bar.nextRate ?? 0)}`}
                 onClick={() => onRate(rateKey, reached(funnel.deals, index + 2))}
               >
                 {percent(bar.nextRate ?? 0)}
               </button>
-            ) : null}
+            ) : (
+              <span className={band.ogDelta}>{"\u00a0"}</span>
+            )}
           </div>
         );
       })}
-    </article>
+    </div>
+  );
+}
+
+function ReservaFigure({
+  units,
+  pressed,
+  label,
+  onClick,
+}: {
+  units: number;
+  pressed: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`${band.kpiValue} ${styles.count}`}
+      aria-pressed={pressed}
+      aria-label={label}
+      onClick={onClick}
+    >
+      {count(units)}
+      <span className={band.kpiUnit}>Reserva</span>
+    </button>
   );
 }
 
@@ -127,29 +226,69 @@ export function TasaBand({
     setProof((current) => (current?.key === key ? null : { key, lines }));
   }
 
+  const reservaKey = vista ? `${vista.all.slug}:reserva` : "";
+  const reserva = vista ? reservaCount(vista.all) : 0;
+
   return (
-    <section id="tasa-de-conversion" className={styles.block} aria-labelledby="vt-tasa-title">
+    <section id="tasa-de-conversion" className={band.block} aria-labelledby="vt-tasa-title">
       <h2 id="vt-tasa-title" className={styles.title}>Tasa de conversión</h2>
       {vista == null ? pending : (
-        <>
-          <FunnelChart
-            funnel={vista.all}
-            ink="#0d2041"
-            openKey={proof?.key ?? null}
-            onCount={show}
-            onRate={show}
-          />
-          {vista.funnels.map((funnel) => (
-            <FunnelChart
-              key={funnel.slug}
-              funnel={funnel}
-              ink={PROJECT_INK[funnel.slug] ?? "#0d2041"}
-              openKey={proof?.key ?? null}
-              onCount={show}
-              onRate={show}
-            />
-          ))}
-        </>
+        <div className={band.fold}>
+          <div className={`${band.top} ${band.overview}`}>
+            <div className={band.rail}>
+              <div className={band.kpi}>
+                <span className={band.kpiName}>Todos los Proyectos</span>
+                <ReservaFigure
+                  units={reserva}
+                  pressed={proof?.key === reservaKey}
+                  label={`Todos los Proyectos. Reserva: ${count(reserva)}`}
+                  onClick={() => show(reservaKey, reservaDeals(vista.all))}
+                />
+              </div>
+            </div>
+            <div className={`${band.hero} ${band.ogCard}`}>
+              {vista.funnels.length > 0 ? (
+                <SummaryColumns
+                  funnels={vista.funnels}
+                  openKey={proof?.key ?? null}
+                  onOpen={show}
+                />
+              ) : null}
+            </div>
+          </div>
+          {vista.funnels.length > 0 ? (
+            <div className={band.projects}>
+              {vista.funnels.map((funnel) => {
+                const units = reservaCount(funnel);
+                const key = `${funnel.slug}:reserva`;
+                return (
+                  <div key={funnel.slug} className={band.top}>
+                    <div className={band.rail}>
+                      <div className={band.kpi}>
+                        <span className={band.kpiName}>{funnel.label}</span>
+                        <ReservaFigure
+                          units={units}
+                          pressed={proof?.key === key}
+                          label={`${funnel.label}. Reserva: ${count(units)}`}
+                          onClick={() => show(key, reservaDeals(funnel))}
+                        />
+                      </div>
+                    </div>
+                    <div className={`${band.hero} ${band.ogCard}`}>
+                      <StageColumns
+                        funnel={funnel}
+                        hue={hueKey(funnel.label)}
+                        openKey={proof?.key ?? null}
+                        onCount={show}
+                        onRate={show}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
       )}
       {proof ? (
         <div className={styles.proof} role="dialog" aria-label="Tratos">
