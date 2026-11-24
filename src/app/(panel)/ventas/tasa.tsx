@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { EmbudoDeal, EmbudoFunnel } from "@/lib/ventas/embudo";
 import type { ConversionVista } from "@/lib/ventas/vista-types";
 import band from "./landing-blocks.module.css";
@@ -10,15 +10,12 @@ const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 })
 const percentFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 const COLUMN_HEADROOM = 1.14;
 
-const stageHit: CSSProperties = {
-  display: "flex",
-  flex: "1 1 auto",
-  flexDirection: "column",
-  alignItems: "stretch",
-  width: "100%",
-  minWidth: 0,
-  minHeight: 0,
-};
+function activateColumn(event: KeyboardEvent<HTMLDivElement>, action: () => void) {
+  if (event.target !== event.currentTarget) return;
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  action();
+}
 
 function count(value: number): string {
   return countFormat.format(value);
@@ -84,29 +81,32 @@ function SummaryColumns({
         const units = reservaCount(funnel);
         const height = (Math.max(0, units) / scale) * 100;
         const key = `${funnel.slug}:reserva`;
+        const open = () => onOpen(key, reservaDeals(funnel));
         return (
-          <button
+          <div
             key={funnel.slug}
-            type="button"
             className={`${band.ogCol} ${styles.count}`}
+            role="button"
+            tabIndex={0}
             aria-pressed={openKey === key}
             aria-label={`${funnel.label}: ${count(units)}`}
-            onClick={() => onOpen(key, reservaDeals(funnel))}
+            onClick={open}
+            onKeyDown={(event) => activateColumn(event, open)}
           >
-            <span className={band.ogColBody}>
-              <span className={band.ogPlotWrap}>
-                <span className={band.ogPlot}>
+            <div className={band.ogColBody}>
+              <div className={band.ogPlotWrap}>
+                <div className={band.ogPlot}>
                   <span className={band.ogNum} style={{ bottom: `calc(${height}% + 2px)` }}>{count(units)}</span>
                   <span
                     className={band.ogBar}
                     data-project={hueKey(funnel.label) || undefined}
                     style={{ height: `${height}%` }}
                   />
-                </span>
-              </span>
-            </span>
+                </div>
+              </div>
+            </div>
             <span className={band.ogName}>{funnel.label}</span>
-          </button>
+          </div>
         );
       })}
     </div>
@@ -134,37 +134,44 @@ function StageColumns({
         const countKey = `${funnel.slug}:${index}`;
         const rateKey = `${funnel.slug}:rate:${index}`;
         const next = funnel.bars[index + 1];
+        const openCount = () => onCount(countKey, reached(funnel.deals, index + 1));
         return (
-          <div key={bar.label} className={band.ogCol}>
-            <button
-              type="button"
-              className={styles.count}
-              style={stageHit}
-              aria-pressed={openKey === countKey}
-              aria-label={`${funnel.label}. ${bar.label}: ${count(bar.count)}`}
-              onClick={() => onCount(countKey, reached(funnel.deals, index + 1))}
-            >
-              <span className={band.ogColBody}>
-                <span className={band.ogPlotWrap}>
-                  <span className={band.ogPlot}>
-                    <span className={band.ogNum} style={{ bottom: `calc(${height}% + 2px)` }}>{count(bar.count)}</span>
-                    <span
-                      className={band.ogBar}
-                      data-project={hue || undefined}
-                      style={{ height: `${height}%` }}
-                    />
-                  </span>
-                </span>
-              </span>
-              <span className={band.ogName}>{bar.label}</span>
-            </button>
+          <div
+            key={bar.label}
+            className={`${band.ogCol} ${styles.count}`}
+            role="button"
+            tabIndex={0}
+            aria-pressed={openKey === countKey}
+            aria-label={`${funnel.label}. ${bar.label}: ${count(bar.count)}`}
+            onClick={openCount}
+            onKeyDown={(event) => activateColumn(event, openCount)}
+          >
+            <div className={band.ogColBody}>
+              <div className={band.ogPlotWrap}>
+                <div className={band.ogPlot}>
+                  <span className={band.ogNum} style={{ bottom: `calc(${height}% + 2px)` }}>{count(bar.count)}</span>
+                  <span
+                    className={band.ogBar}
+                    data-project={hue || undefined}
+                    style={{ height: `${height}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            <span className={band.ogName}>{bar.label}</span>
             {bar.hasNext && next ? (
               <button
                 type="button"
                 className={`${band.ogDelta} ${styles.count}`}
                 aria-pressed={openKey === rateKey}
                 aria-label={`${bar.label} a ${next.label}: ${percent(bar.nextRate ?? 0)}`}
-                onClick={() => onRate(rateKey, reached(funnel.deals, index + 2))}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRate(rateKey, reached(funnel.deals, index + 2));
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+                }}
               >
                 {percent(bar.nextRate ?? 0)}
               </button>
