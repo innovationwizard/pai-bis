@@ -64,7 +64,7 @@ function heroScale(project: InventoryProject): number {
 const HERO_FONT = "Inter, ui-sans-serif, system-ui, sans-serif";
 const HERO_FIGURE = 10;
 const HERO_AXIS = 22;
-const LABEL_GAP = 2;
+const SLOT_STEP = 8;
 
 function figureInk(hex: string): string {
   const raw = hex.replace("#", "");
@@ -140,6 +140,7 @@ type OutsideMark = {
   slot: number | null;
   color: string;
   barHeight: number;
+  inside: boolean;
   open: () => void;
   aria: string;
 };
@@ -192,18 +193,6 @@ function halfW(d: Draft): number {
   return d.w / 2;
 }
 
-function hitsBar(d: Draft, bars: readonly { left: number; right: number }[]): boolean {
-  const left = d.x - halfW(d);
-  const right = d.x + halfW(d);
-  return bars.some((bar) => right > bar.left + 0.5 && left < bar.right - 0.5);
-}
-
-function barList(drafts: readonly Draft[]): { left: number; right: number }[] {
-  const bars = new Map<string, { left: number; right: number }>();
-  for (const draft of drafts) bars.set(draft.mark.stack, { left: draft.mark.x, right: draft.mark.x + draft.mark.width });
-  return [...bars.values()];
-}
-
 function hitsLabel(a: Draft, b: Draft): boolean {
   const h = HERO_FIGURE / 2;
   if (a.y + h <= b.y - h + 0.25 || b.y + h <= a.y - h + 0.25) return false;
@@ -221,26 +210,11 @@ function clampY(d: Draft) {
   if (d.y < minY) d.y = minY;
 }
 
-function clearBar(d: Draft) {
-  const own = [{ left: d.mark.x, right: d.mark.x + d.mark.width }];
-  if (!hitsBar(d, own)) return;
-  d.x = d.slot > 0
-    ? d.mark.x + d.mark.width + LABEL_GAP + halfW(d)
-    : d.mark.x - LABEL_GAP - halfW(d);
-}
-
-function packSide(items: ReadonlyMap<number, OutsideMark>, slots: readonly number[], anchor: number, direction: -1 | 1): Map<string, number> {
-  const positions = new Map<string, number>();
-  let cursor = anchor;
-  for (const slot of slots) {
-    const item = items.get(slot);
-    if (!item) continue;
-    const width = labelWidth(item.text);
-    const x = direction < 0 ? cursor - width / 2 : cursor + width / 2;
-    positions.set(item.id, x);
-    cursor = direction < 0 ? x - width / 2 - LABEL_GAP : x + width / 2 + LABEL_GAP;
-  }
-  return positions;
+function keepInside(d: Draft, x: number): number {
+  const minX = d.mark.x + halfW(d);
+  const maxX = d.mark.x + d.mark.width - halfW(d);
+  if (minX > maxX) return d.mark.x + d.mark.width / 2;
+  return Math.min(maxX, Math.max(minX, x));
 }
 
 function columnSpans(groups: ReadonlyMap<string, OutsideMark[]>): ColumnSpan[] {
@@ -261,23 +235,25 @@ function columnSpans(groups: ReadonlyMap<string, OutsideMark[]>): ColumnSpan[] {
 }
 
 function packColumn(items: readonly OutsideMark[], column: ColumnSpan): Draft[] {
-  const bySlot = new Map<number, OutsideMark>();
-  for (const item of items) bySlot.set(item.slot ?? 0, item);
-  const left = packSide(bySlot, [0, -1, -2], column.left - LABEL_GAP, -1);
-  const right = packSide(bySlot, [1, 2], column.right + LABEL_GAP, 1);
-  return items.map((mark) => {
+  const outside = items.filter((item) => !item.inside);
+  if (outside.length === 0) return [];
+  return outside.map((mark) => {
     const slot = mark.slot ?? 0;
-    const x = left.get(mark.id) ?? right.get(mark.id) ?? column.center;
-    const draft: Draft = { mark, x, y: mark.midY, w: labelWidth(mark.text), slot };
+    const draft: Draft = {
+      mark,
+      x: column.center + slot * SLOT_STEP,
+      y: mark.midY,
+      w: labelWidth(mark.text),
+      slot,
+    };
+    draft.x = keepInside(draft, draft.x);
     clampY(draft);
-    clearBar(draft);
     return draft;
   });
 }
 
 function resolveLabels(drafts: Draft[]) {
-  const bars = barList(drafts);
-  for (let pass = 0; pass < 24; pass += 1) {
+  for (let pass = 0; pass < 8; pass += 1) {
     let moved = false;
     for (let i = 0; i < drafts.length; i += 1) {
       for (let j = i + 1; j < drafts.length; j += 1) {
@@ -285,36 +261,19 @@ function resolveLabels(drafts: Draft[]) {
         const b = drafts[j];
         if (!a || !b || !hitsLabel(a, b)) continue;
         const overlap = Math.min(a.x + halfW(a), b.x + halfW(b)) - Math.max(a.x - halfW(a), b.x - halfW(b));
-        const push = Math.max(0.5, overlap / 2);
+        const push = Math.min(4, Math.max(0.5, overlap / 2));
         const aIsLeft = a.slot < b.slot || (a.slot === b.slot && a.x <= b.x);
         const left = aIsLeft ? a : b;
         const right = aIsLeft ? b : a;
-        const nextLeft = left.x - push;
-        const nextRight = right.x + push;
-        const leftFree = !hitsBar({ ...left, x: nextLeft }, bars);
-        const rightFree = !hitsBar({ ...right, x: nextRight }, bars);
-        if (leftFree) {
+        const nextLeft = keepInside(left, left.x - push);
+        const nextRight = keepInside(right, right.x + push);
+        if (nextLeft !== left.x) {
           left.x = nextLeft;
           moved = true;
         }
-        if (rightFree) {
+        if (nextRight !== right.x) {
           right.x = nextRight;
           moved = true;
-        }
-        if (hitsLabel(left, right)) {
-          const beforeLeft = left.y;
-          const beforeRight = right.y;
-          const yPush = Math.max(0.5, (HERO_FIGURE - Math.abs(left.y - right.y)) / 2 + 0.5);
-          if (left.y <= right.y) {
-            left.y -= yPush;
-            right.y += yPush;
-          } else {
-            left.y += yPush;
-            right.y -= yPush;
-          }
-          clampY(left);
-          clampY(right);
-          if (left.y !== beforeLeft || right.y !== beforeRight) moved = true;
         }
       }
     }
@@ -325,6 +284,7 @@ function resolveLabels(drafts: Draft[]) {
 function placeMarks(marks: Iterable<OutsideMark>): PlacedMark[] {
   const groups = new Map<string, OutsideMark[]>();
   for (const mark of marks) {
+    if (mark.inside) continue;
     const group = groups.get(mark.stack);
     if (group) group.push(mark);
     else groups.set(mark.stack, [mark]);
@@ -337,7 +297,6 @@ function placeMarks(marks: Iterable<OutsideMark>): PlacedMark[] {
     drafts.push(...packColumn(group, column));
   }
   resolveLabels(drafts);
-  const bars = barList(drafts);
   return drafts
     .map((draft) => ({
       ...draft.mark,
@@ -345,7 +304,7 @@ function placeMarks(marks: Iterable<OutsideMark>): PlacedMark[] {
       textX: draft.x,
       edgeX: draft.x,
       anchor: "middle" as const,
-      fill: hitsBar(draft, bars) ? figureInk(draft.mark.color) : NAVY,
+      fill: figureInk(draft.mark.color),
     }))
     .sort((a, b) => a.id.localeCompare(b.id, "es"));
 }
@@ -391,7 +350,7 @@ function OutsideLabels({ book }: { book: LabelBook }) {
   return (
     <ZIndexLayer zIndex={2000}>
       <g>
-        {marks.map((mark) => (
+        {marks.filter((mark) => !mark.inside).map((mark) => (
           <g
             key={mark.id}
             role={mark.solo ? "button" : undefined}
@@ -454,6 +413,7 @@ function segmentShape(
       slot: CASCADE_SLOT[key],
       color,
       barHeight: height,
+      inside: false,
       open,
       aria,
     });
