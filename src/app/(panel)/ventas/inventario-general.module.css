@@ -323,8 +323,13 @@
 }
 
 .shortStatus {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
   color: rgba(13, 32, 65, 0.75);
   font-size: 11px;
+  text-overflow: clip;
 }
 
 .block {

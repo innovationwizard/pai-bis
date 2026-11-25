@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { UNIT_STATUS_COLORS, UNIT_STATUS_LABELS } from "@/lib/reservas/constants";
 import type { RvUnitStatus } from "@/lib/reservas/types";
 import type {
@@ -25,15 +25,8 @@ const STATUSES: { key: InventoryStatusKey; status: RvUnitStatus }[] = [
 
 const WATERFALL: InventoryStatusKey[] = ["congelado", "disponible", "revision", "reservado", "vendido"];
 
-const SHORT_STATUS: Record<InventoryStatusKey, string> = {
-  congelado: "CONG",
-  disponible: "DISP",
-  revision: "EN_R",
-  reservado: "RESE",
-  vendido: "VEND",
-};
-
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
+let measureCanvas: HTMLCanvasElement | null = null;
 
 type Tip = {
   key: string;
@@ -45,6 +38,42 @@ type Tip = {
 
 function count(value: number): string {
   return countFormat.format(value);
+}
+
+function textWidth(text: string, font: string): number {
+  measureCanvas ??= document.createElement("canvas");
+  const context = measureCanvas.getContext("2d");
+  if (!context) return text.length * 7;
+  context.font = font;
+  return context.measureText(text).width;
+}
+
+function FitPrefix({ text }: { text: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [shown, setShown] = useState(text);
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const fit = () => {
+      const room = Math.max(0, node.clientWidth - 1);
+      if (room <= 0) return;
+      const style = getComputedStyle(node);
+      const font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      let length = text.length;
+      while (length > 0 && textWidth(text.slice(0, length), font) > room) length -= 1;
+      const next = text.slice(0, length);
+      setShown((current) => (current === next ? current : next));
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [text]);
+  return (
+    <span ref={ref} className={styles.shortStatus}>
+      {shown}
+    </span>
+  );
 }
 
 function statusOf(key: InventoryStatusKey): { status: RvUnitStatus; label: string; color: string } {
@@ -168,7 +197,7 @@ function HeroChart({
               <span className={styles.heroNum}>{text}</span>
               {value > 0 ? <span className={styles.heroBar} style={{ background: item.color }} /> : null}
             </span>
-            <span className={styles.heroMark}>{SHORT_STATUS[key]}</span>
+            <span className={styles.heroMark}>{item.label.slice(0, 1)}</span>
           </button>
         );
       })}
@@ -212,7 +241,7 @@ function DetailChart({
                 );
               })}
             </div>
-            <span className={styles.shortStatus}>{SHORT_STATUS[key]}</span>
+            <FitPrefix text={item.label} />
           </div>
         );
       })}
