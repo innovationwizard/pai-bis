@@ -214,17 +214,18 @@ This replaces the previous two stacked flat charts with the single hierarchical 
 #### 4.1.2 Precise visual spec — Item 3: Status de ventas (lifetime vs fecha de cierre)
 
 **Decision**  
-23 November 2026 (later). This item must use the canonical three-level pattern. The Hero Band is required: Compact Hero on the left, always titled “Todos los Proyectos”, and Expanded Hero on the right with Project Summary Columns. One Project Band per project is required: Project KPI Card on the left and Project Detail Card on the right containing ordinary Member Columns by torre.
+25 November 2026. This item does not draw a Compact Hero or an Expanded Hero. Each Project Band is one single full-width container with no left/right split. “Todos los Proyectos” is also one single full-width container. This item has a Torres filter.
 
-**Critical correction:** The concept is the life of the project, not a monthly or period view. The Hero Band is required. The secondary dimension is per torre, drawn as ordinary Member Columns inside each Project Detail Card.
+**Critical correction**  
+The concept is the life of the project, not a monthly or period view. The chart is a lifetime cumulative pace chart. It is not a column chart and not a bar chart.
 
-**Reconfirmed 23 November 2026.** The secondary level stays per torre. The Operativo checklist row still says “por asesor”. That wording stays as written. Torre stays the ordinary Member Columns dimension. This spec is the requirement.
+**Reconfirmed 23 November 2026.** The secondary level stays per torre when the Torres filter is used. The Operativo checklist row still says “por asesor”. That wording stays as written.
 
 **Start date**  
-First month that appears in each project’s Ritmo de Ventas CSV.
+First month that appears in each project’s Ritmo de Ventas CSV. That CSV is reference only for the start-month lookup. It is never read or parsed for any displayed number, series, or count. All numbers come from the live application database or its connected sources. This is the hard rule in §2 principle 12 applied to this item.
 
-**Fecha de cierre (placeholder)**  
-Linear expected trajectory to a date 24 months after each project’s first CSV month. Replace with the real fecha de cierre when provided. Per-torre Member Columns inherit the project’s start and placeholder close for now.
+**Fecha de cierre**  
+Linear expected trajectory to a date 24 months after each project’s first CSV month. Replace with the real fecha de cierre when provided. Per-torre charts inherit the project’s start and close for now. The chart does not print the word “placeholder”.
 
 **Unit totals (live availability)**  
 - Boulevard 5: 298  
@@ -233,34 +234,40 @@ Linear expected trajectory to a date 24 months after each project’s first CSV 
 - Santa Elena: 11  
 
 **What is shown**  
-Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing ordinary Member Columns. One Project Band per project, in canonical order.
+- One full-width unified container titled “Todos los Proyectos”. It holds the statistically correct aggregate pace chart of all projects in the current project-pill scope.  
+- One full-width unified Project Band per project, in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena). There is no Project KPI Card and no Project Detail Card. The band holds that project’s pace chart.  
 
-**Compact Hero**  
-Title: always “Todos los Proyectos”.  
-Cumulative Reservas and cumulative PCV for the current project-pill scope, and the variance versus the expected cumulative as of today. Both numbers are visible. Semantic color only for the variance (deficit/surplus).
+**Torres filter**  
+This item has a Torres filter. When a torre is selected, the project’s full-width band is replaced by that torre’s pace chart. NINGUNO and the existing project pills continue to apply. A project with only one torre shows that single chart when the Torres filter selects it.
 
-**Expanded Hero**  
-Project Summary Columns in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena).  
-Each column is that project’s lifetime pace: cumulative Reservas, cumulative PCV, and the variance versus the expected cumulative as of today. The numbers are always visible on or directly above the column. A project at zero stays visible.
+**Chart geometry (Option A locked)**  
+Every chart (the “Todos los Proyectos” container and every Project Band) draws exactly these marks and no others:  
+- Solid line = cumulative Reservas over time.  
+- Dashed line = cumulative PCV over time.  
+- Thin solid line = expected cumulative (linear to the unit total at the close date).  
+- The area between the Reservas line and the expected line is filled green when Reservas is above the expected line and red when Reservas is below the expected line.  
+- The current variance number sits at the right end of the chart in the same semantic color (red deficit, green surplus). There is no fourth line for variance.  
 
-**Project Bands**  
-One Project Band per project.  
-- Project KPI Card (left): project name, current cumulative Reservas, current cumulative PCV, and variance versus the expected cumulative as of today.  
-- Project Detail Card (right): ordinary Member Columns by torre. Each column is that torre’s cumulative Reservas, with cumulative PCV and the variance versus the expected cumulative as of today on or above the column. Per-torre columns inherit the project’s start and placeholder close. A torre at zero stays visible. Torre B of Bosque Las Tapias is shown and flagged as Congelado (F&F only). Columns are squeezed to fit: no wrap, no overflow, no internal scroll.
+X-axis = months from the project’s start month to the close date. Default tick labels = first of each quarter. A Recharts Brush is present so the user can zoom and pan.  
 
-**Single-tower rule:** If a project has only one torre, that torre is the one Member Column inside its Project Detail Card. Do not draw a second Project Band for that torre. Boulevard 5 has only one torre: one Member Column.
+Current cumulative Reservas and current cumulative PCV numbers are visible on the chart. Zero series remain visible. When the Torres filter selects Torre B of Bosque Las Tapias, the chart is flagged “Congelado”.
 
 **Explicit rules**  
-- The Hero Band is required for all projects in scope. The Compact Hero title is “Todos los Proyectos”.  
-- Project Detail Cards contain ordinary Member Columns by torre.  
-- Single-tower rule: one Member Column inside the Project Detail Card (Boulevard 5).  
-- Both series (Reservas and PCV) are shown.  
-- Ignore the negative “Ritmo de Ventas” numbers in the CSVs until someone explains them.  
-- Numbers always visible. Tooltips only for provenance.  
-- Zero or fully Congelado torres remain visible.  
-- Placeholder fecha de cierre is clearly labeled as temporary.
+- No Compact Hero. No Expanded Hero. No left/right split inside any Project Band.  
+- “Todos los Proyectos” is one full-width container.  
+- Each Project Band is one full-width container.  
+- Torres filter is present on this item only.  
+- Both series (Reservas solid, PCV dashed) and the thin expected line are always shown together. No toggle.  
+- Variance is the filled area plus the number at the right end. No variance line.  
+- Ignore the negative “Ritmo de Ventas” numbers. They are never displayed.  
+- Numbers are always visible on the chart.  
+- Tooltips are reserved exclusively for provenance and open on click only. Hover does nothing.  
+- Zero series remain visible.  
+- The chart does not print the word “placeholder”.  
+- No static file (CSV, XLSX, or any other) is a source of any displayed number, series, or count. All numbers from the live database.  
+- Reuse existing card spacing and typography. Do not invent new layout primitives. Do not copy Item 6’s waterfall geometry or Item 9’s funnel geometry.
 
-This item uses the canonical three-level pattern. It is a lifetime pace view: Compact Hero + Expanded Hero with Project Summary Columns + Project Bands with Project KPI Cards + Project Detail Cards containing ordinary Member Columns by torre.
+This item is a lifetime pace view. “Todos los Proyectos” is one full-width container. Each Project Band is one full-width container. The chart is three lines plus a filled variance area.
 
 #### 4.1.3 Precise visual spec — Item 6: Inventario general
 
