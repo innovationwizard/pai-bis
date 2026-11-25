@@ -537,7 +537,7 @@ function HeroTowers({
     <div ref={host} className={styles.heroChart}>
       {box > 0 && rows.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} margin={{ top: 4, right: 2, left: 2, bottom: 0 }} barCategoryGap="24%">
+          <BarChart data={rows} margin={{ top: 4, right: 2, left: 2, bottom: 0 }} barCategoryGap="12%">
             <XAxis
               dataKey="label"
               interval={0}
