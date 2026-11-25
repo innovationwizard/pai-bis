@@ -208,38 +208,30 @@
 
 .blocks {
   display: flex;
-  flex: 1 1 0;
-  flex-direction: column-reverse;
-  gap: 3px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
   width: 100%;
-  height: 0;
+  height: 100%;
   min-width: 0;
-  min-height: 0;
   overflow: hidden;
 }
 
 .block {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
+  gap: 1px;
   min-width: 0;
-  min-height: 0;
-  padding-top: 2px;
-  border-top: 1px solid rgba(13, 32, 65, 0.12);
-}
-
-.block:last-child {
-  padding-top: 0;
-  border-top: 0;
+  min-height: 28px;
 }
 
 .blockName {
   flex: none;
-  margin-top: 2px;
   color: rgba(13, 32, 65, 0.75);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 11px;
   text-align: center;
   white-space: nowrap;
 }
@@ -247,45 +239,46 @@
 .columns {
   display: flex;
   flex: 1 1 auto;
+  flex-direction: row;
   align-items: stretch;
   gap: 1px;
   min-width: 0;
-  min-height: 0;
+  min-height: 14px;
 }
 
 .column {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
+  align-items: stretch;
   min-width: 0;
-  height: 100%;
-}
-
-.plot {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  margin-top: 12px;
-  box-shadow: inset 0 -1px 0 rgba(13, 32, 65, 0.28);
-}
-
-.bar {
-  position: absolute;
-  bottom: 0;
-  left: 12%;
-  width: 76%;
-  box-sizing: border-box;
 }
 
 .num {
-  position: absolute;
-  right: 0;
-  left: 0;
-  font-size: 10px;
+  flex: none;
+  width: 100%;
+  font-size: 9px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 11px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+.plot {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 6px;
+  box-shadow: inset 0 -1px 0 rgba(13, 32, 65, 0.28);
+}
+
+.barGap,
+.bar {
+  flex-basis: 0;
+  min-height: 0;
+  width: 76%;
+  align-self: center;
 }
 
 .torre {
@@ -293,12 +286,11 @@
   flex: none;
   width: 100%;
   min-width: 0;
-  margin-top: 2px;
   overflow: hidden;
   color: #0d2041;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 11px;
   text-align: center;
 }
 

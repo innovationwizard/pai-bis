@@ -188,26 +188,25 @@ function StatusBlocks({
         const item = statusOf(key);
         return (
           <div key={key} className={styles.block}>
+            <span className={styles.blockName}>{item.label}</span>
             <div className={styles.columns}>
               {project.towers.map((tower, index) => {
                 const value = tower.counts[key];
                 const text = count(value);
-                const height = `${(value / ceiling) * 100}%`;
                 return (
                   <div key={`${tower.label}:${index}`} className={styles.column}>
+                    <button
+                      type="button"
+                      className={styles.num}
+                      style={{ color: item.color }}
+                      aria-label={`${project.label}, ${tower.label}, ${item.label}: ${text}`}
+                      onClick={() => onOpen(tower, key)}
+                    >
+                      {text}
+                    </button>
                     <div className={styles.plot}>
-                      <button
-                        type="button"
-                        className={styles.num}
-                        style={{ bottom: `calc(${height} + 2px)`, color: item.color }}
-                        aria-label={`${project.label}, ${tower.label}, ${item.label}: ${text}`}
-                        onClick={() => onOpen(tower, key)}
-                      >
-                        {text}
-                      </button>
-                      {value > 0 ? (
-                        <span className={styles.bar} style={{ height, background: item.color }} />
-                      ) : null}
+                      <span className={styles.barGap} style={{ flexGrow: ceiling - value }} />
+                      <span className={styles.bar} style={{ flexGrow: value, background: item.color }} />
                     </div>
                     <span className={styles.torre}>
                       <FitText text={tower.label} />
@@ -216,7 +215,6 @@ function StatusBlocks({
                 );
               })}
             </div>
-            <span className={styles.blockName}>{item.label}</span>
           </div>
         );
       })}
