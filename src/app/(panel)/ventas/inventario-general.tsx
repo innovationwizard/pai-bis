@@ -24,7 +24,6 @@ const STATUSES: { key: InventoryStatusKey; status: RvUnitStatus }[] = [
 ];
 
 const WATERFALL: InventoryStatusKey[] = ["congelado", "disponible", "revision", "reservado", "vendido"];
-const TOP_TO_BOTTOM: InventoryStatusKey[] = ["vendido", "reservado", "revision", "disponible", "congelado"];
 
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
 const textWidths = new Map<string, number>();
@@ -182,41 +181,42 @@ function StatusBlocks({
   onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void;
 }) {
   const scale = useMemo(() => cardScale(project), [project]);
+  const ceiling = scale > 0 ? scale : 1;
   return (
     <div className={styles.blocks}>
-      {TOP_TO_BOTTOM.map((key) => {
+      {WATERFALL.map((key) => {
         const item = statusOf(key);
         return (
           <div key={key} className={styles.block}>
-            <span className={styles.blockName}>{item.label}</span>
             <div className={styles.columns}>
               {project.towers.map((tower, index) => {
                 const value = tower.counts[key];
                 const text = count(value);
-                const gap = scale > 0 ? scale - value : 1;
-                const grow = scale > 0 ? value : 0;
+                const height = `${(value / ceiling) * 100}%`;
                 return (
                   <div key={`${tower.label}:${index}`} className={styles.column}>
-                    <button
-                      type="button"
-                      className={styles.columnCount}
-                      style={{ color: item.color }}
-                      aria-label={`${project.label}, ${tower.label}, ${item.label}: ${text}`}
-                      onClick={() => onOpen(tower, key)}
-                    >
-                      <FitText text={text} />
-                    </button>
-                    <div className={styles.columnPlot} aria-hidden="true">
-                      <span className={styles.columnGap} style={{ flexGrow: gap }} />
-                      <span className={styles.columnBar} style={{ flexGrow: grow, background: item.color }} />
+                    <div className={styles.plot}>
+                      <button
+                        type="button"
+                        className={styles.num}
+                        style={{ bottom: `calc(${height} + 2px)`, color: item.color }}
+                        aria-label={`${project.label}, ${tower.label}, ${item.label}: ${text}`}
+                        onClick={() => onOpen(tower, key)}
+                      >
+                        {text}
+                      </button>
+                      {value > 0 ? (
+                        <span className={styles.bar} style={{ height, background: item.color }} />
+                      ) : null}
                     </div>
-                    <span className={styles.columnLabel}>
+                    <span className={styles.torre}>
                       <FitText text={tower.label} />
                     </span>
                   </div>
                 );
               })}
             </div>
+            <span className={styles.blockName}>{item.label}</span>
           </div>
         );
       })}
