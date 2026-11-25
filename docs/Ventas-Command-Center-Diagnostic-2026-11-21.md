@@ -1,7 +1,7 @@
 # Ventas Command Center — Systematic Diagnostic & Corrections Roadmap
 
-**Date:** 21 November 2026  
-**Basis:** Screenshots of the live Ventas page (taken ~11:08–11:17 GT) compared against `SDD-Department-Command-Centers.md` (10–19 Nov 2026) and the authoritative Operativo checklist.  
+**Date:** 21 November 2026. Item 6’s chart note was replaced on 24 November 2026 so this file no longer describes the retired drawing.  
+**Basis:** Screenshots of the live Ventas page (taken ~11:08–11:17 GT) compared against `SDD-Department-Command-Centers.md` (10–19 Nov 2026) and the authoritative Operativo checklist. Item 6 now follows §4.1.3.  
 **Scope:** Presence, order, and structural / hierarchical compliance with the locked SDD. Data correctness and provenance-tooltip behavior are not fully assessable from static screenshots.
 
 **Decision, 21 November 2026.** The scroll order is the Operativo checklist, top to bottom: 1 Ventas totales, 2 Objetivos de ventas, 3 Status de ventas, 4 Ventas por canales, 5 Split de ventas por modelo, 6 Inventario general, 7 Valor de proyecto, 8 Desistimientos, 9 Tasa de conversión, 10 Descuentos, 11 Subidas de precios, 12 F&F y casos especiales, 13 Control Referidos, 14 Promociones. The earlier Band A list (1, 2, 3, 6, 9) is not a page position. The SDD, the checklist note, and the general rules record this order. The command center was reordered to this sequence the same day. Items 10–12 stay in one two-column block, read left to right, then top to bottom. Items 13 and 14 are full-width bands after that block.
@@ -106,17 +106,17 @@
   - Verify shared y-scale and that the full item fits within the scroll budget of Items 1–2.
 
 ### 6. Inventario general: Vendido, congelado, disponible
+The 21 November reading of this item is retired. That reading had a navy Total on the Compact Hero, stacked columns per torre, and counts omitted when a segment was short. The current chart is SDD §4.1.3 and `src/app/(panel)/ventas/inventario-general.tsx`.
 - **Present?** Yes
 - **In correct order?** Yes. It sits after Item 5 and before Item 7.
-- **Compliant with SDD structure?** **Yes** (§4.1.3)
-  - Compact Hero: five status rows (waterfall) + Total (navy).
-  - Expanded Hero: vertical stacked columns per torre, per-project scale, Odoo short labels, zeros as zero-height segments.
-  - Project Bands: Project KPI Card = status waterfall (no Total); Project Detail Card = status-row blocks per torre on shared scale.
-  - Status order and colors match `UNIT_STATUS_COLORS` (green Disponible, blue Reservado, purple Congelado, gray Vendido, orange En revisión).
-  - No period/asesor/modelo effect (as specified).
+- **Compliant with SDD structure?** **Yes** (§4.1.3, 24 November 2026).
+  - Compact Hero and each Project KPI Card: five horizontal waterfall bars. Bottom to top: Congelado, Disponible, En revisión, Reservado, Vendido. No Total row. The integer sits at the right of the row, including zeros.
+  - Expanded Hero and every Project Detail Card: one block per status, bottom to top in that order. Inside each block, one vertical column per torre of that project. The number sits above the column. The torre label uses the Odoo short form and sits under the column. Zeros stay visible. A single-torre project shows one column inside each block.
+  - The Expanded Hero scales inside each project card. Each Project Detail Card scales inside itself. Columns are squeezed to fit. There is no internal scroll and no cascade of labels.
+  - Colors stay `UNIT_STATUS_COLORS`: green Disponible, orange En revisión, blue Reservado, purple Congelado, gray Vendido.
+  - Counts come from `v_rv_units_full`. Periodo, asesor, and modelo do not change them. A click on a number opens the units in that count. Hover does not.
 - **Issues / proposed fixes:**  
-  - Minor: confirm internal card scroll (if any) does not count as page scroll.  
-  - Ensure numbers appear inside segments only when space allows, otherwise omitted (per spec).
+  - None open on the chart geometry. A browser pass of the scroll fit was not run.
 
 ### 7. Valor de proyecto – trazabilidad de precios por valorización y descuentos
 - **Present?** Yes (Trayectoria de precios line + Impacto del descuento bar)

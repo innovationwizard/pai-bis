@@ -79,53 +79,49 @@
 
 .statusList {
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 1px;
   width: 100%;
   min-height: 0;
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   list-style: none;
 }
 
 .statusList li {
   display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
+  flex: 1 1 0;
+  grid-template-columns: 6.4rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  min-height: 16px;
+  min-height: 0;
 }
 
 .statusName {
   min-width: 0;
   color: #0d2041;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1;
   white-space: nowrap;
 }
 
-.statusTrack {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 2.25rem;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  min-width: 0;
+.statusCount,
+.columnCount,
+.tipHead button {
   margin: 0;
   padding: 0;
   border: 0;
   background: none;
-  cursor: pointer;
-  text-align: left;
   font: inherit;
+  cursor: pointer;
 }
 
-.statusTrack:focus-visible,
+.statusCount:focus-visible,
+.columnCount:focus-visible,
 .tipHead button:focus-visible {
   outline: 2px solid #0573b0;
   outline-offset: 1px;
@@ -147,6 +143,7 @@
 
 .statusCount {
   justify-self: end;
+  color: inherit;
   font-size: 13px;
   font-weight: 700;
   line-height: 1;
@@ -209,8 +206,11 @@
   cursor: pointer;
 }
 
-.heroChart {
+.blocks {
+  display: flex;
   flex: 1 1 0;
+  flex-direction: column;
+  gap: 1px;
   width: 100%;
   height: 0;
   min-width: 0;
@@ -218,9 +218,92 @@
   overflow: hidden;
 }
 
-.heroChart :global(.recharts-wrapper),
-.heroChart :global(.recharts-surface) {
-  overflow: visible;
+.block {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: 4.6rem minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  column-gap: 3px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.blockName {
+  align-self: center;
+  color: #0d2041;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.columns {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+}
+
+.column {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.columnCount,
+.columnLabel {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  font-size: clamp(6px, 22cqh, 10px);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.columnCount {
+  color: inherit;
+}
+
+.columnLabel {
+  color: #0d2041;
+}
+
+.fitText {
+  display: block;
+  max-width: 100%;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.columnPlot {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  min-height: 0;
+}
+
+.columnGap,
+.columnBar {
+  flex-basis: 0;
+  width: 100%;
+  min-height: 0;
 }
 
 .tip {
