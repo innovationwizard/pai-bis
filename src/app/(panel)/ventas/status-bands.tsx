@@ -1,21 +1,47 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import type { StatusBand, StatusPoint, StatusVista } from "@/lib/ventas/vista-types";
+import { useEffect, useState, type ReactNode } from "react";
+import type { StatusBand, StatusSourceRow, StatusVista } from "@/lib/ventas/vista-types";
 import band from "./landing-blocks.module.css";
-import styles from "./status-bands.module.css";
+import split from "./lower-bands.module.css";
 
 const RESERVAS = "#0d2041";
 const PCV = "#0573b0";
-const ESPERADO = "#94a3b8";
-const GRID = "#e2e8f0";
+const ESPERADO = "#64748b";
+const COLUMN_HEADROOM = 1.14;
 
-type Tip = { key: string; title: string; body: string };
+type PaceScope = {
+  id: string;
+  name: string;
+  reservas: number;
+  pcv: number;
+  esperado: number;
+  gap: number;
+  units: number;
+  startOn: string;
+  closeOn: string;
+  reservaRows: readonly StatusSourceRow[];
+  pcvRows: readonly StatusSourceRow[];
+  frozenDetail: string | null;
+  filter: string;
+  summed: boolean;
+};
+
+type Tip = {
+  key: string;
+  title: string;
+  body: string;
+  rows: readonly StatusSourceRow[];
+};
 
 function dotted(iso: string): string {
   const [year, month, day] = iso.split("-");
   if (!year || !month || !day) return iso;
   return `${day}.${month}.${year}`;
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 function formatUnits(value: number): string {
@@ -31,31 +57,24 @@ function formatGap(value: number): string {
   return "0";
 }
 
-function gapClass(value: number): string {
-  if (value > 0.05) return styles.up;
-  if (value < -0.05) return styles.down;
-  return styles.flat;
+function toneOf(value: number): "up" | "down" | "flat" {
+  if (value > 0.05) return "up";
+  if (value < -0.05) return "down";
+  return "flat";
 }
 
-const COLUMN_HEADROOM = 1.14;
-
-function hueKey(label: string): string {
-  return label
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+function ordered(rows: readonly StatusSourceRow[]): StatusSourceRow[] {
+  return [...rows].sort((a, b) => a.day.localeCompare(b.day) || a.id.localeCompare(b.id));
 }
 
-function sumGap(columns: readonly StatusBand[]): number {
-  const total = columns.reduce((sum, column) => sum + column.gap, 0);
-  return Math.round(total * 10) / 10;
-}
-
-function columnScale(columns: readonly StatusBand[]): number {
-  const peak = columns.reduce((max, column) => Math.max(max, Math.abs(column.gap)), 0);
+function paceScale(rows: readonly { reservas: number; pcv: number; esperado: number }[]): number {
+  const peak = rows.reduce((max, row) => Math.max(max, row.reservas, row.pcv, row.esperado), 0);
   return peak > 0 ? peak * COLUMN_HEADROOM : 1;
+}
+
+function percentOf(value: number, scale: number): number {
+  if (scale <= 0) return 0;
+  return Math.max(0, Math.min(100, (Math.max(0, value) / scale) * 100));
 }
 
 function memberName(column: StatusBand): string {
@@ -70,418 +89,308 @@ function projectIdOfTower(column: StatusBand): string {
 }
 
 function towersOf(projectId: string, towers: readonly StatusBand[]): StatusBand[] {
-  const rows = towers.filter((column) => column.kind === "torre" && projectIdOfTower(column) === projectId);
-  if (rows.length < 2) return [];
-  return [...rows].sort((a, b) => memberName(a).localeCompare(memberName(b), "es") || a.id.localeCompare(b.id));
+  return towers
+    .filter((column) => column.kind === "torre" && projectIdOfTower(column) === projectId)
+    .sort((a, b) => memberName(a).localeCompare(memberName(b), "es") || a.id.localeCompare(b.id));
 }
 
-function activateColumn(event: ReactKeyboardEvent<HTMLDivElement>, action: () => void) {
-  if (event.target !== event.currentTarget) return;
-  if (event.key !== "Enter" && event.key !== " ") return;
-  event.preventDefault();
-  action();
+function flagOf(column: StatusBand): string | null {
+  if (!column.congelado || !column.frozenDetail?.includes("F&F")) return null;
+  return "Congelado (F&F only)";
 }
 
-function dayNumber(iso: string): number {
-  return Date.parse(`${iso}T00:00:00Z`);
+function scopeOf(column: StatusBand, name: string, filter: string): PaceScope {
+  return {
+    id: column.id,
+    name,
+    reservas: column.reservas,
+    pcv: column.pcv,
+    esperado: column.esperado,
+    gap: column.gap,
+    units: column.units,
+    startOn: column.startOn,
+    closeOn: column.closeOn,
+    reservaRows: column.reservaRows ?? [],
+    pcvRows: column.pcvRows ?? [],
+    frozenDetail: column.frozenDetail,
+    filter,
+    summed: false,
+  };
 }
 
-function yTicks(scale: number): number[] {
-  if (!(scale > 0)) return [0];
-  if (scale <= 10) return [0, Math.ceil(scale)];
-  const step = scale <= 40 ? 10 : scale <= 100 ? 20 : scale <= 200 ? 50 : 100;
-  const marks = [0];
-  for (let value = step; value < scale - step * 0.25; value += step) marks.push(value);
-  return marks;
+function overallScope(projects: readonly StatusBand[]): PaceScope {
+  const reservas = projects.reduce((sum, column) => sum + column.reservas, 0);
+  const pcv = projects.reduce((sum, column) => sum + column.pcv, 0);
+  const esperado = round1(projects.reduce((sum, column) => sum + column.esperado, 0));
+  return {
+    id: "todos",
+    name: "Todos los Proyectos",
+    reservas,
+    pcv,
+    esperado,
+    gap: round1(reservas - esperado),
+    units: projects.reduce((sum, column) => sum + column.units, 0),
+    startOn: "",
+    closeOn: "",
+    reservaRows: ordered(projects.flatMap((column) => column.reservaRows ?? [])),
+    pcvRows: ordered(projects.flatMap((column) => column.pcvRows ?? [])),
+    frozenDetail: null,
+    filter: projects.map((column) => column.label).join(", ") || "ningún proyecto",
+    summed: true,
+  };
 }
 
-function linePath(
-  points: readonly StatusPoint[],
-  key: "reservas" | "pcv" | "esperado",
-  xOf: (day: string) => number,
-  yOf: (value: number) => number,
-): string {
-  let path = "";
-  let open = false;
-  for (const point of points) {
-    const value = point[key];
-    if (value == null || !Number.isFinite(value)) {
-      open = false;
-      continue;
-    }
-    const command = open ? "L" : "M";
-    path += `${command}${xOf(point.day).toFixed(1)} ${yOf(value).toFixed(1)}`;
-    open = true;
-  }
-  return path;
+function filterSentence(filter: string): string {
+  return `Filtro activo: ${filter}. El periodo y el asesor no cambian este número.`;
 }
 
-function reservaBody(day: string, value: number): string {
-  return `Acumulado de reservas al ${dotted(day)}: ${formatUnits(value)}. Cada actividad Reserva hecha en Pipedrive. La fecha es la del comprobante. Fuente: ventas.fact_comprobante. Si el trato no tiene torre, la reserva queda en el proyecto.`;
+function reservasTip(scope: PaceScope, asOf: string): Tip {
+  return {
+    key: `reservas:${scope.id}`,
+    title: "Reservas",
+    body: `Acumulado de reservas al ${dotted(asOf)}: ${formatUnits(scope.reservas)}. Cuenta cada actividad Reserva. La fecha es la del comprobante. Fuente: ventas.fact_comprobante. ${filterSentence(scope.filter)}`,
+    rows: scope.reservaRows,
+  };
 }
 
-function pcvBody(day: string, value: number): string {
-  return `Acumulado de PCV al ${dotted(day)}: ${formatUnits(value)}. Un trato con la promesa emitida. La fecha es la de emisión. Fuente: ventas.fact_pcv_issuance.`;
+function pcvTip(scope: PaceScope, asOf: string): Tip {
+  return {
+    key: `pcv:${scope.id}`,
+    title: "PCV",
+    body: `Acumulado de PCV al ${dotted(asOf)}: ${formatUnits(scope.pcv)}. Cuenta un trato con la promesa emitida. La fecha es la de emisión. Si la emisión es anterior a la reserva, cuenta la fecha de la reserva. Fuente: ventas.fact_pcv_issuance. ${filterSentence(scope.filter)}`,
+    rows: scope.pcvRows,
+  };
 }
 
-function esperadoBody(band: StatusBand, day: string, value: number): string {
-  return `Lo esperado al ${dotted(day)}: ${formatUnits(value)}. La línea gris sale de cero el ${dotted(band.startOn)}, el primer mes con una reserva o un PCV en la base, y llega a ${formatUnits(band.units)} unidades 24 meses después.`;
+function esperadoTip(scope: PaceScope, asOf: string): Tip {
+  const fecha = scope.summed
+    ? `Suma de lo esperado de cada proyecto al ${dotted(asOf)}. Cada proyecto empieza en cero en su primer mes con una reserva o un PCV y llega a sus unidades 24 meses después.`
+    : scope.startOn && scope.closeOn
+      ? `Línea recta desde cero el ${dotted(scope.startOn)} hasta ${formatUnits(scope.units)} unidades el ${dotted(scope.closeOn)}.`
+      : "No hay mes de inicio en la base, así que lo esperado queda en 0.";
+  return {
+    key: `esperado:${scope.id}`,
+    title: "Esperado",
+    body: `Lo esperado al ${dotted(asOf)}: ${formatUnits(scope.esperado)}. ${fecha} Esa fecha de cierre es placeholder. Fuente: v_rv_units_full. ${filterSentence(scope.filter)}`,
+    rows: [],
+  };
 }
 
-function StatusChart({
-  band,
+function gapTip(scope: PaceScope, asOf: string): Tip {
+  return {
+    key: `gap:${scope.id}`,
+    title: "Variación",
+    body: `Reservas menos lo esperado al ${dotted(asOf)}: ${formatGap(scope.gap)}. Reservas ${formatUnits(scope.reservas)}. Esperado ${formatUnits(scope.esperado)}. ${filterSentence(scope.filter)}`,
+    rows: [],
+  };
+}
+
+function NumButton({
+  bottom,
+  color,
+  label,
+  onClick,
+  children,
+  left,
+  width,
+  align,
+}: {
+  bottom: number;
+  color: string;
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+  left?: string;
+  width?: string;
+  align?: "right";
+}) {
+  return (
+    <button
+      type="button"
+      className={split.towerNum}
+      aria-label={label}
+      onClick={onClick}
+      style={{
+        margin: 0,
+        padding: 0,
+        border: 0,
+        background: "transparent",
+        cursor: "pointer",
+        color,
+        zIndex: 3,
+        bottom: `calc(${bottom}% + 2px)`,
+        left: left ?? "auto",
+        right: align === "right" ? 0 : "auto",
+        width: width ?? "auto",
+        textAlign: align === "right" ? "right" : "center",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PlaceholderButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className={band.caption}
+      onClick={onClick}
+      style={{ padding: 0, border: 0, background: "transparent", cursor: "pointer", textAlign: "left" }}
+    >
+      placeholder
+    </button>
+  );
+}
+
+function PaceMarks({
+  scope,
+  scale,
+  asOf,
+  name,
+  flag,
   onTip,
 }: {
-  band: StatusBand;
+  scope: PaceScope;
+  scale: number;
+  asOf: string;
+  name: string | null;
+  flag: string | null;
   onTip: (tip: Tip) => void;
 }) {
-  const labelId = useId();
-  const width = 720;
-  const height = band.kind === "proyecto" ? 176 : 124;
-  const pad = { l: 36, r: 28, t: 16, b: 22 };
-  const points = band.points;
-  const first = points[0]?.day ?? band.startOn;
-  const last = points[points.length - 1]?.day ?? band.closeOn;
-  const span = Math.max(1, dayNumber(last) - dayNumber(first));
-  const peak = points.reduce((max, point) => {
-    return Math.max(max, point.reservas ?? 0, point.pcv ?? 0, point.esperado, band.units);
-  }, 0);
-  const scale = peak <= 0 ? 1 : peak * 1.12;
-  const innerW = width - pad.l - pad.r;
-  const innerH = height - pad.t - pad.b;
-  const xOf = (day: string) => pad.l + ((dayNumber(day) - dayNumber(first)) / span) * innerW;
-  const yOf = (value: number) => pad.t + innerH - (value / scale) * innerH;
-  const stroke = band.kind === "proyecto" ? { reservas: 2.75, pcv: 2.25, esperado: 1.25 } : { reservas: 1.75, pcv: 1.5, esperado: 1 };
-  const reservasPath = linePath(points, "reservas", xOf, yOf);
-  const pcvPath = linePath(points, "pcv", xOf, yOf);
-  const hasClose = band.closeOn !== "";
-  const esperadoPath = hasClose ? linePath(points, "esperado", xOf, yOf) : "";
-  const closeX = hasClose && points.some((point) => point.day === band.closeOn) ? xOf(band.closeOn) : null;
-
-  const rawLabels: { key: string; x: number; y: number; text: string; fill: string; tip: Tip }[] = [];
-  for (const point of points) {
-    if (point.labelReservas && point.reservas != null) {
-      rawLabels.push({
-        key: `reservas-${point.day}`,
-        x: xOf(point.day),
-        y: yOf(point.reservas) - 9,
-        text: formatUnits(point.reservas),
-        fill: RESERVAS,
-        tip: { key: `reservas-${point.day}`, title: "Reservas", body: reservaBody(point.day, point.reservas) },
-      });
-    }
-    if (point.labelPcv && point.pcv != null) {
-      rawLabels.push({
-        key: `pcv-${point.day}`,
-        x: xOf(point.day),
-        y: yOf(point.pcv) + 12,
-        text: formatUnits(point.pcv),
-        fill: PCV,
-        tip: { key: `pcv-${point.day}`, title: "PCV", body: pcvBody(point.day, point.pcv) },
-      });
-    }
-    if (point.labelEsperado) {
-      rawLabels.push({
-        key: `esperado-${point.day}`,
-        x: xOf(point.day),
-        y: yOf(point.esperado) - 9,
-        text: formatUnits(point.esperado),
-        fill: "#64748b",
-        tip: { key: `esperado-${point.day}`, title: "Esperado", body: esperadoBody(band, point.day, point.esperado) },
-      });
-    }
-  }
-  const occupied: { x: number; y: number }[] = [];
-  const labels = rawLabels.map((label) => {
-    let y = label.y;
-    let guard = 0;
-    const crowded = (candidate: number) => occupied.some((item) => Math.abs(item.x - label.x) < 34 && Math.abs(item.y - candidate) < 12);
-    while (crowded(y) && guard < 5) {
-      y -= 11;
-      guard += 1;
-    }
-    if (y < 10) y = Math.min(height - pad.b - 2, label.y + 14);
-    occupied.push({ x: label.x, y });
-    return { ...label, y };
-  });
-
-  const axisPriority = (label: string) => (label === "cierre" ? 0 : label === "hoy" ? 1 : 2);
-  const axis = [...points]
-    .filter((point) => point.axisLabel)
-    .sort((a, b) => axisPriority(a.axisLabel) - axisPriority(b.axisLabel) || a.day.localeCompare(b.day));
-  const keptAxis: StatusPoint[] = [];
-  for (const point of axis) {
-    const x = xOf(point.day);
-    if (keptAxis.some((item) => Math.abs(xOf(item.day) - x) < 46)) continue;
-    keptAxis.push(point);
-  }
-
+  const reservasH = percentOf(scope.reservas, scale);
+  const pcvH = percentOf(scope.pcv, scale);
+  const lineH = percentOf(scope.esperado, scale);
   return (
-    <svg className={styles.svg} viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={labelId}>
-      <title id={labelId}>{`${band.label}. Reservas ${formatUnits(band.reservas)}. PCV ${formatUnits(band.pcv)}. Variación ${formatGap(band.gap)}.`}</title>
-      {yTicks(scale).map((tick) => {
-        const y = yOf(tick);
-        return (
-          <g key={tick}>
-            <line x1={pad.l} x2={width - pad.r} y1={y} y2={y} stroke={GRID} />
-            <text x={pad.l - 6} y={y + 3} textAnchor="end" fill="#64748b" fontSize="10">{formatUnits(tick)}</text>
-          </g>
-        );
-      })}
-      {closeX != null ? <line x1={closeX} x2={closeX} y1={pad.t} y2={height - pad.b} stroke="#cbd5e1" strokeDasharray="2 3" /> : null}
-      {hasClose ? <path d={esperadoPath} fill="none" stroke={ESPERADO} strokeWidth={stroke.esperado} /> : null}
-      {hasClose ? (
-        <path
-          d={esperadoPath}
-          fill="none"
-          stroke="transparent"
-          strokeWidth={12}
-          style={{ cursor: "pointer" }}
-          onClick={() => onTip({ key: "esperado", title: "Esperado", body: esperadoBody(band, lastActual(band, "reservas"), band.esperado) })}
-        />
-      ) : null}
-      <path d={pcvPath} fill="none" stroke={PCV} strokeWidth={stroke.pcv} strokeDasharray="6 4" />
-      <path
-        d={pcvPath}
-        fill="none"
-        stroke="transparent"
-        strokeWidth={12}
-        style={{ cursor: "pointer" }}
-        onClick={() => onTip({ key: "pcv", title: "PCV", body: pcvBody(lastActual(band, "pcv"), band.pcv) })}
-      />
-      <path d={reservasPath} fill="none" stroke={RESERVAS} strokeWidth={stroke.reservas} />
-      <path
-        d={reservasPath}
-        fill="none"
-        stroke="transparent"
-        strokeWidth={12}
-        style={{ cursor: "pointer" }}
-        onClick={() => onTip({ key: "reservas", title: "Reservas", body: reservaBody(lastActual(band, "reservas"), band.reservas) })}
-      />
-      {labels.map((label) => (
-        <text
-          key={label.key}
-          x={label.x}
-          y={label.y}
-          textAnchor={label.x < 56 ? "start" : label.x > width - 56 ? "end" : "middle"}
-          fill={label.fill}
-          fontSize={band.kind === "proyecto" ? 11 : 10}
-          fontWeight={700}
-          stroke="#fff"
-          strokeWidth="3"
-          paintOrder="stroke"
-          style={{ cursor: "pointer" }}
-          role="button"
-          tabIndex={0}
-          onClick={() => onTip(label.tip)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onTip(label.tip);
-            }
+    <div className={split.towerCol} style={{ cursor: "default" }} role="group" aria-label={name ?? scope.name}>
+      <div className={split.towerPlot}>
+        {scope.reservas > 0 ? (
+          <span
+            className={split.towerBar}
+            aria-hidden="true"
+            style={{ height: `${reservasH}%`, left: "8%", width: "36%", background: RESERVAS }}
+          />
+        ) : null}
+        {scope.pcv > 0 ? (
+          <span
+            className={split.towerBar}
+            data-dashed="true"
+            aria-hidden="true"
+            style={{
+              height: `${pcvH}%`,
+              left: "52%",
+              width: "36%",
+              background: "transparent",
+              borderColor: PCV,
+            }}
+          />
+        ) : null}
+        <span className={band.ogLine} aria-hidden="true" style={{ bottom: `${lineH}%` }} />
+        <NumButton
+          bottom={reservasH}
+          color={RESERVAS}
+          left="8%"
+          width="36%"
+          label={`Reservas ${formatUnits(scope.reservas)}`}
+          onClick={() => onTip(reservasTip(scope, asOf))}
+        >
+          {formatUnits(scope.reservas)}
+        </NumButton>
+        <NumButton
+          bottom={pcvH}
+          color={PCV}
+          left="52%"
+          width="36%"
+          label={`PCV ${formatUnits(scope.pcv)}`}
+          onClick={() => onTip(pcvTip(scope, asOf))}
+        >
+          {formatUnits(scope.pcv)}
+        </NumButton>
+        <NumButton
+          bottom={lineH}
+          color={ESPERADO}
+          align="right"
+          label={`Esperado ${formatUnits(scope.esperado)}`}
+          onClick={() => onTip(esperadoTip(scope, asOf))}
+        >
+          {formatUnits(scope.esperado)}
+        </NumButton>
+      </div>
+      {name ? <span className={split.towerModel}>{name}</span> : null}
+      <button
+        type="button"
+        className={band.ogDelta}
+        data-tone={toneOf(scope.gap)}
+        aria-label={`Variación ${formatGap(scope.gap)}`}
+        onClick={() => onTip(gapTip(scope, asOf))}
+        style={{ padding: 0, border: 0, background: "transparent", cursor: "pointer" }}
+      >
+        {formatGap(scope.gap)}
+      </button>
+      {flag ? (
+        <button
+          type="button"
+          className={split.towerModel}
+          onClick={() => onTip({
+            key: `frozen:${scope.id}`,
+            title: flag,
+            body: scope.frozenDetail ?? flag,
+            rows: [],
+          })}
+          style={{
+            padding: 0,
+            border: 0,
+            background: "transparent",
+            cursor: "pointer",
+            color: "var(--color-unit-frozen)",
           }}
         >
-          {label.text}
-        </text>
-      ))}
-      {keptAxis.map((point) => (
-        <text key={point.day} x={xOf(point.day)} y={height - 6} textAnchor="middle" fill="#64748b" fontSize="10">
-          {point.axisLabel}
-        </text>
-      ))}
-    </svg>
-  );
-}
-
-function lastActual(band: StatusBand, key: "reservas" | "pcv"): string {
-  for (let index = band.points.length - 1; index >= 0; index -= 1) {
-    const point = band.points[index];
-    if (point && point[key] != null) return point.day;
-  }
-  return band.startOn;
-}
-
-function StatusRow({ band }: { band: StatusBand }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [tip, setTip] = useState<Tip | null>(null);
-
-  useEffect(() => {
-    if (!tip) return;
-    function close(event: MouseEvent) {
-      if (!ref.current?.contains(event.target as Node)) setTip(null);
-    }
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [tip]);
-
-  function toggle(next: Tip) {
-    setTip((current) => (current?.key === next.key ? null : next));
-  }
-
-  const asOf = lastActual(band, "reservas");
-
-  return (
-    <div ref={ref} className={styles.row} data-kind={band.kind}>
-      <div className={styles.side}>
-        <div className={styles.name}>
-          {band.label}
-          {band.congelado ? (
-            <button
-              type="button"
-              className={styles.frozen}
-              onClick={() => toggle({
-                key: "congelado",
-                title: "Congelado",
-                body: band.frozenDetail ?? "Esta torre está congelada.",
-              })}
-            >
-              Congelado
-            </button>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          className={styles.metric}
-          onClick={() => toggle({ key: "reservas", title: "Reservas", body: reservaBody(asOf, band.reservas) })}
-        >
-          <span>Reservas</span>
-          <strong>{formatUnits(band.reservas)}</strong>
+          {flag}
         </button>
-        <button
-          type="button"
-          className={styles.metric}
-          onClick={() => toggle({ key: "pcv", title: "PCV", body: pcvBody(lastActual(band, "pcv"), band.pcv) })}
-        >
-          <span data-series="pcv">PCV</span>
-          <strong>{formatUnits(band.pcv)}</strong>
-        </button>
-        <button
-          type="button"
-          className={`${styles.gap} ${gapClass(band.gap)}`}
-          aria-label={`Variación ${formatGap(band.gap)} contra lo esperado al ${dotted(asOf)}`}
-          onClick={() => toggle({
-            key: "gap",
-            title: "Variación",
-            body: `Reservas menos lo esperado al ${dotted(asOf)}: ${formatGap(band.gap)}. Lo esperado sigue una línea recta temporal hasta el cierre.`,
-          })}
-        >
-          {formatGap(band.gap)}
-        </button>
-      </div>
-      <div className={styles.plot}>
-        <StatusChart band={band} onTip={toggle} />
-      </div>
-      {tip ? (
-        <div className={styles.tip} role="dialog">
-          <strong>{tip.title}</strong>
-          {tip.body}
-        </div>
       ) : null}
     </div>
   );
 }
 
-function PaceColumns({
-  columns,
-  level,
-  label,
-  hueFor,
-  openId,
-  onOpen,
-  onFrozen,
+function PaceCard({
+  title,
+  scope,
+  scale,
+  asOf,
+  placeholder,
+  onTip,
 }: {
-  columns: readonly StatusBand[];
-  level: "project" | "asesor";
-  label: string;
-  hueFor: (column: StatusBand) => string;
-  openId: string | null;
-  onOpen: (id: string) => void;
-  onFrozen: (column: StatusBand) => void;
+  title: string;
+  scope: PaceScope;
+  scale: number;
+  asOf: string;
+  placeholder: boolean;
+  onTip: (tip: Tip) => void;
 }) {
-  const scale = columnScale(columns);
-  const flagged = columns.some((column) => column.congelado);
   return (
-    <div className={band.ogCols} data-level={level} role="group" aria-label={label}>
-      {columns.map((column) => {
-        const height = (Math.max(0, Math.abs(column.gap)) / scale) * 100;
-        const name = level === "project" ? column.label : memberName(column);
-        const hue = hueFor(column);
-        return (
-          <div
-            key={column.id}
-            className={band.ogCol}
-            role="button"
-            tabIndex={0}
-            aria-pressed={openId === column.id}
-            aria-label={`${name}: ${formatGap(column.gap)}`}
-            style={{ cursor: "pointer" }}
-            onClick={() => onOpen(column.id)}
-            onKeyDown={(event) => activateColumn(event, () => onOpen(column.id))}
-          >
-            <div className={band.ogColBody}>
-              <div className={band.ogPlotWrap}>
-                <div className={band.ogPlot}>
-                  <span className={band.ogNum} style={{ bottom: `calc(${height}% + 2px)` }}>
-                    <span className={gapClass(column.gap)}>{formatGap(column.gap)}</span>
-                  </span>
-                  <span
-                    className={band.ogBar}
-                    data-project={hue || undefined}
-                    style={{ height: `${height}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-            <span className={band.ogName} style={{ whiteSpace: "nowrap" }}>{name}</span>
-            {flagged ? (
-              <span className={band.ogDelta}>
-                {column.congelado ? (
-                  <button
-                    type="button"
-                    className={styles.frozen}
-                    data-frozen=""
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onFrozen(column);
-                    }}
-                  >
-                    Congelado
-                  </button>
-                ) : "\u00a0"}
-              </span>
-            ) : null}
-          </div>
-        );
-      })}
+    <div className={split.splitHero}>
+      <span className={split.splitHeroTitle}>{title}</span>
+      <div className={split.towerChart} style={{ width: "100%", height: "auto", minHeight: 0 }}>
+        <div className={split.towerCols} style={{ width: "100%", height: "100%" }}>
+          <PaceMarks scope={scope} scale={scale} asOf={asOf} name={null} flag={null} onTip={onTip} />
+        </div>
+      </div>
+      {placeholder ? <PlaceholderButton onClick={() => onTip(esperadoTip(scope, asOf))} /> : null}
     </div>
   );
 }
 
-function ChartDrawer({ band: scope, onClose }: { band: StatusBand; onClose: () => void }) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    closeRef.current?.focus();
-  }, [scope.id]);
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
+function TipView({ tip, onClose }: { tip: Tip; onClose: () => void }) {
   return (
-    <div className="op-overlay">
-      <button type="button" className="op-backdrop" aria-label="Cerrar" onClick={onClose} />
-      <aside className="op-drawer" role="dialog" aria-label={scope.label}>
-        <header>
-          <h2>{scope.label}</h2>
-          <button ref={closeRef} type="button" onClick={onClose}>Cerrar</button>
-        </header>
-        <StatusRow band={scope} />
-      </aside>
+    <div className={split.splitTip} role="dialog" aria-label={tip.title}>
+      <div className={split.splitTipHead}>
+        <strong>{tip.title}</strong>
+        <button type="button" onClick={onClose}>Cerrar</button>
+      </div>
+      <p>{tip.body}</p>
+      {tip.rows.length > 0 ? (
+        <p>{tip.rows.map((row) => `${dotted(row.day)} · ${row.dealId}`).join("; ")}</p>
+      ) : null}
     </div>
   );
 }
@@ -493,129 +402,104 @@ export function StatusLifetime({
   vista: StatusVista | null;
   pending: ReactNode;
 }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [frozen, setFrozen] = useState<Tip | null>(null);
-  const frozenRef = useRef<HTMLDivElement>(null);
-  const closeDrawer = useCallback(() => setOpenId(null), []);
-
-  const openBand = !vista || openId == null
-    ? null
-    : vista.byProject.find((column) => column.id === openId)
-      ?? vista.byTower.find((column) => column.id === openId)
-      ?? null;
+  const [tip, setTip] = useState<Tip | null>(null);
 
   useEffect(() => {
-    if (!openId || !vista) return;
-    const exists = vista.byProject.some((column) => column.id === openId)
-      || vista.byTower.some((column) => column.id === openId);
-    if (!exists) setOpenId(null);
-  }, [openId, vista]);
-
-  useEffect(() => {
-    if (!frozen) return;
+    if (!tip) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setFrozen(null);
+      if (event.key === "Escape") setTip(null);
     }
-    function onPointer(event: MouseEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (frozenRef.current?.contains(target)) return;
-      if (target instanceof Element && target.closest("[data-frozen]")) return;
-      setFrozen(null);
-    }
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onPointer);
-    };
-  }, [frozen]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tip]);
 
   if (!vista) return <>{pending}</>;
 
   const projects = vista.byProject;
-  const overall = sumGap(projects);
+  const overall = overallScope(projects);
+  const projectScale = paceScale(projects);
+  const asOf = vista.asOf;
+  const placeholder = projects.some((project) => project.closeOn !== "");
 
-  function openScope(id: string) {
-    setFrozen(null);
-    setOpenId((current) => (current === id ? null : id));
-  }
-
-  function showFrozen(column: StatusBand) {
-    setFrozen((current) => current?.key === column.id ? null : {
-      key: column.id,
-      title: "Congelado",
-      body: column.frozenDetail ?? "Esta torre está congelada.",
-    });
+  function showTip(next: Tip) {
+    setTip((current) => (current?.key === next.key ? null : next));
   }
 
   return (
-    <div className={`${band.block} ${band.ogSection}`}>
-      {vista.notice ? <p className={styles.warn}>{vista.notice}</p> : null}
-      <div className={`${band.top} ${band.ogLead}`}>
-        <div className={band.rail}>
-          <div className={band.kpi}>
-            <span className={band.kpiName}>Todos los Proyectos</span>
-            <span className={`${band.kpiValue} ${gapClass(overall)}`}>{formatGap(overall)}</span>
-          </div>
-        </div>
-        <div className={`${band.hero} ${band.ogCard}`}>
+    <div className={`${band.block} ${split.splitPage}`}>
+      {vista.notice ? <p className={band.warn}>{vista.notice}</p> : null}
+      <div className={split.splitBand}>
+        <PaceCard
+          title="Todos los Proyectos"
+          scope={overall}
+          scale={paceScale([overall])}
+          asOf={asOf}
+          placeholder={placeholder}
+          onTip={showTip}
+        />
+        <div className={split.splitCards}>
           {projects.length > 0 ? (
-            <PaceColumns
-              columns={projects}
-              level="project"
-              label="Proyectos"
-              hueFor={(column) => hueKey(column.label)}
-              openId={openId}
-              onOpen={openScope}
-              onFrozen={showFrozen}
-            />
+            <article className={split.splitCard} aria-label="Proyectos">
+              <div className={split.towerChart} style={{ height: "auto", minHeight: 0 }}>
+                <div className={split.towerCols} style={{ width: "100%", height: "100%" }}>
+                  {projects.map((project) => (
+                    <PaceMarks
+                      key={project.id}
+                      scope={scopeOf(project, project.label, project.label)}
+                      scale={projectScale}
+                      asOf={asOf}
+                      name={project.label}
+                      flag={null}
+                      onTip={showTip}
+                    />
+                  ))}
+                </div>
+              </div>
+              {placeholder ? <PlaceholderButton onClick={() => showTip(esperadoTip(overall, asOf))} /> : null}
+            </article>
           ) : null}
         </div>
       </div>
       {projects.length > 0 ? (
-        <div className={band.ogBands}>
+        <div className={split.splitBands}>
           {projects.map((project) => {
             const towers = towersOf(project.id, vista.byTower);
+            const scope = scopeOf(project, project.label, project.label);
             return (
-              <div key={project.id} className={`${band.top} ${band.ogBand}`}>
-                <div className={band.rail}>
-                  <button
-                    type="button"
-                    className={band.kpi}
-                    aria-pressed={openId === project.id}
-                    aria-label={`${project.label}: ${formatGap(project.gap)}`}
-                    onClick={() => openScope(project.id)}
-                  >
-                    <span className={band.kpiName}>{project.label}</span>
-                    <span className={`${band.kpiValue} ${gapClass(project.gap)}`}>{formatGap(project.gap)}</span>
-                  </button>
+              <section key={project.id} className={split.splitProjectBand} aria-label={project.label}>
+                <PaceCard
+                  title={project.label}
+                  scope={scope}
+                  scale={paceScale([scope])}
+                  asOf={asOf}
+                  placeholder={project.closeOn !== ""}
+                  onTip={showTip}
+                />
+                <div className={split.splitCards}>
+                  <article className={split.splitCard} aria-label={`Torres de ${project.label}`}>
+                    <div className={split.towerChart}>
+                      <div className={split.towerCols} style={{ width: "100%", height: "100%" }}>
+                        {towers.map((tower) => (
+                          <PaceMarks
+                            key={tower.id}
+                            scope={scopeOf(tower, memberName(tower), tower.label)}
+                            scale={paceScale(towers)}
+                            asOf={asOf}
+                            name={memberName(tower)}
+                            flag={flagOf(tower)}
+                            onTip={showTip}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </article>
                 </div>
-                <div className={`${band.hero} ${band.ogCard}`}>
-                  {towers.length > 0 ? (
-                    <PaceColumns
-                      columns={towers}
-                      level="asesor"
-                      label={`Torres de ${project.label}`}
-                      hueFor={() => hueKey(project.label)}
-                      openId={openId}
-                      onOpen={openScope}
-                      onFrozen={showFrozen}
-                    />
-                  ) : null}
-                </div>
-              </div>
+              </section>
             );
           })}
         </div>
       ) : null}
-      {frozen ? (
-        <div ref={frozenRef} className={styles.tip} role="dialog">
-          <strong>{frozen.title}</strong>
-          {frozen.body}
-        </div>
-      ) : null}
-      {openBand ? <ChartDrawer key={openBand.id} band={openBand} onClose={closeDrawer} /> : null}
+      {tip ? <TipView tip={tip} onClose={() => setTip(null)} /> : null}
     </div>
   );
 }

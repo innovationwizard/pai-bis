@@ -1,7 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PROJECT_DISPLAY_ORDER, projectKey } from "@/lib/projects";
 import { guatemalaToday } from "./period";
-import type { Choice, StatusBand, StatusPoint, StatusVista } from "./vista-types";
+import { odooTowerLabel } from "./tower-label";
+import type { Choice, StatusBand, StatusPoint, StatusSourceRow, StatusVista } from "./vista-types";
 
 const PAGE = 1000;
 const CAP = 20000;
@@ -103,12 +104,6 @@ function hiddenTower(key: string): boolean {
   return key === "" || key === "sin dato" || key === "sin torre";
 }
 
-function towerTitle(name: string): string {
-  const trimmed = name.trim();
-  if (/^[A-E]$/i.test(trimmed)) return `Torre ${trimmed.toUpperCase()}`;
-  return trimmed;
-}
-
 function displayName(name: string): string {
   return DISPLAY_NAME[projectKey(name)] ?? name;
 }
@@ -162,6 +157,18 @@ function bump(map: Map<string, Map<string, number>>, key: string, day: string): 
   const days = map.get(key) ?? new Map<string, number>();
   days.set(day, (days.get(day) ?? 0) + 1);
   map.set(key, days);
+}
+
+function pushSource(map: Map<string, StatusSourceRow[]>, key: string, row: StatusSourceRow): void {
+  const list = map.get(key);
+  if (list) list.push(row);
+  else map.set(key, [row]);
+}
+
+function rowsAsOf(rows: readonly StatusSourceRow[], today: string): StatusSourceRow[] {
+  return rows
+    .filter((row) => row.day !== "" && row.day <= today)
+    .sort((a, b) => a.day.localeCompare(b.day) || a.id.localeCompare(b.id));
 }
 
 function buildPoints(
@@ -223,9 +230,13 @@ function bandOf(input: {
   today: string;
   reservas: { day: string; n: number }[];
   pcv: { day: string; n: number }[];
+  reservaRows: readonly StatusSourceRow[];
+  pcvRows: readonly StatusSourceRow[];
 }): StatusBand {
   const reservas = atCount(input.reservas, input.today);
   const pcv = atCount(input.pcv, input.today);
+  const reservaRows = rowsAsOf(input.reservaRows, input.today);
+  const pcvRows = rowsAsOf(input.pcvRows, input.today);
   if (!input.start || !input.close) {
     return {
       id: input.id,
@@ -250,6 +261,8 @@ function bandOf(input: {
         labelEsperado: false,
         axisLabel: "hoy",
       }],
+      reservaRows,
+      pcvRows,
     };
   }
   const esperado = round1(expectedAt(input.units, input.start, input.close, input.today));
@@ -267,6 +280,8 @@ function bandOf(input: {
     startOn: input.start,
     closeOn: input.close,
     points: buildPoints(input.units, input.start, input.close, input.today, input.reservas, input.pcv),
+    reservaRows,
+    pcvRows,
   };
 }
 
@@ -405,6 +420,10 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
   const pcvDays = new Map<string, Map<string, number>>();
   const reservaTower = new Map<string, Map<string, number>>();
   const pcvTower = new Map<string, Map<string, number>>();
+  const reservaProjectRows = new Map<string, StatusSourceRow[]>();
+  const pcvProjectRows = new Map<string, StatusSourceRow[]>();
+  const reservaTowerRows = new Map<string, StatusSourceRow[]>();
+  const pcvTowerRows = new Map<string, StatusSourceRow[]>();
 
   const earliestComprobante = new Map<string, string>();
   for (const row of reservasPage.rows) {
@@ -420,22 +439,30 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
     day: string,
     projectMap: Map<string, Map<string, number>>,
     towerMap: Map<string, Map<string, number>>,
+    projectRows: Map<string, StatusSourceRow[]>,
+    towerRows: Map<string, StatusSourceRow[]>,
   ): void {
     const dealId = row.deal_id == null ? "" : String(row.deal_id);
     if (!day || !dealId) return;
     const deal = deals.get(dealId);
     if (!deal || !allowed.has(deal.projectId)) return;
     bump(projectMap, deal.projectId, day);
+    const sourceId = row.id == null || String(row.id) === ""
+      ? `${dealId}:${day}:${projectRows.get(deal.projectId)?.length ?? 0}`
+      : String(row.id);
+    pushSource(projectRows, deal.projectId, { id: sourceId, day, dealId });
     const tower = deal.unitId ? towers.get(units.get(deal.unitId)?.towerId ?? "") : undefined;
     if (!tower || tower.sin || tower.projectId !== deal.projectId) return;
     const key = towerKey(tower.name);
     if (hiddenTower(key)) return;
-    bump(towerMap, `${deal.projectId}|${key}`, day);
+    const towerId = `${deal.projectId}|${key}`;
+    bump(towerMap, towerId, day);
+    pushSource(towerRows, towerId, { id: sourceId, day, dealId });
   }
 
   for (const row of reservasPage.rows) {
     const day = typeof row.comprobante_on === "string" ? row.comprobante_on.slice(0, 10) : "";
-    place(row, day, reservaDays, reservaTower);
+    place(row, day, reservaDays, reservaTower, reservaProjectRows, reservaTowerRows);
   }
   for (const row of pcvPage.rows) {
     const dealId = row.deal_id == null ? "" : String(row.deal_id);
@@ -443,7 +470,7 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
     if (!reservaOn) continue;
     const clock = typeof row.clock_on === "string" ? row.clock_on.slice(0, 10) : "";
     if (!clock) continue;
-    place(row, clock > reservaOn ? clock : reservaOn, pcvDays, pcvTower);
+    place(row, clock > reservaOn ? clock : reservaOn, pcvDays, pcvTower, pcvProjectRows, pcvTowerRows);
   }
 
   const byProject: StatusBand[] = selected.map((project) => {
@@ -462,26 +489,32 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
       today,
       reservas,
       pcv,
+      reservaRows: reservaProjectRows.get(project.project.id) ?? [],
+      pcvRows: pcvProjectRows.get(project.project.id) ?? [],
     });
   });
 
   const byTower: StatusBand[] = [];
   for (const project of selected) {
-    if (project.key === projectKey("SANTA ELENA") || project.key === projectKey("BOULEVARD 5")) continue;
     const start = earliestMonth(reservaDays.get(project.project.id), pcvDays.get(project.project.id));
     const close = start ? addMonths(start, 24) : "";
     const towersOfProject = inventory.towers.get(project.key);
     if (!towersOfProject) continue;
-    const rows = [...towersOfProject.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name, "es"));
+    const rows = [...towersOfProject.entries()].sort((a, b) => {
+      const left = odooTowerLabel(a[1].name);
+      const right = odooTowerLabel(b[1].name);
+      return left.localeCompare(right, "es") || a[0].localeCompare(b[0]);
+    });
     for (const [key, tower] of rows) {
       if (hiddenTower(key) || tower.total <= 0) continue;
+      const towerId = `${project.project.id}|${key}`;
       const frozen = project.key === projectKey("BOSQUE LAS TAPIAS") && key === "B";
       const fullyFrozen = tower.total > 0 && tower.congelado === tower.total;
       const congelado = frozen || fullyFrozen;
       byTower.push(
         bandOf({
-          id: `${project.project.id}|${key}`,
-          label: `${project.label} · ${towerTitle(tower.name)}`,
+          id: towerId,
+          label: `${project.label} · ${odooTowerLabel(tower.name)}`,
           kind: "torre",
           congelado,
           frozenDetail: congelado
@@ -493,8 +526,10 @@ export async function buildStatusLifetime(filters: Scope): Promise<StatusVista> 
           start,
           close,
           today,
-          reservas: prefixOf(reservaTower.get(`${project.project.id}|${key}`)),
-          pcv: prefixOf(pcvTower.get(`${project.project.id}|${key}`)),
+          reservas: prefixOf(reservaTower.get(towerId)),
+          pcv: prefixOf(pcvTower.get(towerId)),
+          reservaRows: reservaTowerRows.get(towerId) ?? [],
+          pcvRows: pcvTowerRows.get(towerId) ?? [],
         }),
       );
     }

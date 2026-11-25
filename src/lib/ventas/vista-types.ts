@@ -268,6 +268,12 @@ export type StatusPoint = {
   axisLabel: string;
 };
 
+export type StatusSourceRow = {
+  id: string;
+  day: string;
+  dealId: string;
+};
+
 export type StatusBand = {
   id: string;
   label: string;
@@ -282,6 +288,8 @@ export type StatusBand = {
   startOn: string;
   closeOn: string;
   points: StatusPoint[];
+  reservaRows: StatusSourceRow[];
+  pcvRows: StatusSourceRow[];
 };
 
 export type StatusVista = VistaBase & {
