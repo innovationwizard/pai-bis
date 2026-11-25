@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { UNIT_STATUS_COLORS, UNIT_STATUS_LABELS } from "@/lib/reservas/constants";
 import type { RvUnitStatus } from "@/lib/reservas/types";
 import type {
@@ -25,8 +25,15 @@ const STATUSES: { key: InventoryStatusKey; status: RvUnitStatus }[] = [
 
 const WATERFALL: InventoryStatusKey[] = ["congelado", "disponible", "revision", "reservado", "vendido"];
 
+const SHORT_STATUS: Record<InventoryStatusKey, string> = {
+  congelado: "CONG",
+  disponible: "DISP",
+  revision: "EN_R",
+  reservado: "RESE",
+  vendido: "VEND",
+};
+
 const countFormat = new Intl.NumberFormat("es-GT", { maximumFractionDigits: 0 });
-const textWidths = new Map<string, number>();
 
 type Tip = {
   key: string;
@@ -44,58 +51,6 @@ function statusOf(key: InventoryStatusKey): { status: RvUnitStatus; label: strin
   const found = STATUSES.find((item) => item.key === key);
   const status = found?.status ?? "AVAILABLE";
   return { status, label: UNIT_STATUS_LABELS[status], color: UNIT_STATUS_COLORS[status] };
-}
-
-function textWidth(text: string, fontSize: number, family: string): number {
-  const key = `${family}\u0000${fontSize}\u0000${text}`;
-  const cached = textWidths.get(key);
-  if (cached != null) return cached;
-  const probe = document.createElement("span");
-  probe.textContent = text;
-  probe.style.position = "fixed";
-  probe.style.left = "-9999px";
-  probe.style.top = "0";
-  probe.style.visibility = "hidden";
-  probe.style.whiteSpace = "nowrap";
-  probe.style.fontFamily = family;
-  probe.style.fontSize = `${fontSize}px`;
-  probe.style.fontWeight = "700";
-  probe.style.fontVariantNumeric = "tabular-nums";
-  probe.style.lineHeight = "1";
-  document.body.appendChild(probe);
-  const width = probe.getBoundingClientRect().width;
-  probe.remove();
-  textWidths.set(key, width);
-  return width;
-}
-
-function FitText({ text }: { text: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [size, setSize] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const node = ref.current;
-    const host = node?.parentElement;
-    if (!node || !host) return;
-    const fit = () => {
-      const available = host.clientWidth;
-      if (available <= 0) return;
-      const computed = Number.parseFloat(getComputedStyle(host).fontSize);
-      const base = Number.isFinite(computed) && computed > 0 ? computed : 8;
-      const needed = textWidth(text, base, getComputedStyle(host).fontFamily || "inherit");
-      const room = Math.max(0, available - 1);
-      const next = needed > room && needed > 0 ? (base * room) / needed : base;
-      setSize((current) => (current != null && Math.abs(current - next) < 0.15 ? current : next));
-    };
-    fit();
-    const observer = new ResizeObserver(fit);
-    observer.observe(host);
-    return () => observer.disconnect();
-  }, [text]);
-  return (
-    <span ref={ref} className={styles.fitText} style={size == null ? undefined : { fontSize: `${size}px` }}>
-      {text}
-    </span>
-  );
 }
 
 function linesFor(projects: readonly InventoryProject[], status: InventoryStatusKey): string[] {
@@ -116,12 +71,26 @@ function formulaFor(status: InventoryStatusKey): string {
   return `Unidades en v_rv_units_full con estado ${item.label} (${item.status}).`;
 }
 
+function heroScale(project: InventoryProject): number {
+  let peak = 0;
+  for (const key of WATERFALL) peak = Math.max(peak, project.counts[key]);
+  return peak;
+}
+
 function cardScale(project: InventoryProject): number {
   let peak = 0;
   for (const tower of project.towers) {
     for (const key of WATERFALL) peak = Math.max(peak, tower.counts[key]);
   }
   return peak;
+}
+
+function riseOf(value: number, ceiling: number): CSSProperties {
+  return { "--rise": `${(value / ceiling) * 100}%` } as CSSProperties;
+}
+
+function towersOf(project: InventoryProject): InventoryTower[] {
+  return [...project.towers].sort((a, b) => a.label.localeCompare(b.label, "es"));
 }
 
 function StatusList({
@@ -173,48 +142,77 @@ function StatusList({
   );
 }
 
-function StatusBlocks({
+function HeroChart({
+  project,
+  onOpen,
+}: {
+  project: InventoryProject;
+  onOpen: (status: InventoryStatusKey) => void;
+}) {
+  const ceiling = Math.max(heroScale(project), 1);
+  return (
+    <div className={styles.heroChart}>
+      {WATERFALL.map((key) => {
+        const item = statusOf(key);
+        const value = project.counts[key];
+        const text = count(value);
+        return (
+          <button
+            key={key}
+            type="button"
+            className={styles.heroCol}
+            aria-label={`${project.label}. ${item.label}. ${text}`}
+            onClick={() => onOpen(key)}
+          >
+            <span className={styles.heroPlot} style={riseOf(value, ceiling)}>
+              <span className={styles.heroNum}>{text}</span>
+              {value > 0 ? <span className={styles.heroBar} style={{ background: item.color }} /> : null}
+            </span>
+            <span className={styles.heroMark}>{SHORT_STATUS[key]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function DetailChart({
   project,
   onOpen,
 }: {
   project: InventoryProject;
   onOpen: (tower: InventoryTower, status: InventoryStatusKey) => void;
 }) {
-  const scale = useMemo(() => cardScale(project), [project]);
-  const ceiling = scale > 0 ? scale : 1;
+  const ceiling = Math.max(cardScale(project), 1);
+  const towers = useMemo(() => towersOf(project), [project]);
   return (
-    <div className={styles.blocks}>
+    <div className={styles.cross}>
       {WATERFALL.map((key) => {
         const item = statusOf(key);
         return (
           <div key={key} className={styles.block}>
-            <span className={styles.blockName}>{item.label}</span>
-            <div className={styles.columns}>
-              {project.towers.map((tower, index) => {
+            <div className={styles.towerRow}>
+              {towers.map((tower, index) => {
                 const value = tower.counts[key];
                 const text = count(value);
                 return (
-                  <div key={`${tower.label}:${index}`} className={styles.column}>
-                    <button
-                      type="button"
-                      className={styles.num}
-                      style={{ color: item.color }}
-                      aria-label={`${project.label}, ${tower.label}, ${item.label}: ${text}`}
-                      onClick={() => onOpen(tower, key)}
-                    >
-                      {text}
-                    </button>
-                    <div className={styles.plot}>
-                      <span className={styles.barGap} style={{ flexGrow: ceiling - value }} />
-                      <span className={styles.bar} style={{ flexGrow: value, background: item.color }} />
-                    </div>
-                    <span className={styles.torre}>
-                      <FitText text={tower.label} />
+                  <button
+                    key={`${tower.label}:${index}`}
+                    type="button"
+                    className={styles.towerCol}
+                    aria-label={`${project.label}. ${tower.label}. ${item.label}. ${text}`}
+                    onClick={() => onOpen(tower, key)}
+                  >
+                    <span className={styles.towerPlot} style={riseOf(value, ceiling)}>
+                      <span className={styles.towerNum}>{text}</span>
+                      {value > 0 ? <span className={styles.towerBar} style={{ background: item.color }} /> : null}
                     </span>
-                  </div>
+                    <span className={styles.towerName}>{tower.label}</span>
+                  </button>
                 );
               })}
             </div>
+            <span className={styles.shortStatus}>{SHORT_STATUS[key]}</span>
           </div>
         );
       })}
@@ -291,7 +289,10 @@ export function InventarioGeneral({
                 {projects.map((project) => (
                   <article key={project.slug} className={styles.card} aria-label={project.label}>
                     <span className={styles.cardName}>{project.label}</span>
-                    <StatusBlocks project={project} onOpen={(tower, status) => openTower(project, tower, status)} />
+                    <HeroChart
+                      project={project}
+                      onOpen={(status) => openScope(status, project.label, [project])}
+                    />
                   </article>
                 ))}
               </div>
@@ -309,7 +310,7 @@ export function InventarioGeneral({
                     />
                   </article>
                   <div className={styles.detail}>
-                    <StatusBlocks project={project} onOpen={(tower, status) => openTower(project, tower, status)} />
+                    <DetailChart project={project} onOpen={(tower, status) => openTower(project, tower, status)} />
                   </div>
                 </div>
               ))}

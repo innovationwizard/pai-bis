@@ -110,7 +110,8 @@
 }
 
 .statusCount,
-.num,
+.heroCol,
+.towerCol,
 .tipHead button {
   margin: 0;
   padding: 0;
@@ -121,7 +122,8 @@
 }
 
 .statusCount:focus-visible,
-.num:focus-visible,
+.heroCol:focus-visible,
+.towerCol:focus-visible,
 .tipHead button:focus-visible {
   outline: 2px solid #0573b0;
   outline-offset: 1px;
@@ -150,22 +152,28 @@
   font-variant-numeric: tabular-nums;
 }
 
-.expanded,
-.detail {
+.expanded {
   display: flex;
   height: 100%;
-  padding: 6px;
-  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
 }
 
 .detail {
+  display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
+  padding: 2px 2px 0;
+  overflow: hidden;
 }
 
 .cards {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -176,22 +184,22 @@
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
-  gap: 2px;
   width: 0;
   min-width: 0;
   min-height: 0;
-  padding: 4px;
+  padding: 6px 4px 4px;
   border: 1px solid rgba(13, 32, 65, 0.12);
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
 .cardName {
   flex: none;
+  margin: 0 0 4px;
   color: #0d2041;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
@@ -206,16 +214,117 @@
   cursor: pointer;
 }
 
-.blocks {
+.heroChart,
+.cross {
   display: flex;
   flex: 1 1 auto;
-  flex-direction: column;
-  gap: 1px;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+}
+
+.cross {
+  gap: 8px;
+}
+
+.heroCol,
+.towerCol {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #0d2041;
+  font: inherit;
+  cursor: pointer;
+}
+
+.heroPlot,
+.towerPlot {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  box-shadow: inset 0 -1px 0 rgba(13, 32, 65, 0.28);
+}
+
+.heroPlot {
+  margin-top: 15px;
+}
+
+.towerPlot {
+  margin-top: 12px;
+}
+
+.heroBar,
+.towerBar {
+  position: absolute;
+  bottom: 0;
+  height: var(--rise);
+}
+
+.heroBar {
+  left: 50%;
+  width: min(22px, 88%);
+  transform: translateX(-50%);
+}
+
+.towerBar {
+  left: 12%;
+  width: 76%;
+}
+
+.heroNum,
+.towerNum {
+  position: absolute;
+  right: 0;
+  left: 0;
+  color: #0d2041;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.heroNum {
+  bottom: calc(var(--rise) + 4px);
+  font-size: 11px;
+}
+
+.towerNum {
+  bottom: calc(var(--rise) + 2px);
+  font-size: 10px;
+}
+
+.heroMark,
+.towerName,
+.shortStatus {
+  flex: none;
+  margin-top: 2px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.heroMark {
+  color: #0d2041;
+  font-size: 11px;
+}
+
+.towerName {
+  color: #0d2041;
+  font-size: 10px;
+}
+
+.shortStatus {
+  color: rgba(13, 32, 65, 0.75);
+  font-size: 11px;
 }
 
 .block {
@@ -223,88 +332,22 @@
   flex: 1 1 0;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+  height: 100%;
+  padding-right: 4px;
+  border-right: 1px solid rgba(13, 32, 65, 0.12);
 }
 
-.blockName {
-  flex: none;
-  color: rgba(13, 32, 65, 0.75);
-  font-size: 8px;
-  font-weight: 700;
-  line-height: 8px;
-  text-align: center;
-  white-space: nowrap;
+.block:last-child {
+  padding-right: 0;
+  border-right: 0;
 }
 
-.columns {
+.towerRow {
   display: flex;
   flex: 1 1 auto;
-  flex-direction: row;
-  align-items: stretch;
   gap: 1px;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
-}
-
-.column {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  align-items: stretch;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.num {
-  flex: none;
-  width: 100%;
-  font-size: 8px;
-  font-weight: 700;
-  line-height: 8px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.plot {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 0;
-  box-shadow: inset 0 -1px 0 rgba(13, 32, 65, 0.28);
-}
-
-.barGap,
-.bar {
-  flex-basis: 0;
-  min-height: 0;
-  width: 76%;
-  align-self: center;
-}
-
-.torre {
-  display: block;
-  flex: none;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  color: #0d2041;
-  font-size: 8px;
-  font-weight: 700;
-  line-height: 8px;
-  text-align: center;
-}
-
-.fitText {
-  display: block;
-  max-width: 100%;
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
 .tip {
