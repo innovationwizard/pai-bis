@@ -86,11 +86,13 @@ function scopeSentence(projects: readonly ValorProject[]): string {
   return `Proyectos: ${names || "ninguno"}. Periodo, asesor y modelo no entran en este número.`;
 }
 
+const SANTA_ELENA = "santa-elena";
+const SANTA_ELENA_RATE = 7.8;
+
 function currencyNote(projects: readonly ValorProject[]): string {
-  const used = projects.filter((project) => project.history.length > 0);
-  const codes = new Set(used.map((project) => project.currency));
-  if (codes.size <= 1) return "";
-  return ` Las monedas no se convierten: ${used.map((project) => `${project.label} ${project.currency}`).join(", ")}.`;
+  const santa = projects.some((project) => project.slug === SANTA_ELENA && project.history.length > 0);
+  if (!santa) return "";
+  return " Santa Elena se multiplica por 7.8 antes de sumarse.";
 }
 
 function missingNote(projects: readonly ValorProject[]): string {
@@ -100,7 +102,11 @@ function missingNote(projects: readonly ValorProject[]): string {
 }
 
 function aggregateCurrency(projects: readonly ValorProject[]): string {
-  const codes = new Set(projects.filter((project) => project.history.length > 0).map((project) => project.currency));
+  const codes = new Set(
+    projects
+      .filter((project) => project.history.length > 0)
+      .map((project) => (project.slug === SANTA_ELENA ? "GTQ" : project.currency)),
+  );
   if (codes.size === 1) return [...codes][0] ?? "GTQ";
   if (codes.size === 0) return "GTQ";
   return "MIXED";
@@ -114,7 +120,7 @@ function aggregatePoints(projects: readonly ValorProject[]): ChartPoint[] {
         date: point.date,
         label: point.label,
         slug: project.slug,
-        gtq: point.gtq,
+        gtq: project.slug === SANTA_ELENA ? point.gtq * SANTA_ELENA_RATE : point.gtq,
         order: projectIndex * 10000 + index,
       });
     });
