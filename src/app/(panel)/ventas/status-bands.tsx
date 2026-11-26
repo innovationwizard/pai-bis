@@ -519,7 +519,7 @@ export function StatusLifetime({
       <div className={pace.titleRow}>
         <h2 className={band.title}>Status de ventas</h2>
         <label className={pace.filter}>
-          Torres
+          {/* Torres */}
           <select
             value={selected?.id ?? ""}
             onChange={(event) => {
@@ -527,7 +527,7 @@ export function StatusLifetime({
               setTip(null);
             }}
           >
-            <option value="">Todas</option>
+            <option value="">Torres</option>
             {vista.byTower.map((column) => (
               <option key={column.id} value={column.id}>{column.label}</option>
             ))}
