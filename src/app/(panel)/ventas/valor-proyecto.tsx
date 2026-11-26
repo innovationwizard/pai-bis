@@ -112,10 +112,32 @@ function aggregateCurrency(projects: readonly ValorProject[]): string {
   return "MIXED";
 }
 
+function orderedHistory(history: readonly ValorPoint[]): ValorPoint[] {
+  return [...history].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+}
+
+function isOpeningBalance(point: ValorPoint, index: number): boolean {
+  return index === 0 && (point.notes === "Valor inicial de proyecto" || point.increment === 0);
+}
+
+function cumulativeHistory(history: readonly ValorPoint[]): { id: string; date: string; label: string; gtq: number }[] {
+  const ordered = orderedHistory(history);
+  let total = 0;
+  return ordered.map((point, index) => {
+    const chosen = point.gtq;
+    if (isOpeningBalance(point, index) || index === 0) {
+      total = chosen;
+    } else {
+      total += chosen;
+    }
+    return { id: point.id, date: point.date, label: point.label, gtq: total };
+  });
+}
+
 function aggregatePoints(projects: readonly ValorProject[]): ChartPoint[] {
   const events: { date: string; label: string; slug: string; gtq: number; order: number }[] = [];
   projects.forEach((project, projectIndex) => {
-    project.history.forEach((point, index) => {
+    cumulativeHistory(project.history).forEach((point, index) => {
       events.push({
         date: point.date,
         label: point.label,
@@ -142,12 +164,13 @@ function recordLine(point: ValorPoint, project: string, currency: string): strin
 }
 
 function projectTip(project: ValorProject, projects: readonly ValorProject[]): Tip {
-  const current = project.history.length > 0 ? project.history[project.history.length - 1] : null;
+  const series = chartPoints(project.history);
+  const current = series.length > 0 ? series[series.length - 1] : null;
   const amount = current ? formatAmount(current.gtq, project.currency) : "sin registros";
   return {
     key: project.slug,
     title: project.label,
-    body: `Valor actual: ${amount}. Fuente: public.rv_price_history. ${VALUE_RULE} El valor actual es el del último effective_date. ${scopeSentence(projects)}`,
+    body: `Valor actual: ${amount}. Fuente: public.rv_price_history. ${VALUE_RULE} El valor actual es la suma acumulada de esos puntos. Si el primero tiene incremento 0, o su nota es Valor inicial de proyecto, ese monto es el punto de partida y no se vuelve a sumar. ${scopeSentence(projects)}`,
     lines: project.history.map((point) => recordLine(point, project.label, project.currency)),
   };
 }
@@ -164,7 +187,7 @@ function aggregateTip(projects: readonly ValorProject[], points: readonly ChartP
 }
 
 function chartPoints(history: readonly ValorPoint[]): ChartPoint[] {
-  return history.map((point, index) => ({
+  return cumulativeHistory(history).map((point, index) => ({
     key: point.id || `${point.date}:${index}`,
     label: point.label,
     gtq: point.gtq,

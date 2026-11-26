@@ -1178,6 +1178,7 @@ type PriceRow = {
   date: string;
   increment: number;
   appreciation: number | null;
+  notes: string;
 };
 
 function historyValue(
@@ -1196,7 +1197,7 @@ async function loadPriceHistory(): Promise<PriceRow[]> {
   for (let offset = 0; offset < SPLIT_READ; offset += PAGE) {
     const { data, error } = await client
       .from("rv_price_history")
-      .select("id, project_id, tower_id, effective_date, increment_amount, appreciation_total")
+      .select("id, project_id, tower_id, effective_date, increment_amount, appreciation_total, notes")
       .order("effective_date")
       .range(offset, offset + PAGE - 1);
     if (error) throw new Error(error.message);
@@ -1211,6 +1212,7 @@ async function loadPriceHistory(): Promise<PriceRow[]> {
         date,
         increment: num(row.increment_amount) ?? 0,
         appreciation: num(row.appreciation_total),
+        notes: typeof row.notes === "string" ? row.notes : "",
       });
     }
     if (batch.length < PAGE) return rows;
@@ -1325,6 +1327,7 @@ async function buildValor(
       field: chosen.field,
       appreciation: row.appreciation,
       increment: row.increment,
+      notes: row.notes,
     });
     historyBySlug.set(slug, list);
   }

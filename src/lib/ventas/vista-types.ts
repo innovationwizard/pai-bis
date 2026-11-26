@@ -453,6 +453,7 @@ export type ValorPoint = {
   field: "appreciation_total" | "increment_amount";
   appreciation: number | null;
   increment: number;
+  notes: string;
 };
 
 export type ValorProject = {
