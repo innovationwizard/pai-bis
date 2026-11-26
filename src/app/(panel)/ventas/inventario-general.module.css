@@ -136,6 +136,10 @@
   background: rgba(13, 32, 65, 0.08);
 }
 
+.statusPlot.heroStatusPlot {
+  height: 14px;
+}
+
 .statusBar {
   position: absolute;
   top: 0;

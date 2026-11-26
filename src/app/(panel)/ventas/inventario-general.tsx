@@ -13,7 +13,7 @@ import type {
 } from "@/lib/ventas/vista-types";
 import styles from "./inventario-general.module.css";
 
-const TITLE = "Inventario general";
+const TITLE = "Composición del inventario por estado y por torre";
 
 const STATUSES: { key: InventoryStatusKey; status: RvUnitStatus }[] = [
   { key: "disponible", status: "AVAILABLE" },
@@ -125,9 +125,11 @@ function towersOf(project: InventoryProject): InventoryTower[] {
 function StatusList({
   counts,
   onOpen,
+  plotClass,
 }: {
   counts: InventoryCounts;
   onOpen: (status: InventoryStatusKey) => void;
+  plotClass?: string;
 }) {
   const ceiling = counts.total > 0 ? counts.total : 1;
   const rows: { key: InventoryStatusKey; label: string; value: number; color: string; start: number }[] = [];
@@ -150,7 +152,7 @@ function StatusList({
       {[...rows].reverse().map((row) => (
         <li key={row.key}>
           <span className={styles.statusName}>{row.label}</span>
-          <span className={styles.statusPlot} aria-hidden="true">
+          <span className={plotClass ? `${styles.statusPlot} ${plotClass}` : styles.statusPlot} aria-hidden="true">
             <span
               className={styles.statusBar}
               style={{ left: `${(row.start / ceiling) * 100}%`, width: `${(row.value / ceiling) * 100}%`, background: row.color }}
@@ -310,6 +312,7 @@ export function InventarioGeneral({
               <span className={styles.kpiName}>Todos los Proyectos</span>
               <StatusList
                 counts={board.counts}
+                plotClass={styles.heroStatusPlot}
                 onOpen={(status) => openScope(status, "todos", projects)}
               />
             </article>
