@@ -23,6 +23,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+.title {
+  margin: 0;
+  color: rgba(13, 32, 65, 0.75);
+  font-size: calc(26px * 0.75);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .panel {
   min-width: 0;
   padding: 8px;

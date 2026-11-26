@@ -312,6 +312,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
     const waiting = (!totales && !totalesError) || (!objetivos && !objetivosError);
     return (
       <section className={styles.block} aria-label="Ventas totales">
+        <h2 className={styles.title}>Ventas totales</h2>
         {totalesError ? <p className={styles.warn}>{totalesError}</p> : null}
         {objetivosError ? <p className={styles.warn}>{objetivosError}</p> : null}
         {waiting ? <p className={styles.caption}>Cargando…</p> : null}
@@ -345,6 +346,7 @@ export function VentasTotalesBlock({ totales, objetivos, totalesError, objetivos
 
   return (
     <section className={styles.block} aria-label="Ventas totales">
+      <h2 className={styles.title}>Ventas totales</h2>
       <div className={listed ? styles.fold : undefined}>
       <div className={`${styles.top} ${styles.overview}`}>
         <div className={styles.rail}>
