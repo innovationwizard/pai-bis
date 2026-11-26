@@ -1171,13 +1171,32 @@ async function loadProjectMoney(): Promise<{ currencyBySlug: Map<string, string>
   return { currencyBySlug, idToSlug };
 }
 
-async function loadPriceHistory(): Promise<{ projectId: string; towerId: string; date: string; avg: number | null }[]> {
+type PriceRow = {
+  id: string;
+  projectId: string;
+  towerId: string;
+  date: string;
+  increment: number;
+  appreciation: number | null;
+};
+
+function historyValue(
+  appreciation: number | null,
+  increment: number,
+): { gtq: number; field: "appreciation_total" | "increment_amount" } {
+  if (appreciation != null && appreciation !== increment) {
+    return { gtq: appreciation, field: "appreciation_total" };
+  }
+  return { gtq: increment, field: "increment_amount" };
+}
+
+async function loadPriceHistory(): Promise<PriceRow[]> {
   const client = createAdminClient();
-  const rows: { projectId: string; towerId: string; date: string; avg: number | null }[] = [];
+  const rows: PriceRow[] = [];
   for (let offset = 0; offset < SPLIT_READ; offset += PAGE) {
     const { data, error } = await client
       .from("rv_price_history")
-      .select("project_id, tower_id, effective_date, new_price_avg")
+      .select("id, project_id, tower_id, effective_date, increment_amount, appreciation_total")
       .order("effective_date")
       .range(offset, offset + PAGE - 1);
     if (error) throw new Error(error.message);
@@ -1186,10 +1205,12 @@ async function loadPriceHistory(): Promise<{ projectId: string; towerId: string;
       const date = typeof row.effective_date === "string" ? row.effective_date.slice(0, 10) : "";
       if (!date) continue;
       rows.push({
+        id: String(row.id ?? ""),
         projectId: String(row.project_id ?? ""),
         towerId: row.tower_id == null ? "" : String(row.tower_id),
         date,
-        avg: num(row.new_price_avg),
+        increment: num(row.increment_amount) ?? 0,
+        appreciation: num(row.appreciation_total),
       });
     }
     if (batch.length < PAGE) return rows;
@@ -1291,14 +1312,25 @@ async function buildValor(
   const allowed = new Set(selected.map((project) => project.slug));
   const historyBySlug = new Map<string, ValorVista["board"]["projects"][number]["history"]>();
   for (const row of history) {
-    if (row.towerId || row.avg == null) continue;
+    if (row.towerId) continue;
     const slug = money.idToSlug.get(row.projectId);
     if (!slug || !allowed.has(slug)) continue;
+    const chosen = historyValue(row.appreciation, row.increment);
     const list = historyBySlug.get(slug) ?? [];
-    list.push({ date: row.date, label: dottedDay(row.date), gtq: row.avg });
+    list.push({
+      id: row.id,
+      date: row.date,
+      label: dottedDay(row.date),
+      gtq: chosen.gtq,
+      field: chosen.field,
+      appreciation: row.appreciation,
+      increment: row.increment,
+    });
     historyBySlug.set(slug, list);
   }
-  for (const points of historyBySlug.values()) points.sort((a, b) => a.date.localeCompare(b.date));
+  for (const points of historyBySlug.values()) {
+    points.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  }
 
   const projects = selected.map((project) => {
     const currency = (money.currencyBySlug.get(project.slug) ?? "GTQ").toUpperCase();

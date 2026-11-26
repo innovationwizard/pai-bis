@@ -446,9 +446,13 @@ export type ValorTower = {
 };
 
 export type ValorPoint = {
+  id: string;
   date: string;
   label: string;
   gtq: number;
+  field: "appreciation_total" | "increment_amount";
+  appreciation: number | null;
+  increment: number;
 };
 
 export type ValorProject = {
