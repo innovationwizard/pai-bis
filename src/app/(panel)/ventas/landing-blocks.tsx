@@ -750,6 +750,7 @@ export function ObjetivosBlock({
   if (!objetivos) {
     return (
       <section className={styles.block} id="objetivos-de-ventas" aria-label="Objetivos de ventas">
+        <h2 className={styles.title}>Objetivos de ventas</h2>
         {objetivosError ? <p className={styles.warn}>{objetivosError}</p> : <p className={styles.caption}>Cargando…</p>}
       </section>
     );
@@ -766,6 +767,7 @@ export function ObjetivosBlock({
 
   return (
     <section className={`${styles.block} ${styles.ogSection}`} id="objetivos-de-ventas" aria-label="Objetivos de ventas">
+      <h2 className={styles.title}>Objetivos de ventas</h2>
       <div className={`${styles.top} ${styles.ogLead}`}>
         <div className={styles.rail}>
           <ObjetivoCard name="Todos los Proyectos" units={objetivos.units} target={objetivos.targetUnits} />
