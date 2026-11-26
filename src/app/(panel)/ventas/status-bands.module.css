@@ -71,6 +71,22 @@
   font-weight: 700;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+div.titleRow > h2 {
+  margin: 0;
+  color: rgba(13, 32, 65, 0.75);
+  font-size: calc(26px * 0.75);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .frozen {
   margin: 0;
   padding: 0;

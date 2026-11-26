@@ -516,7 +516,8 @@ export function StatusLifetime({
   return (
     <div className={`${band.block} ${split.splitPage}`}>
       {vista.notice ? <p className={band.warn}>{vista.notice}</p> : null}
-      <div className={split.localFilters}>
+      <div className={pace.titleRow}>
+        <h2 className={band.title}>Status de ventas</h2>
         <label className={pace.filter}>
           Torres
           <select
