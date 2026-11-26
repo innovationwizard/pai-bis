@@ -729,7 +729,9 @@ export function ModeloBand({
 }) {
   return (
     <section id="analisis-de-inventario" className={`${styles.band} ${styles.splitPage}`} aria-labelledby="vt-modelo-title">
-      <h2 id="vt-modelo-title" className={styles.title}>Split de ventas por modelo y por torre</h2>
+      {vista ? null : (
+        <h2 id="vt-modelo-title" className={styles.title}>Split de ventas por modelo y por torre</h2>
+      )}
       {!vista ? pending : <ModeloSplit vista={vista} />}
     </section>
   );

@@ -70,6 +70,19 @@
   line-height: 1.25;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.titleRow > .localFilters {
+  width: auto;
+  flex: none;
+}
+
 .subTitle {
   margin: 4px 0 0;
   color: rgba(13, 32, 65, 0.75);

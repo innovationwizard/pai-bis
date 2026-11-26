@@ -549,28 +549,31 @@ export function ModeloSplit({ vista }: { vista: AnalisisVista }) {
 
   return (
     <>
-      <div className={styles.localFilters}>
-        <div className={styles.splitToggle} role="group" aria-label="Reserva o PCV">
-          <button
-            type="button"
-            aria-pressed={series === "reserva"}
-            onClick={() => {
-              setSeries("reserva");
-              setTip(null);
-            }}
-          >
-            Reserva
-          </button>
-          <button
-            type="button"
-            aria-pressed={series === "pcv"}
-            onClick={() => {
-              setSeries("pcv");
-              setTip(null);
-            }}
-          >
-            PCV
-          </button>
+      <div className={styles.titleRow}>
+        <h2 id="vt-modelo-title" className={styles.title}>Split de ventas por modelo y por torre</h2>
+        <div className={styles.localFilters}>
+          <div className={styles.splitToggle} role="group" aria-label="Reserva o PCV">
+            <button
+              type="button"
+              aria-pressed={series === "reserva"}
+              onClick={() => {
+                setSeries("reserva");
+                setTip(null);
+              }}
+            >
+              Reserva
+            </button>
+            <button
+              type="button"
+              aria-pressed={series === "pcv"}
+              onClick={() => {
+                setSeries("pcv");
+                setTip(null);
+              }}
+            >
+              PCV
+            </button>
+          </div>
         </div>
       </div>
       <div className={styles.splitBand}>
