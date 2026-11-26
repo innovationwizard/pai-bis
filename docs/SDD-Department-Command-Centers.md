@@ -234,8 +234,9 @@ Linear expected trajectory to a date 24 months after each project’s first CSV 
 - Santa Elena: 11  
 
 **What is shown**  
-- One full-width unified container titled “Todos los Proyectos”. It holds the statistically correct aggregate pace chart of all projects in the current project-pill scope.  
-- One full-width unified Project Band per project, in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena). There is no Project KPI Card and no Project Detail Card. The band holds that project’s pace chart.  
+- One full-width unified container titled “Todos los Proyectos”. It holds the statistically correct aggregate pace chart of all projects in the current project-pill scope. This container is the Hero Band for this item. Its height is exactly Item 1’s Hero Band height: `18dvh`, minimum `calc(168px * 18 / 22)`. Overflow is hidden.  
+- One full-width unified Project Band per project, in canonical order (Boulevard 5 → Benestare → Bosque Las Tapias → Santa Elena). There is no Project KPI Card and no Project Detail Card. The band holds that project’s pace chart. Each Project Band height is exactly Item 1’s Project Band height: `156px` (min-height 156px, max-height 156px). Overflow is hidden.  
+- The gap between the Hero Band and the first Project Band is 12px. The gap between Project Bands is 8px. These are the same gaps Item 1 uses.  
 
 **Torres filter**  
 This item has a Torres filter. When a torre is selected, the project’s full-width band is replaced by that torre’s pace chart. NINGUNO and the existing project pills continue to apply. A project with only one torre shows that single chart when the Torres filter selects it.
@@ -250,10 +251,13 @@ Every chart (the “Todos los Proyectos” container and every Project Band) dra
 
 X-axis = months from the project’s start month to the close date. Default tick labels = first of each quarter. A Recharts Brush is present so the user can zoom and pan.  
 
-Current cumulative Reservas and current cumulative PCV numbers are visible on the chart. Zero series remain visible. When the Torres filter selects Torre B of Bosque Las Tapias, the chart is flagged “Congelado”.
+Current cumulative Reservas and current cumulative PCV numbers are visible on the chart. Zero series remain visible. When the Torres filter selects Torre B of Bosque Las Tapias, the chart is flagged “Congelado (F&F only)”.
 
 **Explicit rules**  
 - No Compact Hero. No Expanded Hero. No left/right split inside any Project Band.  
+- The “Todos los Proyectos” container height is exactly Item 1’s Hero Band height: `18dvh`, minimum `calc(168px * 18 / 22)`.  
+- Each Project Band height is exactly Item 1’s Project Band height: `156px` (min-height 156px, max-height 156px).  
+- Gaps are exactly Item 1’s gaps: 12px after the Hero Band, 8px between Project Bands.  
 - “Todos los Proyectos” is one full-width container.  
 - Each Project Band is one full-width container.  
 - Torres filter is present on this item only.  

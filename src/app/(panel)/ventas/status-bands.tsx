@@ -533,41 +533,43 @@ export function StatusLifetime({
           </select>
         </label>
       </div>
-      <div className={`${split.splitHero} ${pace.full}`}>
-        <span className={split.splitHeroTitle}>Todos los Proyectos</span>
-        <PaceChart scope={overall} rows={aggregateRows(projects, asOf)} asOf={asOf} onTip={showTip} />
-      </div>
-      {projects.length > 0 ? (
-        <div className={split.splitBands}>
-          {projects.map((project) => {
-            const tower = selected && projectIdOfTower(selected) === project.id ? selected : null;
-            const column = tower ?? project;
-            const scope = scopeOf(column, tower ? memberName(tower) : project.label, column.label);
-            const title = tower ? tower.label : project.label;
-            const flag = tower && tapiasTorreB(tower) ? "Congelado" : null;
-            return (
-              <section key={project.id} className={`${split.splitHero} ${pace.full}`} aria-label={title}>
-                <span className={split.splitHeroTitle}>{title}</span>
-                {flag ? (
-                  <button
-                    type="button"
-                    className={pace.frozen}
-                    onClick={() => showTip({
-                      key: `frozen:${column.id}`,
-                      title: flag,
-                      body: column.frozenDetail ?? flag,
-                      rows: [],
-                    })}
-                  >
-                    {flag}
-                  </button>
-                ) : null}
-                <PaceChart scope={scope} rows={rowsOf(column, asOf)} asOf={asOf} onTip={showTip} />
-              </section>
-            );
-          })}
+      <div className={pace.stack}>
+        <div className={`${split.splitHero} ${pace.heroBand}`}>
+          <span className={split.splitHeroTitle}>Todos los Proyectos</span>
+          <PaceChart scope={overall} rows={aggregateRows(projects, asOf)} asOf={asOf} onTip={showTip} />
         </div>
-      ) : null}
+        {projects.length > 0 ? (
+          <div className={split.splitBands}>
+            {projects.map((project) => {
+              const tower = selected && projectIdOfTower(selected) === project.id ? selected : null;
+              const column = tower ?? project;
+              const scope = scopeOf(column, tower ? memberName(tower) : project.label, column.label);
+              const title = tower ? tower.label : project.label;
+              const flag = tower && tapiasTorreB(tower) ? "Congelado" : null;
+              return (
+                <section key={project.id} className={`${split.splitHero} ${pace.projectBand}`} aria-label={title}>
+                  <span className={split.splitHeroTitle}>{title}</span>
+                  {flag ? (
+                    <button
+                      type="button"
+                      className={pace.frozen}
+                      onClick={() => showTip({
+                        key: `frozen:${column.id}`,
+                        title: flag,
+                        body: column.frozenDetail ?? flag,
+                        rows: [],
+                      })}
+                    >
+                      {flag}
+                    </button>
+                  ) : null}
+                  <PaceChart scope={scope} rows={rowsOf(column, asOf)} asOf={asOf} onTip={showTip} />
+                </section>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
       {tip ? <TipView tip={tip} onClose={() => setTip(null)} /> : null}
     </div>
   );
