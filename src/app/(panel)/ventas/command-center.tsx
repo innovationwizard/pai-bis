@@ -25,7 +25,7 @@ import {
 import { ProjectPillRow } from "@/components/project-pill-row";
 import { isDisplayProject, projectPillOptions, sortByProjectLabel } from "@/lib/projects";
 import { InventarioGeneral } from "./inventario-general";
-import { CanalesBlock, ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
+import { /* CanalesBlock, */ ObjetivosBlock, VentasTotalesBlock } from "./landing-blocks";
 import { StatusLifetime } from "./status-bands";
 import { ModeloBand } from "./lower-bands";
 import { ReferidosBand } from "./referidos";
@@ -51,7 +51,7 @@ const SECTIONS: VistaSection[] = [
   "ventas-totales",
   "objetivos-de-ventas",
   "status-de-ventas",
-  "ventas-por-canales",
+  // "ventas-por-canales",
   "analisis-de-inventario",
   "inventario-general",
   "valor-del-proyecto",
@@ -480,12 +480,14 @@ export default function CommandCenter() {
       </section>
       <hr className="op-filter-rule vc-band-rule" />
 
+      {/* Ventas por canales, held back for now.
       <CanalesBlock
         vista={vistaOf(vistas, "ventas-por-canales")}
         error={errors["ventas-por-canales"] ?? null}
         onFuente={(id, label) => toggleFocus({ kind: "fuente", id, label })}
       />
       <hr className="op-filter-rule vc-band-rule" />
+      */}
 
       {/* Brecha contra el ritmo por proyecto y por asesor.
       <section className="vc-grid-2" aria-label="Brechas contra el ritmo">
