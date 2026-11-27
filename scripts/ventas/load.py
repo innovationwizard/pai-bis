@@ -66,6 +66,7 @@ NOT_BUILDINGS = {
 SINGLE_TOWER = {"Boulevard 5", "Casa Elisa"}
 RECEPTION_SUBJECT = "Recepción de Promesa Firmada"
 BATCH = 80
+LOAD_SCRIPT = "scripts/ventas/load.py"
 
 
 def uuid7() -> str:
@@ -344,6 +345,25 @@ class Api:
         if total == "*":
             raise RuntimeError(f"{table}: delete count was unknown")
         return int(total)
+
+    def record_load_success(self) -> None:
+        finished = datetime.now(ZoneInfo("UTC")).isoformat().replace("+00:00", "Z")
+        try:
+            self.request(
+                "POST",
+                "/load_run",
+                [{
+                    "id": uuid7(),
+                    "finished_at": finished,
+                    "script": LOAD_SCRIPT,
+                }],
+            )
+        except Exception as error:
+            raise RuntimeError(
+                "The ventas tables were written. The completion time was not. "
+                "Run scripts/migrations/095_ventas_load_run.sql in the Supabase "
+                "SQL editor, then run this loader again."
+            ) from error
 
 
 def pipeline_project(name: str) -> str | None:
@@ -1057,6 +1077,8 @@ def main() -> None:
     )
     sale_range = sale_headers.get("Content-Range") or sale_headers.get("content-range") or "0"
     print(f"  v_sale: {sale_range.rsplit('/', 1)[-1]}", flush=True)
+    api.record_load_success()
+    print(f"  load finished {datetime.now(ZoneInfo('UTC')).isoformat()}", flush=True)
 
 
 if __name__ == "__main__":

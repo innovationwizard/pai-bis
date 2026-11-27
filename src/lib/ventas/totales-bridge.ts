@@ -150,20 +150,7 @@ function daysSince(day: string | null, today: string): number | null {
   return inclusiveDays(day, today) - 1;
 }
 
-function guatemalaDay(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Guatemala" }).format(date);
-}
-
-function laterIso(a: string | null, b: string | null): string | null {
-  if (!a) return b;
-  if (!b) return a;
-  const left = new Date(a).getTime();
-  const right = new Date(b).getTime();
-  if (Number.isNaN(left) || Number.isNaN(right)) return a > b ? a : b;
-  return left >= right ? a : b;
-}
+const LOAD_SCRIPT = "scripts/ventas/load.py";
 
 function stampText(iso: string, dateOnly = false): string {
   const hasTime = iso.includes("T");
@@ -331,12 +318,26 @@ async function pagedIn(
   return { rows, capped };
 }
 
-async function latestStamp(client: Db, table: string, column: string): Promise<string | null> {
-  const { data, error } = await client.from(table).select(column).not(column, "is", null).order(column, { ascending: false }).limit(1);
-  if (error) throw new Error(error.message);
+function loadRunMissing(error: { code?: string; message: string }): boolean {
+  if (error.code === "PGRST205") return true;
+  const message = error.message.toLowerCase();
+  return message.includes("load_run") && (message.includes("schema cache") || message.includes("does not exist") || message.includes("could not find"));
+}
+
+async function latestSuccessfulLoad(client: Db): Promise<string | null> {
+  const { data, error } = await client
+    .from("load_run")
+    .select("finished_at")
+    .eq("script", LOAD_SCRIPT)
+    .order("finished_at", { ascending: false })
+    .limit(1);
+  if (error) {
+    if (loadRunMissing(error)) return null;
+    throw new Error(error.message);
+  }
   const row = rowsOf(data)[0];
-  if (!row || row[column] == null) return null;
-  return String(row[column]);
+  if (!row || row.finished_at == null) return null;
+  return String(row.finished_at);
 }
 
 function unitLabel(unit: UnitInfo | null): string {
@@ -432,20 +433,7 @@ export async function loadTotalesBridge(input: {
     notRepIds: new Set(input.notRepIds),
   };
   const names: Names = { project: input.projectName, asesor: input.asesorName };
-  const [pipedriveReserva, pipedrivePromesa, odooWritten, odooPublished, reciboCount] = await Promise.all([
-    latestStamp(client, "fact_comprobante", "marked_as_done_time"),
-    latestStamp(client, "fact_reception", "marked_as_done_time"),
-    latestStamp(client, "fact_recibo", "written_at"),
-    latestStamp(client, "fact_recibo", "published_at"),
-    client.from("fact_recibo").select("id", { count: "exact", head: true }),
-  ]);
-  if (reciboCount.error) throw new Error(reciboCount.error.message);
-  const freshness = freshnessOf({
-    pipedrive: laterIso(pipedriveReserva, pipedrivePromesa),
-    odoo: laterIso(odooWritten, odooPublished),
-    odooRows: reciboCount.count ?? 0,
-    today: input.today,
-  });
+  const freshness = freshnessOf(await latestSuccessfulLoad(client));
 
   const blank = [
     emptyStage("reservas", "Reservas", "Pipedrive", "actividades"),
@@ -839,24 +827,12 @@ export async function loadTotalesBridge(input: {
   };
 }
 
-function freshnessOf(input: { pipedrive: string | null; odoo: string | null; odooRows: number; today: string }): Freshness {
-  const latest = laterIso(input.pipedrive, input.odoo);
-  const notes: string[] = [];
-  if (input.odooRows === 0) notes.push("No hay recibos de Odoo cargados. Sin esa lectura no hay venta neta.");
-  if (!latest) {
-    return {
-      label: "Sin movimientos cargados",
-      stale: true,
-      note: notes.join(" ") || "No hay un movimiento cargado en la lectura.",
-    };
-  }
-  const latestDay = guatemalaDay(latest);
-  const stale = latestDay <= addDays(input.today, -4);
-  if (stale) notes.push(`El último movimiento cargado es del ${stampText(latest)}. Hoy es ${dotted(input.today)}.`);
+function freshnessOf(finishedAt: string | null): Freshness {
+  if (!finishedAt) return { label: "Sin datos cargados", stale: false, note: null };
   return {
-    label: `Datos al ${stampText(latest, true)}`,
-    stale: stale || input.odooRows === 0,
-    note: notes.length ? notes.join(" ") : null,
+    label: `Datos al ${stampText(finishedAt, true)}`,
+    stale: false,
+    note: null,
   };
 }
 
