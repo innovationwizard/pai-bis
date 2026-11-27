@@ -128,10 +128,10 @@ export default function Panel() {
           src={logoHorizontal}
           alt="Puerta Abierta"
           height={56}
-          className="relative z-10 h-14 w-auto shrink-0"
+          className="pointer-events-none relative z-0 h-14 w-auto shrink-0"
           priority
         />
-        <nav className="glass-nav absolute top-1/2 left-1/2 z-0 -translate-x-1/2 -translate-y-1/2" aria-label="Secciones">
+        <nav className="glass-nav absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2" aria-label="Secciones">
           {SECTIONS.map((section) => {
             const current = isCurrent(pathname, section.href);
             return (
