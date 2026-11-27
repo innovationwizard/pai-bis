@@ -769,6 +769,59 @@ function slugOf(dims: Dims, projectId: string): string | null {
   return project ? slugForName(project.name) : null;
 }
 
+function earliestIso(dates: readonly string[]): string {
+  let best = "";
+  for (const day of dates) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    if (!best || day < best) best = day;
+  }
+  return best;
+}
+
+function dayOfColumn(value: unknown): string {
+  return typeof value === "string" ? value.slice(0, 10) : "";
+}
+
+async function projectLifeDays(client: Db, dims: Dims): Promise<Map<string, { reserva: string; pcv: string }>> {
+  const [reservas, pcv] = await Promise.all([
+    readPages((from, to) => client.from("fact_comprobante").select("deal_id,comprobante_on").order("id").range(from, to)),
+    readPages((from, to) => client.from("fact_pcv_issuance").select("deal_id,clock_on").order("id").range(from, to)),
+  ]);
+  const dealIds = new Set<string>();
+  for (const row of reservas.rows) {
+    const id = row.deal_id == null || row.deal_id === "" ? "" : String(row.deal_id);
+    if (id) dealIds.add(id);
+  }
+  for (const row of pcv.rows) {
+    const id = row.deal_id == null || row.deal_id === "" ? "" : String(row.deal_id);
+    if (id) dealIds.add(id);
+  }
+  const deals = await rowsByIds(client, "dim_deal", "id", [...dealIds], "id,project_id");
+  const projectOfDeal = new Map<string, string>();
+  for (const row of deals.rows) {
+    const id = row.id == null ? "" : String(row.id);
+    const projectId = row.project_id == null ? "" : String(row.project_id);
+    if (id && projectId) projectOfDeal.set(id, projectId);
+  }
+  const reserva = new Map<string, string>();
+  const issued = new Map<string, string>();
+  function keep(map: Map<string, string>, dealId: unknown, day: string) {
+    if (!day) return;
+    const slug = slugOf(dims, projectOfDeal.get(String(dealId ?? "")) ?? "");
+    if (!slug) return;
+    const known = map.get(slug);
+    if (!known || day < known) map.set(slug, day);
+  }
+  for (const row of reservas.rows) keep(reserva, row.deal_id, dayOfColumn(row.comprobante_on));
+  for (const row of pcv.rows) keep(issued, row.deal_id, dayOfColumn(row.clock_on));
+  const slugs = new Set([...reserva.keys(), ...issued.keys()]);
+  const life = new Map<string, { reserva: string; pcv: string }>();
+  for (const slug of slugs) {
+    life.set(slug, { reserva: reserva.get(slug) ?? "", pcv: issued.get(slug) ?? "" });
+  }
+  return life;
+}
+
 async function buildModeloSplit(
   client: Db,
   filters: VistaFilters,
@@ -1334,6 +1387,8 @@ async function buildValor(
   for (const points of historyBySlug.values()) {
     points.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   }
+  const needsLife = selected.some((project) => (historyBySlug.get(project.slug)?.length ?? 0) <= 1);
+  const life = needsLife ? await projectLifeDays(client, dims) : new Map<string, { reserva: string; pcv: string }>();
 
   const projects = selected.map((project) => {
     const currency = (money.currencyBySlug.get(project.slug) ?? "GTQ").toUpperCase();
@@ -1366,6 +1421,11 @@ async function buildValor(
       towers.set(key, bucket);
     }
     const towerRows = [...towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es"));
+    const history = historyBySlug.get(project.slug) ?? [];
+    const lived = life.get(project.slug);
+    const bornOn = history.length > 1
+      ? ""
+      : earliestIso([history[0]?.date ?? "", lived?.reserva ?? "", lived?.pcv ?? ""]);
     return {
       id: ventasProjectId(dims, project.slug),
       slug: project.slug,
@@ -1375,7 +1435,8 @@ async function buildValor(
       discountGtq,
       listUsd,
       towers: towerRows,
-      history: historyBySlug.get(project.slug) ?? [],
+      history,
+      bornOn,
       units,
     };
   });

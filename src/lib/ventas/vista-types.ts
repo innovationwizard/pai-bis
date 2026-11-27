@@ -466,6 +466,8 @@ export type ValorProject = {
   listUsd: number;
   towers: ValorTower[];
   history: ValorPoint[];
+  /** Earliest reserva, PCV, or single history date. Empty when the project has several valuation steps or no such date exists. */
+  bornOn: string;
   units: ValorUnitLine[];
 };
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { guatemalaToday } from "@/lib/ventas/period";
 import type { ValorPoint, ValorProject, ValorVista } from "@/lib/ventas/vista-types";
 import band from "./landing-blocks.module.css";
 import { MasterTowerDatesButton } from "./master-tower-dates";
@@ -135,10 +136,54 @@ function cumulativeHistory(history: readonly ValorPoint[]): { id: string; date: 
   });
 }
 
-function aggregatePoints(projects: readonly ValorProject[]): ChartPoint[] {
+function dottedDay(iso: string): string {
+  const day = iso.slice(0, 10);
+  const [year, month, date] = day.split("-");
+  if (!year || !month || !date) return day;
+  return `${date}.${month}.${year}`;
+}
+
+function earliestIso(dates: readonly string[]): string {
+  let best = "";
+  for (const day of dates) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    if (!best || day < best) best = day;
+  }
+  return best;
+}
+
+function currentTotal(project: ValorProject): number {
+  if (project.history.length === 0) return 0;
+  const series = cumulativeHistory(project.history);
+  return series.length > 0 ? series[series.length - 1].gtq : 0;
+}
+
+type Plotted = { key: string; date: string; label: string; gtq: number };
+
+function plotted(project: ValorProject, today: string): Plotted[] {
+  if (project.history.length > 1) {
+    return cumulativeHistory(project.history).map((point, index) => ({
+      key: point.id || `${point.date}:${index}`,
+      date: point.date,
+      label: point.label,
+      gtq: point.gtq,
+    }));
+  }
+  const historyDate = project.history.length === 1 ? orderedHistory(project.history)[0]?.date ?? "" : "";
+  const start = earliestIso([project.bornOn, historyDate]);
+  if (!start) return [];
+  const end = today >= start ? today : start;
+  const total = currentTotal(project);
+  return [
+    { key: `${project.slug}:inicio`, date: start, label: dottedDay(start), gtq: total },
+    { key: `${project.slug}:hoy`, date: end, label: dottedDay(end), gtq: total },
+  ];
+}
+
+function aggregatePoints(projects: readonly ValorProject[], today: string): ChartPoint[] {
   const events: { date: string; label: string; slug: string; gtq: number; order: number }[] = [];
   projects.forEach((project, projectIndex) => {
-    cumulativeHistory(project.history).forEach((point, index) => {
+    plotted(project, today).forEach((point, index) => {
       events.push({
         date: point.date,
         label: point.label,
@@ -165,7 +210,7 @@ function recordLine(point: ValorPoint, project: string, currency: string): strin
 }
 
 function projectTip(project: ValorProject, projects: readonly ValorProject[]): Tip {
-  const series = chartPoints(project.history);
+  const series = chartPoints(project);
   const current = series.length > 0 ? series[series.length - 1] : null;
   const amount = current ? formatAmount(current.gtq, project.currency) : "sin registros";
   return {
@@ -187,9 +232,9 @@ function aggregateTip(projects: readonly ValorProject[], points: readonly ChartP
   };
 }
 
-function chartPoints(history: readonly ValorPoint[]): ChartPoint[] {
-  return cumulativeHistory(history).map((point, index) => ({
-    key: point.id || `${point.date}:${index}`,
+function chartPoints(project: ValorProject): ChartPoint[] {
+  return plotted(project, guatemalaToday()).map((point) => ({
+    key: point.key,
     label: point.label,
     gtq: point.gtq,
   }));
@@ -273,7 +318,7 @@ export function ValorProyecto({
   );
   const selectedTower = towerChoices.some((choice) => choice.id === towerId) ? towerId : "";
   const closeRef = useRef<HTMLButtonElement>(null);
-  const aggregate = aggregatePoints(projects);
+  const aggregate = aggregatePoints(projects, guatemalaToday());
   const currency = aggregateCurrency(projects);
 
   useEffect(() => {
@@ -324,7 +369,7 @@ export function ValorProyecto({
                 <section key={project.slug} className={`${local.card} ${local.projectCard}`} aria-label={project.label}>
                   <span className={band.kpiName}>{project.label}</span>
                   <ValueChart
-                    points={chartPoints(project.history)}
+                    points={chartPoints(project)}
                     currency={project.currency}
                     caption={project.label}
                     onOpen={() => toggle(projectTip(project, projects))}
