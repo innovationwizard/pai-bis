@@ -5,8 +5,10 @@ import { ProjectPillRow } from "@/components/project-pill-row";
 import { formatDataAsOf } from "@/app/pabi/data-as-of";
 import { projectPillOptions } from "@/lib/projects";
 import { buildPerformanceAds } from "@/lib/mercadeo/performance-ads-data";
+import { buildMercadeoReservas } from "@/lib/mercadeo/reservas-report";
 import { resolveRange, windowLabel, type PeriodPreset } from "@/lib/ventas/period";
 import PerformanceAdsView from "./performance-ads-view";
+import MercadeoReservasView from "./reservas-bands";
 
 const PILL_CHOICES = [
   { id: "boulevard-5", label: "Boulevard 5" },
@@ -55,12 +57,20 @@ export default function MercadeoReport() {
   const [bar, setBar] = useState<BarState>(INITIAL);
   const range = resolveRange(bar.periodo, bar.desde, bar.hasta);
   const accountKey = bar.proyectos === null ? "todos" : bar.proyectos.join(",");
-  const report = useMemo(() => {
-    const accounts = bar.proyectos === null
+  const accounts = useMemo(
+    () => (bar.proyectos === null
       ? null
-      : bar.proyectos.map((id) => ACCOUNT_BY_PILL[id]).filter((name): name is string => Boolean(name));
-    return buildPerformanceAds(range.from, range.to, accounts);
-  }, [range.from, range.to, accountKey, bar.proyectos]);
+      : bar.proyectos.map((id) => ACCOUNT_BY_PILL[id]).filter((name): name is string => Boolean(name))),
+    [accountKey, bar.proyectos],
+  );
+  const report = useMemo(
+    () => buildPerformanceAds(range.from, range.to, accounts),
+    [range.from, range.to, accounts],
+  );
+  const reservas = useMemo(
+    () => buildMercadeoReservas(range.from, range.to, accounts),
+    [range.from, range.to, accounts],
+  );
   const windowText = dottedSpan(windowLabel(range));
   const periodText = range.label === windowLabel(range) ? windowText : `${range.label}: ${windowText}`;
   const empty = report.accounts.length === 0;
@@ -142,6 +152,7 @@ export default function MercadeoReport() {
         <h2 id="performance-ads-title">Performance Ads</h2>
         <PerformanceAdsView report={report} />
       </section>
+      <MercadeoReservasView report={reservas} />
     </div>
   );
 }

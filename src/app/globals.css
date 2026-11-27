@@ -1711,6 +1711,12 @@ main:has(.section-page) > .section-page > .section-sidebar {
   font-variant-numeric: tabular-nums;
 }
 
+.mk-kpis-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .mk-table {
   width: 100%;
   border-collapse: collapse;
@@ -1787,6 +1793,7 @@ main:has(.section-page) > .section-page > .section-sidebar {
   .mk-board,
   .mk-pair,
   .mk-pie { grid-template-columns: 1fr; }
+  .mk-kpis-row { grid-template-columns: 1fr 1fr; }
 }
 
 .mk-band h2 {
@@ -1803,7 +1810,8 @@ main:has(.section-page) > .section-page > .section-sidebar {
 }
 
 @media (max-width: 720px) {
-  .mk-band .op-kpis-3 { grid-template-columns: 1fr; }
+  .mk-band .op-kpis-3,
+  .mk-kpis-row { grid-template-columns: 1fr; }
 }
 
 .vc-command h3 {
