@@ -1244,6 +1244,23 @@ function historyValue(
   return { gtq: increment, field: "increment_amount" };
 }
 
+async function loadPublicTowers(): Promise<Map<string, { name: string; projectId: string; initialDate: string }>> {
+  const client = createAdminClient();
+  const { data, error } = await client.from("towers").select("id, name, project_id, initial_date");
+  if (error) throw new Error(error.message);
+  const towers = new Map<string, { name: string; projectId: string; initialDate: string }>();
+  for (const row of data ?? []) {
+    const id = String(row.id ?? "");
+    if (!id) continue;
+    towers.set(id, {
+      name: String(row.name ?? ""),
+      projectId: String(row.project_id ?? ""),
+      initialDate: typeof row.initial_date === "string" ? row.initial_date.slice(0, 10) : "",
+    });
+  }
+  return towers;
+}
+
 async function loadPriceHistory(): Promise<PriceRow[]> {
   const client = createAdminClient();
   const rows: PriceRow[] = [];
@@ -1358,21 +1375,28 @@ async function buildValor(
   };
   if (selected.length === 0) return blank;
 
-  const [loaded, money, history] = await Promise.all([
+  const [loaded, money, history, publicTowers] = await Promise.all([
     loadValorUnits(),
     loadProjectMoney(),
     loadPriceHistory(),
+    loadPublicTowers(),
   ]);
   const discountsReady = await discountByUnit(client, dims, loaded.units);
   const allowed = new Set(selected.map((project) => project.slug));
   const historyBySlug = new Map<string, ValorVista["board"]["projects"][number]["history"]>();
+  const historyByTower = new Map<string, ValorVista["board"]["projects"][number]["history"]>();
+  const initialByTower = new Map<string, string>();
+  for (const tower of publicTowers.values()) {
+    const slug = money.idToSlug.get(tower.projectId);
+    if (!slug || !allowed.has(slug) || !tower.initialDate) continue;
+    const key = `${slug}|${inventoryTowerKey(tower.name)}`;
+    initialByTower.set(key, earliestIso([initialByTower.get(key) ?? "", tower.initialDate]));
+  }
   for (const row of history) {
-    if (row.towerId) continue;
     const slug = money.idToSlug.get(row.projectId);
     if (!slug || !allowed.has(slug)) continue;
     const chosen = historyValue(row.appreciation, row.increment);
-    const list = historyBySlug.get(slug) ?? [];
-    list.push({
+    const point = {
       id: row.id,
       date: row.date,
       label: dottedDay(row.date),
@@ -1381,10 +1405,24 @@ async function buildValor(
       appreciation: row.appreciation,
       increment: row.increment,
       notes: row.notes,
-    });
+    };
+    if (row.towerId) {
+      const tower = publicTowers.get(row.towerId);
+      if (!tower) continue;
+      const key = `${slug}|${inventoryTowerKey(tower.name)}`;
+      const list = historyByTower.get(key) ?? [];
+      list.push(point);
+      historyByTower.set(key, list);
+      continue;
+    }
+    const list = historyBySlug.get(slug) ?? [];
+    list.push(point);
     historyBySlug.set(slug, list);
   }
   for (const points of historyBySlug.values()) {
+    points.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  }
+  for (const points of historyByTower.values()) {
     points.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   }
   const needsLife = selected.some((project) => (historyBySlug.get(project.slug)?.length ?? 0) <= 1);
@@ -1420,9 +1458,29 @@ async function buildValor(
       units.push(line);
       towers.set(key, bucket);
     }
-    const towerRows = [...towers.values()].sort((a, b) => a.label.localeCompare(b.label, "es"));
     const history = historyBySlug.get(project.slug) ?? [];
     const lived = life.get(project.slug);
+    const towerRows = [...towers.entries()]
+      .sort((a, b) => a[1].label.localeCompare(b[1].label, "es"))
+      .map(([key, bucket]) => {
+        const towerKey = `${project.slug}|${key}`;
+        const towerHistory = historyByTower.get(towerKey) ?? [];
+        const bornOn = towerHistory.length > 1
+          ? ""
+          : earliestIso([
+            towerHistory[0]?.date ?? "",
+            initialByTower.get(towerKey) ?? "",
+            lived?.reserva ?? "",
+            lived?.pcv ?? "",
+          ]);
+        return {
+          label: bucket.label,
+          listGtq: bucket.listGtq,
+          units: bucket.units,
+          history: towerHistory,
+          bornOn,
+        };
+      });
     const bornOn = history.length > 1
       ? ""
       : earliestIso([history[0]?.date ?? "", lived?.reserva ?? "", lived?.pcv ?? ""]);

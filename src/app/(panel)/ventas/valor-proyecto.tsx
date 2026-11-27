@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { guatemalaToday } from "@/lib/ventas/period";
 import type { ValorPoint, ValorProject, ValorVista } from "@/lib/ventas/vista-types";
 import band from "./landing-blocks.module.css";
@@ -41,8 +41,11 @@ const VALUE_RULE =
 type ChartPoint = {
   key: string;
   label: string;
+  date: string;
   gtq: number;
 };
+
+type PlacedPoint = ChartPoint & { t: number };
 
 type Tip = {
   key: string;
@@ -199,7 +202,7 @@ function aggregatePoints(projects: readonly ValorProject[], today: string): Char
     latest.set(event.slug, event.gtq);
     let sum = 0;
     for (const value of latest.values()) sum += value;
-    return { key: `${event.date}:${index}`, label: event.label, gtq: sum };
+    return { key: `${event.date}:${index}`, label: event.label, date: event.date, gtq: sum };
   });
 }
 
@@ -232,12 +235,123 @@ function aggregateTip(projects: readonly ValorProject[], points: readonly ChartP
   };
 }
 
-function chartPoints(project: ValorProject): ChartPoint[] {
-  return plotted(project, guatemalaToday()).map((point) => ({
+function chartPoints(project: ValorProject, tower?: { history: ValorProject["history"]; bornOn: string } | null): ChartPoint[] {
+  const source = tower
+    ? { ...project, history: tower.history, bornOn: tower.bornOn || project.bornOn }
+    : project;
+  return plotted(source, guatemalaToday()).map((point) => ({
     key: point.key,
     label: point.label,
+    date: point.date,
     gtq: point.gtq,
   }));
+}
+
+function utcDay(iso: string): number {
+  const [year, month, date] = iso.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !date) return Number.NaN;
+  return Date.UTC(year, month - 1, date);
+}
+
+function isoFromUtc(time: number): string {
+  const date = new Date(time);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function quarterTicks(points: readonly PlacedPoint[]): number[] {
+  let min = "";
+  let max = "";
+  for (const point of points) {
+    const day = point.date.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    if (!min || day < min) min = day;
+    if (!max || day > max) max = day;
+  }
+  if (!min || !max) return [];
+  const minMonth = Number(min.slice(5, 7));
+  let year = Number(min.slice(0, 4));
+  let month = Math.floor((minMonth - 1) / 3) * 3 + 1;
+  const ticks: number[] = [];
+  for (let guard = 0; guard < 80; guard += 1) {
+    const iso = `${year}-${String(month).padStart(2, "0")}-01`;
+    if (iso > max) break;
+    if (iso >= min) ticks.push(utcDay(iso));
+    month += 3;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return ticks;
+}
+
+function niceStep(span: number): number {
+  if (!(span > 0)) return 1;
+  const raw = span / 4;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const error = raw / power;
+  const factor = error >= 7.5 ? 10 : error >= 3.5 ? 5 : error >= 1.5 ? 2 : 1;
+  return factor * power;
+}
+
+function scaleTicks(low: number, high: number): number[] {
+  if (low === high) return [low];
+  const step = niceStep(high - low);
+  const ticks: number[] = [];
+  const start = Math.ceil(low / step - 1e-9) * step;
+  for (let value = start; value <= high + step * 1e-6; value += step) {
+    const rounded = Math.round(value * 100) / 100;
+    if (rounded < low - step * 1e-6 || rounded > high + step * 1e-6) continue;
+    ticks.push(rounded);
+    if (ticks.length > 8) break;
+  }
+  if (low <= 0 && high >= 0 && !ticks.includes(0)) ticks.push(0);
+  ticks.sort((a, b) => a - b);
+  return ticks.length > 0 ? ticks : [low, high];
+}
+
+function axisAmount(value: number, currency: string): string {
+  if (value === 0) return currency === "USD" ? "$0" : "Q0";
+  const sign = value < 0 ? "−" : "";
+  const abs = Math.abs(value);
+  const prefix = currency === "USD" ? "$" : currency === "MIXED" ? "" : "Q";
+  if (abs >= 1_000_000) {
+    const body = (abs / 1_000_000).toLocaleString("es-GT", { maximumFractionDigits: 1 });
+    return `${sign}${prefix}${body} M`;
+  }
+  if (abs >= 10_000) {
+    const body = (abs / 1_000).toLocaleString("es-GT", { maximumFractionDigits: 0 });
+    return `${sign}${prefix}${body} mil`;
+  }
+  return formatAmount(value, currency);
+}
+
+function appreciationLabel(start: number, current: number): string {
+  if (start === 0) return current === 0 ? "0%" : "";
+  const pct = ((current - start) / Math.abs(start)) * 100;
+  const rounded = Math.round(pct * 10) / 10;
+  const body = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return rounded > 0 ? `+${body}%` : `${body}%`;
+}
+
+function valueAt(points: readonly PlacedPoint[], time: number): number {
+  if (points.length === 0) return 0;
+  if (time <= points[0].t) return points[0].gtq;
+  const last = points[points.length - 1];
+  if (time >= last.t) return last.gtq;
+  for (let index = 1; index < points.length; index += 1) {
+    const next = points[index];
+    if (time > next.t) continue;
+    const previous = points[index - 1];
+    const span = next.t - previous.t;
+    if (span === 0) return next.gtq;
+    const ratio = (time - previous.t) / span;
+    return previous.gtq + (next.gtq - previous.gtq) * ratio;
+  }
+  return last.gtq;
 }
 
 function ValueChart({
@@ -251,26 +365,86 @@ function ValueChart({
   caption: string;
   onOpen: () => void;
 }) {
-  const last = points.length > 0 ? points[points.length - 1] : null;
+  const series = points
+    .map((point) => ({ ...point, t: utcDay(point.date) }))
+    .filter((point) => Number.isFinite(point.t))
+    .sort((a, b) => a.t - b.t || a.key.localeCompare(b.key));
+  const first = series[0] ?? null;
+  const last = series.length > 0 ? series[series.length - 1] : null;
+  const startText = first ? formatAmount(first.gtq, currency) : "";
   const text = last ? formatAmount(last.gtq, currency) : "";
-  const [low, high] = last ? domainOf(points.map((point) => point.gtq)) : [0, 1];
-  const ratio = last ? (high - last.gtq) / (high - low || 1) : 0;
-  const marginRight = text ? reserve(text) : 8;
+  const pct = first && last ? appreciationLabel(first.gtq, last.gtq) : "";
+  const endText = pct ? `${text} ${pct}` : text;
+  const [low, high] = last ? domainOf(series.map((point) => point.gtq)) : [0, 1];
+  const ticks = scaleTicks(low, high);
+  const yWidth = Math.max(36, ...ticks.map((tick) => reserve(axisAmount(tick, currency))));
+  const span = high - low || 1;
+  const yOf = (value: number) => (high - value) / span;
+  const marginRight = endText ? reserve(endText) : 8;
+  const quarters = quarterTicks(series);
+  const [hover, setHover] = useState<{ left: number; top: number; text: string } | null>(null);
+
+  function onMove(event: MouseEvent<HTMLDivElement>) {
+    if (!first || !last) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const plotLeft = yWidth;
+    const plotRight = rect.width - marginRight;
+    const plotTop = PLOT_TOP;
+    const plotBottom = rect.height - AXIS_HEIGHT;
+    if (plotRight <= plotLeft || x < plotLeft || x > plotRight || y < plotTop || y > plotBottom) {
+      setHover(null);
+      return;
+    }
+    const time = first.t + ((x - plotLeft) / (plotRight - plotLeft)) * (last.t - first.t);
+    const value = valueAt(series, time);
+    const lineY = plotTop + yOf(value) * (plotBottom - plotTop);
+    if (Math.abs(y - lineY) > 14) {
+      setHover(null);
+      return;
+    }
+    setHover({
+      left: x,
+      top: y,
+      text: `${dottedDay(isoFromUtc(time))} · ${formatAmount(value, currency)}`,
+    });
+  }
+
   return (
-    <div className={local.chart} role="group" aria-label={last ? `${caption}: ${text}` : caption}>
-      {points.length > 0 ? (
+    <div
+      className={local.chart}
+      role="group"
+      aria-label={last ? `${caption}: inicio ${startText}, actual ${endText}` : caption}
+      onMouseMove={onMove}
+      onMouseLeave={() => setHover(null)}
+    >
+      {series.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={[...points]} margin={{ top: PLOT_TOP, right: marginRight, bottom: 0, left: 4 }}>
+          <LineChart data={series} margin={{ top: PLOT_TOP, right: marginRight, bottom: 0, left: 0 }}>
+            <CartesianGrid vertical={false} stroke="rgba(13, 32, 65, 0.16)" />
             <XAxis
-              dataKey="label"
+              dataKey="t"
+              type="number"
+              scale="time"
+              domain={["dataMin", "dataMax"]}
+              ticks={quarters}
               height={AXIS_HEIGHT}
               interval={0}
-              padding={{ left: 36, right: 8 }}
+              tickFormatter={(value: number) => dottedDay(isoFromUtc(value))}
               tick={{ fontSize: 11, fill: "#64748b" }}
               axisLine={{ stroke: "rgba(13, 32, 65, 0.28)" }}
               tickLine={false}
             />
-            <YAxis hide width={0} domain={[low, high]} />
+            <YAxis
+              width={yWidth}
+              domain={[low, high]}
+              ticks={ticks}
+              tickFormatter={(value: number) => axisAmount(value, currency)}
+              tick={{ fontSize: 11, fill: "rgba(13, 32, 65, 0.45)" }}
+              axisLine={false}
+              tickLine={false}
+            />
             <Line
               type="linear"
               dataKey="gtq"
@@ -284,16 +458,28 @@ function ValueChart({
           </LineChart>
         </ResponsiveContainer>
       ) : null}
+      {first ? (
+        <span
+          className={local.startValue}
+          style={{ left: yWidth, top: `calc(${PLOT_TOP}px + (100% - ${PLOT_TOP + AXIS_HEIGHT}px) * ${yOf(first.gtq)})` }}
+        >
+          {startText}
+        </span>
+      ) : null}
       {last ? (
         <button
           type="button"
           className={local.endValue}
-          style={{ top: `calc(${PLOT_TOP}px + (100% - ${PLOT_TOP + AXIS_HEIGHT}px) * ${ratio})` }}
-          aria-label={`Valor actual ${text}`}
+          style={{ top: `calc(${PLOT_TOP}px + (100% - ${PLOT_TOP + AXIS_HEIGHT}px) * ${yOf(last.gtq)})` }}
+          aria-label={`Valor actual ${endText}`}
           onClick={onOpen}
         >
           {text}
+          {pct ? <span className={local.appreciation}> {pct}</span> : null}
         </button>
+      ) : null}
+      {hover ? (
+        <p className={local.hoverValue} style={{ left: hover.left, top: hover.top }}>{hover.text}</p>
       ) : null}
     </div>
   );
@@ -313,10 +499,13 @@ export function ValorProyecto({
   const towerChoices = projects.flatMap((project) =>
     project.towers.map((tower, index) => ({
       id: `${project.slug}:${index}:${tower.label}`,
+      slug: project.slug,
+      towerLabel: tower.label,
       label: `${project.label} · ${tower.label}`,
     })),
   );
   const selectedTower = towerChoices.some((choice) => choice.id === towerId) ? towerId : "";
+  const activeTower = towerChoices.find((choice) => choice.id === selectedTower) ?? null;
   const closeRef = useRef<HTMLButtonElement>(null);
   const aggregate = aggregatePoints(projects, guatemalaToday());
   const currency = aggregateCurrency(projects);
@@ -365,17 +554,22 @@ export function ValorProyecto({
           </div>
           {projects.length > 0 ? (
             <div className={local.bands}>
-              {projects.map((project) => (
-                <section key={project.slug} className={`${local.card} ${local.projectCard}`} aria-label={project.label}>
-                  <span className={band.kpiName}>{project.label}</span>
-                  <ValueChart
-                    points={chartPoints(project)}
-                    currency={project.currency}
-                    caption={project.label}
-                    onOpen={() => toggle(projectTip(project, projects))}
-                  />
-                </section>
-              ))}
+              {projects.map((project) => {
+                const tower = activeTower?.slug === project.slug
+                  ? project.towers.find((item) => item.label === activeTower.towerLabel) ?? null
+                  : null;
+                return (
+                  <section key={project.slug} className={`${local.card} ${local.projectCard}`} aria-label={project.label}>
+                    <span className={band.kpiName}>{project.label}</span>
+                    <ValueChart
+                      points={chartPoints(project, tower)}
+                      currency={project.currency}
+                      caption={project.label}
+                      onOpen={() => toggle(projectTip(project, projects))}
+                    />
+                  </section>
+                );
+              })}
             </div>
           ) : null}
         </div>

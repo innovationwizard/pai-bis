@@ -443,6 +443,9 @@ export type ValorTower = {
   label: string;
   listGtq: number;
   units: ValorUnitLine[];
+  history: ValorPoint[];
+  /** Earliest torre date, reserva, PCV, or single history date. Empty when the torre has several valuation steps. */
+  bornOn: string;
 };
 
 export type ValorPoint = {
