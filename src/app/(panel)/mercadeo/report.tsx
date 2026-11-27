@@ -5,8 +5,10 @@ import { ProjectPillRow } from "@/components/project-pill-row";
 import { formatDataAsOf } from "@/app/pabi/data-as-of";
 import { projectPillOptions } from "@/lib/projects";
 import { buildPerformanceAds } from "@/lib/mercadeo/performance-ads-data";
+import { buildInventarioPresupuesto } from "@/lib/mercadeo/inventario-presupuesto";
 import { buildMercadeoReservas } from "@/lib/mercadeo/reservas-report";
 import { resolveRange, windowLabel, type PeriodPreset } from "@/lib/ventas/period";
+import InventarioPresupuestoView from "./inventario-presupuesto";
 import PerformanceAdsView from "./performance-ads-view";
 import MercadeoReservasView from "./reservas-bands";
 
@@ -70,6 +72,10 @@ export default function MercadeoReport() {
   const reservas = useMemo(
     () => buildMercadeoReservas(range.from, range.to, accounts),
     [range.from, range.to, accounts],
+  );
+  const stock = useMemo(
+    () => buildInventarioPresupuesto(accounts),
+    [accounts],
   );
   const windowText = dottedSpan(windowLabel(range));
   const periodText = range.label === windowLabel(range) ? windowText : `${range.label}: ${windowText}`;
@@ -153,6 +159,7 @@ export default function MercadeoReport() {
         <PerformanceAdsView report={report} />
       </section>
       <MercadeoReservasView report={reservas} />
+      <InventarioPresupuestoView report={stock} />
     </div>
   );
 }
