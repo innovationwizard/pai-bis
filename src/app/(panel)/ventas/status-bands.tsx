@@ -15,6 +15,7 @@ import type { StatusBand, StatusPoint, StatusSourceRow, StatusVista } from "@/li
 import band from "./landing-blocks.module.css";
 import split from "./lower-bands.module.css";
 import pace from "./status-bands.module.css";
+import { MasterTowerDatesButton } from "./master-tower-dates";
 
 const RESERVAS = "#0d2041";
 const PCV = "#0573b0";
@@ -518,21 +519,24 @@ export function StatusLifetime({
       {vista.notice ? <p className={band.warn}>{vista.notice}</p> : null}
       <div className={pace.titleRow}>
         <h2 className={band.title}>Status de ventas</h2>
-        <label className={pace.filter}>
-          {/* Torres */}
-          <select
-            value={selected?.id ?? ""}
-            onChange={(event) => {
-              setTowerId(event.target.value);
-              setTip(null);
-            }}
-          >
-            <option value="">Torres</option>
-            {vista.byTower.map((column) => (
-              <option key={column.id} value={column.id}>{column.label}</option>
-            ))}
-          </select>
-        </label>
+        <div className={pace.titleTools}>
+          <label className={pace.filter}>
+            {/* Torres */}
+            <select
+              value={selected?.id ?? ""}
+              onChange={(event) => {
+                setTowerId(event.target.value);
+                setTip(null);
+              }}
+            >
+              <option value="">Torres</option>
+              {vista.byTower.map((column) => (
+                <option key={column.id} value={column.id}>{column.label}</option>
+              ))}
+            </select>
+          </label>
+          <MasterTowerDatesButton />
+        </div>
       </div>
       <div className={pace.stack}>
         <div className={`${split.splitHero} ${pace.heroBand}`}>

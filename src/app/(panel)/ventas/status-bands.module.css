@@ -79,6 +79,13 @@
   min-width: 0;
 }
 
+.titleTools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 div.titleRow > h2 {
   margin: 0;
   color: rgba(13, 32, 65, 0.75);

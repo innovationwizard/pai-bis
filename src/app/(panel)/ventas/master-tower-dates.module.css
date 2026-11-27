@@ -1,0 +1,123 @@
+.button {
+  box-sizing: border-box;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-card);
+  color: #db2777;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(13, 32, 65, 0.45);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(920px, 100%);
+  max-height: min(80dvh, 720px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  color: #0d2041;
+}
+
+.dialog h3 {
+  margin: 0;
+  color: rgba(13, 32, 65, 0.75);
+  font-size: calc(26px * 0.75);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th,
+.table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table th {
+  font-weight: 700;
+}
+
+.date {
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-card);
+  color: #0d2041;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.message {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.message[data-tone="danger"] {
+  color: var(--color-danger);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.primary,
+.secondary {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary {
+  border: 1px solid #0d2041;
+  background: #0d2041;
+  color: #fff;
+}
+
+.secondary {
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: #0d2041;
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

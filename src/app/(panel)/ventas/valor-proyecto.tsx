@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { ValorPoint, ValorProject, ValorVista } from "@/lib/ventas/vista-types";
 import band from "./landing-blocks.module.css";
+import { MasterTowerDatesButton } from "./master-tower-dates";
 import local from "./valor-proyecto.module.css";
 
 const PLOT_TOP = 16;
@@ -283,7 +284,12 @@ export function ValorProyecto({
 
   return (
     <section id="valor-del-proyecto" className={band.block} aria-labelledby="vt-valor-title">
-      <h2 id="vt-valor-title" className={local.title}>Valorización del proyecto</h2>
+      <div className={local.titleRow}>
+        <h2 id="vt-valor-title" className={local.title}>Valorización del proyecto</h2>
+        <div className={local.titleTools}>
+          <MasterTowerDatesButton />
+        </div>
+      </div>
       {vista?.notice ? <p className={local.notice}>{vista.notice}</p> : null}
       {!board ? pending : (
         <div className={local.stack}>
