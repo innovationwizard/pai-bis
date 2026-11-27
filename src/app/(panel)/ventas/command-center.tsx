@@ -470,16 +470,6 @@ export default function CommandCenter() {
       />
       <hr className="op-filter-rule vc-band-rule" />
 
-      <section id="status-de-ventas" aria-label="Status de ventas">
-        <article className="vc-card">
-          <StatusLifetime
-            vista={status}
-            pending={<StatusLine section="status-de-ventas" errors={errors} busy={busy} />}
-          />
-        </article>
-      </section>
-      <hr className="op-filter-rule vc-band-rule" />
-
       {/* Ventas por canales, held back for now.
       <CanalesBlock
         vista={vistaOf(vistas, "ventas-por-canales")}
@@ -529,6 +519,16 @@ export default function CommandCenter() {
         vista={inventario}
         pending={<StatusLine section="inventario-general" errors={errors} busy={busy} />}
       />
+      <hr className="op-filter-rule vc-band-rule" />
+
+      <section id="status-de-ventas" aria-label="Status de ventas">
+        <article className="vc-card">
+          <StatusLifetime
+            vista={status}
+            pending={<StatusLine section="status-de-ventas" errors={errors} busy={busy} />}
+          />
+        </article>
+      </section>
       <hr className="op-filter-rule vc-band-rule" />
 
       <ValorProyecto

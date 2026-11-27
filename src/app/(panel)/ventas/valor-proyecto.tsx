@@ -264,6 +264,14 @@ export function ValorProyecto({
   const board = vista?.board ?? null;
   const projects = board?.projects ?? [];
   const [proof, setProof] = useState<Tip | null>(null);
+  const [towerId, setTowerId] = useState("");
+  const towerChoices = projects.flatMap((project) =>
+    project.towers.map((tower, index) => ({
+      id: `${project.slug}:${index}:${tower.label}`,
+      label: `${project.label} · ${tower.label}`,
+    })),
+  );
+  const selectedTower = towerChoices.some((choice) => choice.id === towerId) ? towerId : "";
   const closeRef = useRef<HTMLButtonElement>(null);
   const aggregate = aggregatePoints(projects);
   const currency = aggregateCurrency(projects);
@@ -287,6 +295,14 @@ export function ValorProyecto({
       <div className={local.titleRow}>
         <h2 id="vt-valor-title" className={local.title}>Valorización del proyecto</h2>
         <div className={local.titleTools}>
+          <label className={local.filter}>
+            <select value={selectedTower} onChange={(event) => setTowerId(event.target.value)}>
+              <option value="">Torres</option>
+              {towerChoices.map((choice) => (
+                <option key={choice.id} value={choice.id}>{choice.label}</option>
+              ))}
+            </select>
+          </label>
           <MasterTowerDatesButton />
         </div>
       </div>
