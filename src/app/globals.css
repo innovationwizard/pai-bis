@@ -57,6 +57,19 @@ body {
   color: #f8fafc;
 }
 
+.logo-mark {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.logo-mark img {
+  display: block;
+  max-width: 100%;
+  max-height: 3.5rem;
+  width: auto;
+  height: auto;
+}
+
 /*
  * Section menu, light Liquid Glass.
  * The five links sit in one frosted capsule. The current section is a brighter

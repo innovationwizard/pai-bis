@@ -123,15 +123,17 @@ export default function Panel() {
 
   return (
     <div className="section-header rounded-2xl border border-border px-[clamp(16px,3vw,32px)] py-4 backdrop-blur-sm bg-gradient-to-br from-panel-gradient-from/85 to-panel-gradient-to/70">
-      <div className="relative flex min-h-14 items-center">
-        <Image
-          src={logoHorizontal}
-          alt="Puerta Abierta"
-          height={56}
-          className="pointer-events-none relative z-0 h-14 w-auto shrink-0"
-          priority
-        />
-        <nav className="glass-nav absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2" aria-label="Secciones">
+      <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+        <div className="logo-mark">
+          <Image
+            src={logoHorizontal}
+            alt="Puerta Abierta"
+            height={56}
+            className="pointer-events-none"
+            priority
+          />
+        </div>
+        <nav className="glass-nav z-10" aria-label="Secciones">
           {SECTIONS.map((section) => {
             const current = isCurrent(pathname, section.href);
             return (
@@ -146,7 +148,7 @@ export default function Panel() {
             );
           })}
         </nav>
-        <div className="absolute right-0 top-1/2 z-10 flex -translate-y-1/2 items-center gap-3">
+        <div className="z-10 flex items-center justify-self-end gap-3">
           <div className="tier-switch tier-switch-compact" role="group" aria-label="Nivel del tablero">
             <button
               type="button"
