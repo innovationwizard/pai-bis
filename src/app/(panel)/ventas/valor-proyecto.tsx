@@ -9,7 +9,8 @@ import { MasterTowerDatesButton } from "./master-tower-dates";
 import local from "./valor-proyecto.module.css";
 
 const PLOT_TOP = 16;
-const AXIS_HEIGHT = 22;
+const AXIS_HEIGHT = 32;
+const AXIS_MARGIN = 8;
 
 const moneyFormat = new Intl.NumberFormat("es-GT", {
   style: "currency",
@@ -261,6 +262,15 @@ function isoFromUtc(time: number): string {
   return `${year}-${month}-${day}`;
 }
 
+const QUARTER_LABELS = ["ene", "abr", "jul", "oct"] as const;
+
+function quarterLabel(time: number): string {
+  const date = new Date(time);
+  const name = QUARTER_LABELS[Math.floor(date.getUTCMonth() / 3)];
+  if (!name || date.getUTCDate() !== 1) return "";
+  return `${name} ${String(date.getUTCFullYear()).slice(2)}`;
+}
+
 function quarterTicks(points: readonly PlacedPoint[]): number[] {
   let min = "";
   let max = "";
@@ -380,9 +390,24 @@ function ValueChart({
   const yWidth = Math.max(36, ...ticks.map((tick) => reserve(axisAmount(tick, currency))));
   const span = high - low || 1;
   const yOf = (value: number) => (high - value) / span;
-  const marginRight = endText ? reserve(endText) : 8;
+  const marginRight = Math.max(reserve(text), pct ? reserve(pct) : 0, 8);
   const quarters = quarterTicks(series);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [liftStart, setLiftStart] = useState(false);
   const [hover, setHover] = useState<{ left: number; top: number; text: string } | null>(null);
+  const plotBottomInset = AXIS_HEIGHT + AXIS_MARGIN;
+
+  useEffect(() => {
+    const node = chartRef.current;
+    if (!node || !first || !last) {
+      setLiftStart(false);
+      return;
+    }
+    const plotWidth = node.clientWidth - yWidth - marginRight;
+    const crowded = reserve(startText) + marginRight + 12 > plotWidth;
+    const sameBand = Math.abs(yOf(first.gtq) - yOf(last.gtq)) < 0.28;
+    setLiftStart(crowded && sameBand);
+  }, [startText, marginRight, yWidth, first, last, low, high]);
 
   function onMove(event: MouseEvent<HTMLDivElement>) {
     if (!first || !last) return;
@@ -392,7 +417,7 @@ function ValueChart({
     const plotLeft = yWidth;
     const plotRight = rect.width - marginRight;
     const plotTop = PLOT_TOP;
-    const plotBottom = rect.height - AXIS_HEIGHT;
+    const plotBottom = rect.height - plotBottomInset;
     if (plotRight <= plotLeft || x < plotLeft || x > plotRight || y < plotTop || y > plotBottom) {
       setHover(null);
       return;
@@ -413,6 +438,7 @@ function ValueChart({
 
   return (
     <div
+      ref={chartRef}
       className={local.chart}
       role="group"
       aria-label={last ? `${caption}: inicio ${startText}, actual ${endText}` : caption}
@@ -421,7 +447,7 @@ function ValueChart({
     >
       {series.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={series} margin={{ top: PLOT_TOP, right: marginRight, bottom: 0, left: 0 }}>
+          <LineChart data={series} margin={{ top: PLOT_TOP, right: marginRight, bottom: AXIS_MARGIN, left: 0 }}>
             <CartesianGrid vertical={false} stroke="rgba(13, 32, 65, 0.16)" />
             <XAxis
               dataKey="t"
@@ -430,8 +456,10 @@ function ValueChart({
               domain={["dataMin", "dataMax"]}
               ticks={quarters}
               height={AXIS_HEIGHT}
-              interval={0}
-              tickFormatter={(value: number) => dottedDay(isoFromUtc(value))}
+              interval="preserveStartEnd"
+              minTickGap={48}
+              tickMargin={8}
+              tickFormatter={(value: number) => quarterLabel(value)}
               tick={{ fontSize: 11, fill: "#64748b" }}
               axisLine={{ stroke: "rgba(13, 32, 65, 0.28)" }}
               tickLine={false}
@@ -460,8 +488,8 @@ function ValueChart({
       ) : null}
       {first ? (
         <span
-          className={local.startValue}
-          style={{ left: yWidth, top: `calc(${PLOT_TOP}px + (100% - ${PLOT_TOP + AXIS_HEIGHT}px) * ${yOf(first.gtq)})` }}
+          className={liftStart ? `${local.startValue} ${local.startLifted}` : local.startValue}
+          style={{ left: yWidth, top: `calc(${PLOT_TOP}px + (100% - ${PLOT_TOP + plotBottomInset}px) * ${yOf(first.gtq)})` }}
         >
           {startText}
         </span>
@@ -470,12 +498,12 @@ function ValueChart({
         <button
           type="button"
           className={local.endValue}
-          style={{ top: `calc(${PLOT_TOP}px + (100% - ${PLOT_TOP + AXIS_HEIGHT}px) * ${yOf(last.gtq)})` }}
+          style={{ top: `calc(${PLOT_TOP}px + (100% - ${PLOT_TOP + plotBottomInset}px) * ${yOf(last.gtq)})` }}
           aria-label={`Valor actual ${endText}`}
           onClick={onOpen}
         >
-          {text}
-          {pct ? <span className={local.appreciation}> {pct}</span> : null}
+          <span className={local.amount}>{text}</span>
+          {pct ? <span className={local.appreciation}>{pct}</span> : null}
         </button>
       ) : null}
       {hover ? (

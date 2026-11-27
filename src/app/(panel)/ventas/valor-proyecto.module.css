@@ -113,13 +113,21 @@
   line-height: 1;
   white-space: nowrap;
   pointer-events: none;
-  transform: translateY(calc(-50% - 8px));
+  transform: translateY(calc(-1em - 6px));
+}
+
+.startLifted {
+  transform: translateY(calc(-2em - 6px));
 }
 
 .endValue {
   position: absolute;
   right: 2px;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -131,12 +139,18 @@
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transform: translateY(calc(-50% - 8px));
+  transform: translateY(calc(-1em - 6px));
+}
+
+.amount {
+  line-height: 1;
 }
 
 .appreciation {
-  color: #334155;
-  font-weight: 700;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .hoverValue {
