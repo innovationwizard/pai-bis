@@ -122,24 +122,6 @@ function orderedHistory(history: readonly ValorPoint[]): ValorPoint[] {
   return [...history].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 }
 
-function isOpeningBalance(point: ValorPoint, index: number): boolean {
-  return index === 0 && (point.notes === "Valor inicial de proyecto" || point.increment === 0);
-}
-
-function cumulativeHistory(history: readonly ValorPoint[]): { id: string; date: string; label: string; gtq: number }[] {
-  const ordered = orderedHistory(history);
-  let total = 0;
-  return ordered.map((point, index) => {
-    const chosen = point.gtq;
-    if (isOpeningBalance(point, index) || index === 0) {
-      total = chosen;
-    } else {
-      total += chosen;
-    }
-    return { id: point.id, date: point.date, label: point.label, gtq: total };
-  });
-}
-
 function dottedDay(iso: string): string {
   const day = iso.slice(0, 10);
   const [year, month, date] = day.split("-");
@@ -166,36 +148,55 @@ function currentValue(project: ValorProject): number {
 
 type Plotted = { key: string; date: string; label: string; gtq: number };
 
-function lineEnds(project: ValorProject): { opening: number; current: number; flat: boolean } {
-  const opening = openingValue(project);
-  const current = currentValue(project);
-  const flat = opening == null || opening === 0;
-  return { opening: flat ? current : opening, current, flat };
+function sameMoney(left: number, right: number): boolean {
+  return Math.round(left * 100) === Math.round(right * 100);
+}
+
+function stepAmount(point: ValorPoint): number {
+  if (point.appreciation != null && point.appreciation !== point.increment) return point.appreciation;
+  return point.increment;
 }
 
 function plotted(project: ValorProject, today: string): Plotted[] {
-  const ends = lineEnds(project);
-  if (!ends.flat && project.history.length > 1) {
-    const steps = cumulativeHistory(project.history).map((point, index) => ({
-      key: point.id || `${point.date}:${index}`,
-      date: point.date,
-      label: point.label,
-      gtq: point.gtq,
-    }));
-    if (steps.length >= 2) {
-      steps[0] = { ...steps[0], gtq: ends.opening };
-      steps[steps.length - 1] = { ...steps[steps.length - 1], gtq: ends.current };
-      return steps;
+  const opening = openingValue(project) ?? 0;
+  const current = currentValue(project);
+  const ordered = orderedHistory(project.history);
+  const openingDate = ordered[0]?.date || earliestIso([project.bornOn]);
+  const points: Plotted[] = [];
+  if (openingDate) {
+    points.push({
+      key: `${project.slug}:inicio`,
+      date: openingDate,
+      label: dottedDay(openingDate),
+      gtq: opening,
+    });
+  }
+  let total = opening;
+  for (let index = 0; index < ordered.length; index += 1) {
+    const step = ordered[index];
+    total += stepAmount(step);
+    points.push({
+      key: step.id || `${step.date}:${index}`,
+      date: step.date,
+      label: step.label,
+      gtq: total,
+    });
+  }
+  if (!sameMoney(total, current)) {
+    const last = points[points.length - 1];
+    if (last && last.date === today) {
+      last.gtq = current;
+      last.key = `${project.slug}:hoy`;
+    } else {
+      points.push({
+        key: `${project.slug}:hoy`,
+        date: today,
+        label: dottedDay(today),
+        gtq: current,
+      });
     }
   }
-  const historyDate = project.history.length === 1 ? orderedHistory(project.history)[0]?.date ?? "" : "";
-  const start = earliestIso([project.bornOn, historyDate]);
-  const end = start ? (today >= start ? today : start) : today;
-  const left = start || end;
-  return [
-    { key: `${project.slug}:inicio`, date: left, label: dottedDay(left), gtq: ends.opening },
-    { key: `${project.slug}:hoy`, date: end, label: dottedDay(end), gtq: ends.current },
-  ];
+  return points;
 }
 
 function aggregateAmount(project: ValorProject, value: number): number {
@@ -206,19 +207,15 @@ function aggregatePoints(projects: readonly ValorProject[], today: string): Char
   let openSum = 0;
   let closeSum = 0;
   let start = "";
-  let end = "";
   for (const project of projects) {
-    const series = plotted(project, today);
-    if (series.length === 0) continue;
-    openSum += aggregateAmount(project, series[0].gtq);
-    closeSum += aggregateAmount(project, series[series.length - 1].gtq);
-    const left = series[0].date;
-    const right = series[series.length - 1].date;
-    if (!start || left < start) start = left;
-    if (!end || right > end) end = right;
+    openSum += aggregateAmount(project, openingValue(project) ?? 0);
+    closeSum += aggregateAmount(project, currentValue(project));
+    const ordered = orderedHistory(project.history);
+    const openingDate = ordered[0]?.date || earliestIso([project.bornOn]);
+    if (openingDate && (!start || openingDate < start)) start = openingDate;
   }
-  if (!start) return [];
-  if (!end || end < start) end = start;
+  if (!start) start = today;
+  const end = today >= start ? today : start;
   return [
     { key: "todos:inicio", date: start, label: dottedDay(start), gtq: openSum },
     { key: "todos:hoy", date: end, label: dottedDay(end), gtq: closeSum },

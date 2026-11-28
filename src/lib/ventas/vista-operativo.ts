@@ -1516,9 +1516,7 @@ async function buildValor(
           bornOn,
         };
       });
-    const bornOn = history.length > 1
-      ? ""
-      : earliestIso([history[0]?.date ?? "", lived?.reserva ?? "", lived?.pcv ?? ""]);
+    const bornOn = history.length > 0 ? history[0].date : (lived?.reserva ?? "");
     return {
       id: ventasProjectId(dims, project.slug),
       slug: project.slug,
