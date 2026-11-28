@@ -467,6 +467,8 @@ export type ValorProject = {
   listGtq: number;
   discountGtq: number;
   listUsd: number;
+  /** SUM(rv_units.aproximacion_fha). Null when every unit value is null. */
+  openingFha: number | null;
   towers: ValorTower[];
   history: ValorPoint[];
   /** Earliest reserva, PCV, or single history date. Empty when the project has several valuation steps or no such date exists. */

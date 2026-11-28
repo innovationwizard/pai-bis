@@ -1155,6 +1155,7 @@ type ValorSourceUnit = {
   number: string;
   unitCode: string;
   price: number | null;
+  fha: number | null;
 };
 
 function putValorUnit(map: Map<string, ValorSourceUnit | "many">, key: string, unit: ValorSourceUnit) {
@@ -1183,9 +1184,31 @@ function dottedDay(iso: string): string {
   return `${date}.${month}.${year}`;
 }
 
+async function loadAproximacionFha(client: ReturnType<typeof createAdminClient>): Promise<Map<string, number | null>> {
+  const map = new Map<string, number | null>();
+  for (let offset = 0; offset < SPLIT_READ; offset += PAGE) {
+    const { data, error } = await client
+      .from("rv_units")
+      .select("id, aproximacion_fha")
+      .order("id")
+      .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as unknown as Record<string, unknown>[];
+    for (const row of batch) {
+      const id = String(row.id ?? "");
+      if (!id) continue;
+      map.set(id, num(row.aproximacion_fha));
+    }
+    if (batch.length < PAGE) return map;
+  }
+  return map;
+}
+
 async function loadValorUnits(): Promise<{ units: ValorSourceUnit[]; capped: boolean }> {
   const client = createAdminClient();
+  const fhaById = loadAproximacionFha(client);
   const units: ValorSourceUnit[] = [];
+  let capped = true;
   for (let offset = 0; offset < SPLIT_READ; offset += PAGE) {
     const { data, error } = await client
       .from("v_rv_units_full")
@@ -1202,11 +1225,17 @@ async function loadValorUnits(): Promise<{ units: ValorSourceUnit[]; capped: boo
         number: String(row.unit_number ?? ""),
         unitCode: String(row.unit_code ?? ""),
         price: num(row.price_list),
+        fha: null,
       });
     }
-    if (batch.length < PAGE) return { units, capped: false };
+    if (batch.length < PAGE) {
+      capped = false;
+      break;
+    }
   }
-  return { units, capped: true };
+  const fha = await fhaById;
+  for (const unit of units) unit.fha = fha.get(unit.id) ?? null;
+  return { units, capped };
 }
 
 async function loadProjectMoney(): Promise<{ currencyBySlug: Map<string, string>; idToSlug: Map<string, string> }> {
@@ -1434,6 +1463,8 @@ async function buildValor(
     let listGtq = 0;
     let listUsd = 0;
     let discountGtq = 0;
+    let openingFha = 0;
+    let sawFha = false;
     const units: ValorVista["board"]["projects"][number]["units"] = [];
     for (const unit of loaded.units) {
       if (unit.slug !== project.slug) continue;
@@ -1444,6 +1475,10 @@ async function buildValor(
       const discount = discountsReady.get(unit.id) ?? 0;
       if (currency === "GTQ" && unit.price != null) listGtq += unit.price;
       if (currency === "USD" && unit.price != null) listUsd += unit.price;
+      if (unit.fha != null) {
+        openingFha += unit.fha;
+        sawFha = true;
+      }
       discountGtq += discount;
       bucket.listGtq += gtq;
       const line = {
@@ -1492,6 +1527,7 @@ async function buildValor(
       listGtq,
       discountGtq,
       listUsd,
+      openingFha: sawFha ? openingFha : null,
       towers: towerRows,
       history,
       bornOn,

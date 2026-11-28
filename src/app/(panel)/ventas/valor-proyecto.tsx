@@ -156,55 +156,73 @@ function earliestIso(dates: readonly string[]): string {
   return best;
 }
 
-function currentTotal(project: ValorProject): number {
-  if (project.history.length === 0) return 0;
-  const series = cumulativeHistory(project.history);
-  return series.length > 0 ? series[series.length - 1].gtq : 0;
+function openingValue(project: ValorProject): number | null {
+  return project.openingFha;
+}
+
+function currentValue(project: ValorProject): number {
+  return project.currency === "USD" ? project.listUsd : project.listGtq;
 }
 
 type Plotted = { key: string; date: string; label: string; gtq: number };
 
+function lineEnds(project: ValorProject): { opening: number; current: number; flat: boolean } {
+  const opening = openingValue(project);
+  const current = currentValue(project);
+  const flat = opening == null || opening === 0;
+  return { opening: flat ? current : opening, current, flat };
+}
+
 function plotted(project: ValorProject, today: string): Plotted[] {
-  if (project.history.length > 1) {
-    return cumulativeHistory(project.history).map((point, index) => ({
+  const ends = lineEnds(project);
+  if (!ends.flat && project.history.length > 1) {
+    const steps = cumulativeHistory(project.history).map((point, index) => ({
       key: point.id || `${point.date}:${index}`,
       date: point.date,
       label: point.label,
       gtq: point.gtq,
     }));
+    if (steps.length >= 2) {
+      steps[0] = { ...steps[0], gtq: ends.opening };
+      steps[steps.length - 1] = { ...steps[steps.length - 1], gtq: ends.current };
+      return steps;
+    }
   }
   const historyDate = project.history.length === 1 ? orderedHistory(project.history)[0]?.date ?? "" : "";
   const start = earliestIso([project.bornOn, historyDate]);
-  if (!start) return [];
-  const end = today >= start ? today : start;
-  const total = currentTotal(project);
+  const end = start ? (today >= start ? today : start) : today;
+  const left = start || end;
   return [
-    { key: `${project.slug}:inicio`, date: start, label: dottedDay(start), gtq: total },
-    { key: `${project.slug}:hoy`, date: end, label: dottedDay(end), gtq: total },
+    { key: `${project.slug}:inicio`, date: left, label: dottedDay(left), gtq: ends.opening },
+    { key: `${project.slug}:hoy`, date: end, label: dottedDay(end), gtq: ends.current },
   ];
 }
 
+function aggregateAmount(project: ValorProject, value: number): number {
+  return project.slug === SANTA_ELENA ? value * SANTA_ELENA_RATE : value;
+}
+
 function aggregatePoints(projects: readonly ValorProject[], today: string): ChartPoint[] {
-  const events: { date: string; label: string; slug: string; gtq: number; order: number }[] = [];
-  projects.forEach((project, projectIndex) => {
-    plotted(project, today).forEach((point, index) => {
-      events.push({
-        date: point.date,
-        label: point.label,
-        slug: project.slug,
-        gtq: project.slug === SANTA_ELENA ? point.gtq * SANTA_ELENA_RATE : point.gtq,
-        order: projectIndex * 10000 + index,
-      });
-    });
-  });
-  events.sort((a, b) => a.date.localeCompare(b.date) || a.order - b.order);
-  const latest = new Map<string, number>();
-  return events.map((event, index) => {
-    latest.set(event.slug, event.gtq);
-    let sum = 0;
-    for (const value of latest.values()) sum += value;
-    return { key: `${event.date}:${index}`, label: event.label, date: event.date, gtq: sum };
-  });
+  let openSum = 0;
+  let closeSum = 0;
+  let start = "";
+  let end = "";
+  for (const project of projects) {
+    const series = plotted(project, today);
+    if (series.length === 0) continue;
+    openSum += aggregateAmount(project, series[0].gtq);
+    closeSum += aggregateAmount(project, series[series.length - 1].gtq);
+    const left = series[0].date;
+    const right = series[series.length - 1].date;
+    if (!start || left < start) start = left;
+    if (!end || right > end) end = right;
+  }
+  if (!start) return [];
+  if (!end || end < start) end = start;
+  return [
+    { key: "todos:inicio", date: start, label: dottedDay(start), gtq: openSum },
+    { key: "todos:hoy", date: end, label: dottedDay(end), gtq: closeSum },
+  ];
 }
 
 function recordLine(point: ValorPoint, project: string, currency: string): string {
@@ -339,9 +357,9 @@ function axisAmount(value: number, currency: string): string {
   return formatAmount(value, currency);
 }
 
-function appreciationLabel(start: number, current: number): string {
-  if (start === 0) return current === 0 ? "0%" : "";
-  const pct = ((current - start) / Math.abs(start)) * 100;
+function appreciationLabel(opening: number, current: number): string {
+  if (opening === 0) return "0%";
+  const pct = ((current - opening) / opening) * 100;
   const rounded = Math.round(pct * 10) / 10;
   const body = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
   return rounded > 0 ? `+${body}%` : `${body}%`;
